@@ -145,8 +145,13 @@ public class CoaezPowderOfBurials extends LoopingScript {
     }
 
     private boolean hasBonesToBury() {
-        Item item = InventoryItemQuery.newQuery().name(itemNames).results().first();
-        return item != null;
+        for (String itemName : itemNames) {
+            Component itemComponent = ComponentQuery.newQuery(1473).componentIndex(5).itemName(itemName).results().first();
+            if (itemComponent != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void buryBones() {
@@ -175,9 +180,6 @@ public class CoaezPowderOfBurials extends LoopingScript {
             getConsole().println("Finished burying all available bones.");
         }
     }
-
-
-
     private void loadBankPreset() {
         LocalPlayer player = Client.getLocalPlayer();
         SceneObject bankObj = SceneObjectQuery.newQuery().name("Bank chest", "Banker", "Bank booth").results().nearest();
@@ -193,6 +195,10 @@ public class CoaezPowderOfBurials extends LoopingScript {
 
                 if (presetSuccess) {
                     println("Preset successfully loaded.");
+                    if (!hasBonesToBury()) {
+                        println("No bones found in inventory after loading preset. Stopping script.");
+                        stopScript();
+                    }
                 } else {
                     println("Failed to load the preset.");
                     botState = BotState.STOPPED;
@@ -206,6 +212,7 @@ public class CoaezPowderOfBurials extends LoopingScript {
             botState = BotState.STOPPED;
         }
     }
+
 
     private void stopScript() {
         // Stop the script safely.
