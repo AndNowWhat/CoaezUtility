@@ -150,8 +150,8 @@ public class CoaezPowderOfBurials extends LoopingScript {
     }
 
     private void buryBones() {
-        noBonesLeft = false; // Reset the flag before starting the loop
-        while (!noBonesLeft && isActive()) { // Check if the script is active
+        noBonesLeft = false; 
+        while (!noBonesLeft && isActive()) {
             boolean success = false;
             for (String itemName : itemNames) {
                 success = ActionBar.useItem(itemName, 1);
