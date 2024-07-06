@@ -150,8 +150,8 @@ public class CoaezPowderOfBurials extends LoopingScript {
     }
 
     private void buryBones() {
-        noBonesLeft = false;
-        while (!noBonesLeft && isActive()) { 
+        noBonesLeft = false; // Reset the flag before starting the loop
+        while (!noBonesLeft && isActive()) { // Check if the script is active
             boolean success = false;
             for (String itemName : itemNames) {
                 success = ActionBar.useItem(itemName, 1);
@@ -162,6 +162,7 @@ public class CoaezPowderOfBurials extends LoopingScript {
             if (!success) {
                 break; 
             }
+            Execution.delay(100);
         }
         if (!isActive()) {
             println("Script stopped while burying bones.");
@@ -174,6 +175,7 @@ public class CoaezPowderOfBurials extends LoopingScript {
             getConsole().println("Finished burying all available bones.");
         }
     }
+
 
 
     private void loadBankPreset() {
