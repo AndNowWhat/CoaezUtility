@@ -180,6 +180,7 @@ public class CoaezPowderOfBurials extends LoopingScript {
             getConsole().println("Finished burying all available bones.");
         }
     }
+    
     private void loadBankPreset() {
         LocalPlayer player = Client.getLocalPlayer();
         SceneObject bankObj = SceneObjectQuery.newQuery().name("Bank chest", "Banker", "Bank booth").results().nearest();
@@ -195,8 +196,8 @@ public class CoaezPowderOfBurials extends LoopingScript {
 
                 if (presetSuccess) {
                     println("Preset successfully loaded.");
-                    
-                    // Retry mechanism
+
+                    // Retry mechanism for checking bones
                     int retryCount = 0;
                     int maxRetries = 5;
                     int delayBetweenRetries = 1000; // milliseconds
@@ -229,7 +230,6 @@ public class CoaezPowderOfBurials extends LoopingScript {
             botState = BotState.STOPPED;
         }
     }
-
 
     private void stopScript() {
         // Stop the script safely.
