@@ -195,7 +195,24 @@ public class CoaezPowderOfBurials extends LoopingScript {
 
                 if (presetSuccess) {
                     println("Preset successfully loaded.");
-                    if (!hasBonesToBury()) {
+                    
+                    // Retry mechanism
+                    int retryCount = 0;
+                    int maxRetries = 5;
+                    int delayBetweenRetries = 1000; // milliseconds
+                    boolean bonesFound = false;
+
+                    while (retryCount < maxRetries && !bonesFound) {
+                        bonesFound = hasBonesToBury();
+                        if (!bonesFound) {
+                            retryCount++;
+                            Execution.delay(delayBetweenRetries);
+                        }
+                    }
+
+                    if (bonesFound) {
+                        println("Bones found in inventory after loading preset.");
+                    } else {
                         println("No bones found in inventory after loading preset. Stopping script.");
                         stopScript();
                     }
