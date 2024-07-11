@@ -197,15 +197,15 @@ public class CoaezPowderOfBurials extends LoopingScript {
                 if (presetSuccess) {
                     println("Preset successfully loaded.");
 
-                    // Retry mechanism for checking bones
                     int retryCount = 0;
                     int maxRetries = 5;
-                    int delayBetweenRetries = 1000; // milliseconds
+                    int delayBetweenRetries = 1000;
                     boolean bonesFound = false;
 
                     while (retryCount < maxRetries && !bonesFound) {
                         bonesFound = hasBonesToBury();
                         if (!bonesFound) {
+                            println("Bones not found, retry check...");
                             retryCount++;
                             Execution.delay(delayBetweenRetries);
                         }
