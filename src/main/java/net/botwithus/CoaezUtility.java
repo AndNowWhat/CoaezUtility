@@ -18,10 +18,12 @@ import net.botwithus.rs3.game.queries.builders.components.ComponentQuery;
 import net.botwithus.rs3.game.hud.interfaces.Component;
 import net.botwithus.rs3.game.actionbar.ActionBar;
 import net.botwithus.rs3.game.Item;
+import net.botwithus.api.game.hud.inventories.Backpack;
 import net.botwithus.api.game.hud.inventories.Bank;
 
 import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class CoaezUtility extends LoopingScript {
     private BotState botState = BotState.IDLE;
@@ -31,7 +33,8 @@ public class CoaezUtility extends LoopingScript {
     private boolean presetLoaded = false;
     private volatile boolean noBonesLeft = false;
     private ScriptConfig config;
-
+    private Alchemy alchemy;
+    private Disassembly disassembly;
     private static final List<String> SOIL_ITEMS = Arrays.asList(
             "Senntisten soil",
             "Ancient gravel",
@@ -55,12 +58,17 @@ public class CoaezUtility extends LoopingScript {
         IDLE,
         POWDER_OF_BURIALS,
         SIFT_SOIL,
+        ALCHEMY,
+        DISASSEMBLY,
         STOPPED
     }
+    
 
     public CoaezUtility(String s, ScriptConfig scriptConfig, ScriptDefinition scriptDefinition) {
         super(s, scriptConfig, scriptDefinition);
         subscribe(ChatMessageEvent.class, this::onChatMessage);
+        this.alchemy = new Alchemy();
+        this.disassembly = new Disassembly();   
         this.config = scriptConfig;
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
@@ -85,6 +93,14 @@ public class CoaezUtility extends LoopingScript {
             if (player == null) return;
 
             switch (botState) {
+                case IDLE:
+                    break;
+                case ALCHEMY:
+                    handleAlchemy();
+                    break;
+                case DISASSEMBLY:
+                    handleDisassembly();
+                    break;
                 case POWDER_OF_BURIALS:
                     handlePowderOfBurials();
                     break;
@@ -99,19 +115,54 @@ public class CoaezUtility extends LoopingScript {
             }
         }
 
-    private void handlePowderOfBurials () {
-        if (!isPowderOfBurialsActive()) {
-            activatePowderOfBurials();
-            return;
-        }
+        private void handleAlchemy() {
+            if (alchemy.hasItemsToAlchemize()) {
+                alchemy.castAlchemy();
+                Execution.delay(random.nextLong(600, 1200));
+            } else {
+                Bank.loadLastPreset();
+            }
+         }
+        
+        private void handleDisassembly() {
+            println("[handleDisassembly] Starting with botState: " + botState);
 
-        if (hasBonesToBury()) {
-            buryBones();
-        } else {
-            Bank.loadLastPreset();
-        }
-    }
+            if(Interfaces.isOpen(1251)) {
+                println("[handleDisassembly] Interface 1251 open, waiting...");
+                Execution.delayUntil(100000, () -> !Interfaces.isOpen(1251));
+                return;
+            }
 
+            println("[handleDisassembly] Items in disassembly list: " + disassembly.getDisassemblyItems());
+            boolean hasItems = disassembly.hasItemsToDisassemble();
+            println("[handleDisassembly] Has items to disassemble: " + hasItems);
+
+            List<Item> backpackItems = Backpack.getItems();
+            println("[handleDisassembly] Current backpack items: " + backpackItems.stream()
+                    .map(Item::getName)
+                    .collect(Collectors.joining(", ")));
+
+            if (hasItems) {
+                println("[handleDisassembly] Casting disassembly");
+                disassembly.castDisassembly();
+                Execution.delay(random.nextLong(600, 1200));
+            } else {
+                println("[handleDisassembly] No items found, loading preset");
+                Bank.loadLastPreset();
+            }
+        }
+        private void handlePowderOfBurials () {
+            if (!isPowderOfBurialsActive()) {
+                activatePowderOfBurials();
+                return;
+            }
+    
+            if (hasBonesToBury()) {
+                buryBones();
+            } else {
+                Bank.loadLastPreset();
+            }
+        }    
 
     private boolean isPowderOfBurialsActive() {
         Component powderOfBurials = ComponentQuery.newQuery(284).spriteId(BURIAL_POWDER_SPRITE_ID).results().first();
@@ -229,4 +280,13 @@ public class CoaezUtility extends LoopingScript {
             presetLoaded = true;
         }
     }
+
+    public Alchemy getAlchemy() {
+        return alchemy;
+    }
+    
+    public Disassembly getDisassembly() {
+        return disassembly;
+    }
+    
 }
