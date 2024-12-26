@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class Disassembly {
-    private final List<String> disassemblyItems = new ArrayList<>();
+    private final List<Pattern> disassemblyPatterns = new ArrayList<>();
     private boolean disassemblyEnabled = true;
 
     public void setDisassemblyEnabled(boolean enabled) {
@@ -29,33 +29,43 @@ public class Disassembly {
         return disassemblyEnabled;
     }
 
-    public void addDisassemblyItem(String itemName) {
-        if (!disassemblyItems.contains(itemName)) {
-            ScriptConsole.println("[Disassembly] Adding item to list: " + itemName);
-            disassemblyItems.add(itemName);
-        }
+    public void addDisassemblyItem(String pattern) {
+        // Convert the pattern to handle common cases
+        String processedPattern = pattern.toLowerCase()
+            // Escape special regex characters
+            .replace(".", "\\.")
+            .replace("*", ".*")
+            // Add word boundaries for exact matches
+            .replace(" ", "\\s+");
+            
+        // Create the pattern with case-insensitive flag
+        Pattern itemPattern = Pattern.compile(processedPattern, Pattern.CASE_INSENSITIVE);
+        ScriptConsole.println("[Disassembly] Adding pattern to list: " + processedPattern);
+        disassemblyPatterns.add(itemPattern);
     }
 
-    public void removeDisassemblyItem(String itemName) {
-        ScriptConsole.println("[Disassembly] Removing item from list: " + itemName);
-        disassemblyItems.remove(itemName);
+    public void removeDisassemblyItem(String pattern) {
+        ScriptConsole.println("[Disassembly] Removing pattern from list: " + pattern);
+        disassemblyPatterns.removeIf(p -> p.pattern().equals(pattern));
     }
 
     public List<String> getDisassemblyItems() {
-        return new ArrayList<>(disassemblyItems);
+        return disassemblyPatterns.stream()
+                .map(Pattern::pattern)
+                .collect(Collectors.toList());
     }
 
     private List<Item> fetchItemsToDisassemble() {
         List<Item> backpackItems = Backpack.getItems();
         ScriptConsole.println("[Disassembly] Total backpack items: " + backpackItems.size());
-        ScriptConsole.println("[Disassembly] Configured items to disassemble: " + disassemblyItems);
+        ScriptConsole.println("[Disassembly] Configured patterns to match: " + getDisassemblyItems());
         
         List<Item> matchingItems = backpackItems.stream()
                 .filter(item -> {
                     String itemName = item.getName();
                     ScriptConsole.println("[Disassembly] Checking item: " + itemName);
-                    boolean matched = disassemblyItems.stream()
-                            .anyMatch(disItem -> itemName.toLowerCase().contains(disItem.toLowerCase()));
+                    boolean matched = disassemblyPatterns.stream()
+                            .anyMatch(pattern -> pattern.matcher(itemName).find());
                     ScriptConsole.println("[Disassembly] Item matched: " + matched + " for " + itemName);
                     return matched;
                 })
@@ -77,6 +87,12 @@ public class Disassembly {
         return animating;
     }
 
+    private CoaezUtility script;
+
+    public Disassembly(CoaezUtility script) {
+        this.script = script;
+    }
+
     public void castDisassembly() {
         if (!disassemblyEnabled) {
             ScriptConsole.println("[Disassembly] Disassembly is disabled, skipping cast");
@@ -84,6 +100,13 @@ public class Disassembly {
         }
 
         ScriptConsole.println("[Disassembly] Starting castDisassembly");
+        
+        // Check if we have items after loading a preset
+        if (!hasItemsToDisassemble()) {
+            ScriptConsole.println("[Disassembly] No matching items found in backpack after preset load, stopping script");
+            script.setActive(false);
+            return;
+        }
         
         if (isCastingAnimation()) {
             ScriptConsole.println("[Disassembly] Animation in progress, skipping");
@@ -135,16 +158,15 @@ public class Disassembly {
     }
 
     public void clearDisassemblyItems() {
-        ScriptConsole.println("[Disassembly] Clearing all disassembly items");
-        disassemblyItems.clear();
+        ScriptConsole.println("[Disassembly] Clearing all disassembly patterns");
+        disassemblyPatterns.clear();
     }
 
     public boolean hasItemsToDisassemble() {
-        List<String> disassemblyItems = getDisassemblyItems();
         List<Item> backpackItems = Backpack.getItems();
         boolean hasItems = backpackItems.stream()
-                .anyMatch(item -> disassemblyItems.stream()
-                        .anyMatch(name -> item.getName().equalsIgnoreCase(name)));
+                .anyMatch(item -> disassemblyPatterns.stream()
+                        .anyMatch(pattern -> pattern.matcher(item.getName()).find()));
         ScriptConsole.println("[Disassembly] Has items to disassemble: " + hasItems);
         return hasItems;
     }

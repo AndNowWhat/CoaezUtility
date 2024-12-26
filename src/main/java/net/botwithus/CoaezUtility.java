@@ -68,7 +68,7 @@ public class CoaezUtility extends LoopingScript {
         super(s, scriptConfig, scriptDefinition);
         subscribe(ChatMessageEvent.class, this::onChatMessage);
         this.alchemy = new Alchemy();
-        this.disassembly = new Disassembly();   
+        this.disassembly = new Disassembly(this);   
         this.config = scriptConfig;
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
@@ -124,24 +124,24 @@ public class CoaezUtility extends LoopingScript {
             }
          }
         
-        private void handleDisassembly() {
+         private void handleDisassembly() {
             println("[handleDisassembly] Starting with botState: " + botState);
-
+    
             if(Interfaces.isOpen(1251)) {
                 println("[handleDisassembly] Interface 1251 open, waiting...");
                 Execution.delayUntil(100000, () -> !Interfaces.isOpen(1251));
                 return;
             }
-
+    
             println("[handleDisassembly] Items in disassembly list: " + disassembly.getDisassemblyItems());
             boolean hasItems = disassembly.hasItemsToDisassemble();
             println("[handleDisassembly] Has items to disassemble: " + hasItems);
-
+    
             List<Item> backpackItems = Backpack.getItems();
             println("[handleDisassembly] Current backpack items: " + backpackItems.stream()
                     .map(Item::getName)
                     .collect(Collectors.joining(", ")));
-
+    
             if (hasItems) {
                 println("[handleDisassembly] Casting disassembly");
                 disassembly.castDisassembly();
@@ -149,6 +149,7 @@ public class CoaezUtility extends LoopingScript {
             } else {
                 println("[handleDisassembly] No items found, loading preset");
                 Bank.loadLastPreset();
+                Execution.delay(random.nextLong(1200, 2000));
             }
         }
         private void handlePowderOfBurials () {
@@ -202,15 +203,15 @@ public class CoaezUtility extends LoopingScript {
     }
 
     private void buryBones() {
-        noBonesLeft = false;
-        while (!noBonesLeft && isActive()) {
-            boolean success = false;
-            for (String itemName : itemNames) {
-                success = ActionBar.useItem(itemName, 1);
-                if (success) break;
-            }
-            if (!success) break;
-            Execution.delay(100);
+        Item bone = InventoryItemQuery.newQuery()
+            .name(Pattern.compile(String.join("|", itemNames), Pattern.CASE_INSENSITIVE))
+            .results()
+            .first();
+            
+        if (bone != null) {
+            ActionBar.useItem(bone.getName(), 1);
+        } else {
+            noBonesLeft = true;
         }
     }
 
