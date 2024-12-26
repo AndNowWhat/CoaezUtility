@@ -165,13 +165,19 @@ public class CoaezUtility extends LoopingScript {
             }
         }    
 
-    private boolean isPowderOfBurialsActive() {
-        Component powderOfBurials = ComponentQuery.newQuery(284).spriteId(BURIAL_POWDER_SPRITE_ID).results().first();
-        return powderOfBurials != null;
-    }
+        private boolean isPowderOfBurialsActive() {
+            Execution.delay(random.nextLong(100, 200));
+            Component powderOfBurials = ComponentQuery.newQuery(284)
+                .spriteId(BURIAL_POWDER_SPRITE_ID)
+                .results()
+                .first();
+            return powderOfBurials != null;
+        }
+        
 
     private void activatePowderOfBurials() {
         if (isPowderOfBurialsActive()) return;
+        Execution.delay(random.nextLong(400, 600));
 
         if (inventoryInteract("Scatter", "Powder of burials")) {
             Execution.delayUntil(5000, this::isPowderOfBurialsActive);
@@ -196,6 +202,7 @@ public class CoaezUtility extends LoopingScript {
         for (String itemName : itemNames) {
             Component itemComponent = ComponentQuery.newQuery(1473).componentIndex(5).itemName(itemName).results().first();
             if (itemComponent != null) {
+                Execution.delay(random.nextInt(100, 300));
                 return true;
             }
         }
@@ -210,7 +217,7 @@ public class CoaezUtility extends LoopingScript {
             
         if (bone != null) {
             ActionBar.useItem(bone.getName(), 1);
-            Execution.delay(random.nextLong(50, 100));
+            Execution.delay(random.nextInt(50, 100));
         } else {
             noBonesLeft = true;
         }
