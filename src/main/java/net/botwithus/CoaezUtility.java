@@ -210,6 +210,7 @@ public class CoaezUtility extends LoopingScript {
             
         if (bone != null) {
             ActionBar.useItem(bone.getName(), 1);
+            Execution.delay(random.nextLong(50, 100));
         } else {
             noBonesLeft = true;
         }
