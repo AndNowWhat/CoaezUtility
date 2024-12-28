@@ -177,7 +177,7 @@ public class CoaezUtility extends LoopingScript {
 
     private void activatePowderOfBurials() {
         if (isPowderOfBurialsActive()) return;
-        Execution.delay(random.nextLong(400, 600));
+        Execution.delay(random.nextLong(600, 800));
 
         if (inventoryInteract("Scatter", "Powder of burials")) {
             Execution.delayUntil(5000, this::isPowderOfBurialsActive);
@@ -210,16 +210,13 @@ public class CoaezUtility extends LoopingScript {
     }
 
     private void buryBones() {
-        Item bone = InventoryItemQuery.newQuery()
-            .name(Pattern.compile(String.join("|", itemNames), Pattern.CASE_INSENSITIVE))
-            .results()
-            .first();
-            
-        if (bone != null) {
+        Item bone;
+        while ((bone = InventoryItemQuery.newQuery()
+                .name(Pattern.compile(String.join("|", itemNames), Pattern.CASE_INSENSITIVE))
+                .results()
+                .first()) != null) {
             ActionBar.useItem(bone.getName(), 1);
-            Execution.delay(random.nextInt(50, 100));
-        } else {
-            noBonesLeft = true;
+            Execution.delay(random.nextInt(200, 300));
         }
     }
 
