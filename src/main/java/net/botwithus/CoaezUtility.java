@@ -91,6 +91,8 @@ public class CoaezUtility extends LoopingScript {
 
             LocalPlayer player = Client.getLocalPlayer();
             if (player == null) return;
+            int currentRegion = Client.getLocalPlayer().getServerCoordinate().getRegionId();
+            println(currentRegion);
 
             switch (botState) {
                 case IDLE:
@@ -210,15 +212,32 @@ public class CoaezUtility extends LoopingScript {
     }
 
     private void buryBones() {
-        Item bone;
-        while ((bone = InventoryItemQuery.newQuery()
-                .name(Pattern.compile(String.join("|", itemNames), Pattern.CASE_INSENSITIVE))
-                .results()
-                .first()) != null) {
-            ActionBar.useItem(bone.getName(), 1);
+        noBonesLeft = false; 
+        while (!noBonesLeft && isActive()) {
+            boolean success = false;
+            for (String itemName : itemNames) {
+                success = ActionBar.useItem(itemName, 1);
+                if (success) {
+                    break;
+                }
+            }
+            if (!success) {
+                break; 
+            }
             Execution.delay(random.nextInt(200, 300));
         }
+        if (!isActive()) {
+            println("Script stopped while burying bones.");
+            return;
+        }
+        if (noBonesLeft) {
+            println("No bones left to bury.");
+            loadBankPreset();
+        } else {
+            println("Finished burying all available bones.");
+        }
     }
+    
 
     private void handleSiftSoil() {
         if (Interfaces.isOpen(1251)) {

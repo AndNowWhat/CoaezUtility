@@ -56,7 +56,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             }
     
             if (ImGui.Button("Stop Script")) {
-                coaezUtility.setBotState(CoaezUtility.BotState.STOPPED);
+                coaezUtility.setBotState(CoaezUtility.BotState.IDLE);
             }
     
             ImGui.Text("Current State: " + coaezUtility.getBotState().toString());
