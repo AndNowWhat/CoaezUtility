@@ -87,8 +87,6 @@ public class CoaezUtility extends LoopingScript {
 
         @Override
         public void onLoop () {
-            if (!isActive()) return;
-
             LocalPlayer player = Client.getLocalPlayer();
             if (player == null) return;
             int currentRegion = Client.getLocalPlayer().getServerCoordinate().getRegionId();
@@ -115,6 +113,7 @@ public class CoaezUtility extends LoopingScript {
                     stopScript();
                     break;
             }
+            Execution.delay(random.nextInt(600, 1200));
         }
 
         private void handleAlchemy() {
@@ -224,7 +223,7 @@ public class CoaezUtility extends LoopingScript {
             if (!success) {
                 break; 
             }
-            Execution.delay(random.nextInt(200, 300));
+            Execution.delay(random.nextInt(250, 300));
         }
         if (!isActive()) {
             println("Script stopped while burying bones.");
