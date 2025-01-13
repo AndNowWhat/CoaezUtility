@@ -58,6 +58,7 @@ public class CoaezUtility extends LoopingScript {
         IDLE,
         POWDER_OF_BURIALS,
         SIFT_SOIL,
+        SCREEN_MESH,
         ALCHEMY,
         DISASSEMBLY,
         STOPPED
@@ -104,11 +105,12 @@ public class CoaezUtility extends LoopingScript {
                 case POWDER_OF_BURIALS:
                     handlePowderOfBurials();
                     break;
-
                 case SIFT_SOIL:
                     handleSiftSoil();
                     break;
-
+                case SCREEN_MESH:
+                    handleScreenMesh();
+                    break;
                 case STOPPED:
                     stopScript();
                     break;
@@ -313,4 +315,36 @@ public class CoaezUtility extends LoopingScript {
         return disassembly;
     }
     
+    private void handleScreenMesh() {
+        if (Interfaces.isOpen(1251)) {
+            Execution.delayUntil(14000, () -> !Interfaces.isOpen(1251));
+            return;
+        }
+
+        if (BackpackContainsSoil()) {
+            SceneObject mesh = SceneObjectQuery.newQuery().name("Mesh").option("Screen").results().nearest();
+            
+            if (mesh != null && mesh.interact("Screen")) {
+                Execution.delayUntil(15000, () -> Interfaces.isOpen(1370));
+                
+                Component screenOption = ComponentQuery.newQuery(1370)
+                    .componentIndex(30)  
+                    .results()
+                    .first();
+                
+                if (screenOption != null && screenOption.interact(1)) {
+                    Execution.delay(random.nextLong(1000, 2000));
+                } else {
+                    println("Could not find screening interface option");
+                }
+            } else {
+                println("Could not find mesh object");
+            }
+        } else {
+            waitingForPreset = true;
+            presetLoaded = false;
+            Bank.loadLastPreset();
+            Execution.delayUntil(random.nextInt(5000) + 5000, () -> presetLoaded);
+        }
+    }
 }

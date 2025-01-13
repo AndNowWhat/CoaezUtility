@@ -70,80 +70,84 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     }
     
     private void renderMainActivities() {
-    ImGui.Text("Configure and load a preset before starting");
+        ImGui.Text("Configure and load a preset before starting");
 
-    if (ImGui.Button("Start Powder of Burials")) {
-        coaezUtility.setBotState(CoaezUtility.BotState.POWDER_OF_BURIALS);
-    }
-
-    ImGui.Separator();
-
-    if (ImGui.Button("Start Soil Sifting")) {
-        coaezUtility.setBotState(CoaezUtility.BotState.SIFT_SOIL);
-    }
-}
-
-private void renderAlchemyAndDisassembly() {
-    // Alchemy Section
-    ImGui.Text("High Alchemy");
-    if (ImGui.Button(coaezUtility.getBotState() == CoaezUtility.BotState.ALCHEMY ? 
-        "Stop Alchemy" : "Start Alchemy")) {
-        coaezUtility.setBotState(coaezUtility.getBotState() == CoaezUtility.BotState.ALCHEMY ? 
-            CoaezUtility.BotState.IDLE : CoaezUtility.BotState.ALCHEMY);
-    }
-
-    ImGui.Text("Items to Alchemize");
-    if (ImGui.ListBoxHeader("##AlchemyItems", 300, 150)) {
-        List<String> alchemyItems = coaezUtility.getAlchemy().getAlchemyItems();
-        for (int i = 0; i < alchemyItems.size(); i++) {
-            String itemName = alchemyItems.get(i);
-            ImGui.Text(itemName);
-            ImGui.SameLine();
-            if (ImGui.Button("Remove##Alch" + i)) {
-                coaezUtility.getAlchemy().removeAlchemyItem(itemName);
-            }
+        if (ImGui.Button("Start Powder of Burials")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.POWDER_OF_BURIALS);
         }
-        ImGui.ListBoxFooter();
-    }
 
-    alchemyInput = ImGui.InputText("Item Name##Alch", alchemyInput);
-    if (ImGui.Button("Add##Alch") && !alchemyInput.isEmpty()) {
-        coaezUtility.getAlchemy().addAlchemyItem(alchemyInput);
-        preloadedAlchemyItems.add(alchemyInput);
-        alchemyInput = "";
-    }
+        ImGui.Separator();
 
-    ImGui.Separator();
-
-    // Disassembly Section
-    ImGui.Text("Disassembly");
-    if (ImGui.Button(coaezUtility.getBotState() == CoaezUtility.BotState.DISASSEMBLY ? 
-        "Stop Disassembly" : "Start Disassembly")) {
-        coaezUtility.setBotState(coaezUtility.getBotState() == CoaezUtility.BotState.DISASSEMBLY ? 
-            CoaezUtility.BotState.IDLE : CoaezUtility.BotState.DISASSEMBLY);
-    }
-
-    ImGui.Text("Items to Disassemble");
-    if (ImGui.ListBoxHeader("##DisassemblyItems", 300, 150)) {
-        List<String> disassemblyItems = coaezUtility.getDisassembly().getDisassemblyItems();
-        for (int i = 0; i < disassemblyItems.size(); i++) {
-            String itemName = disassemblyItems.get(i);
-            ImGui.Text(itemName);
-            ImGui.SameLine();
-            if (ImGui.Button("Remove##Dis" + i)) {
-                coaezUtility.getDisassembly().removeDisassemblyItem(itemName);
-            }
+        if (ImGui.Button("Start Soil Sifting (Spell)")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.SIFT_SOIL);
         }
-        ImGui.ListBoxFooter();
+
+        if (ImGui.Button("Start Soil Sifting (Screen Mesh)")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.SCREEN_MESH);
+        }
     }
 
-    disassemblyInput = ImGui.InputText("Item Name##Dis", disassemblyInput);
-    if (ImGui.Button("Add##Dis") && !disassemblyInput.isEmpty()) {
-        coaezUtility.getDisassembly().addDisassemblyItem(disassemblyInput);
-        preloadedDisassemblyItems.add(disassemblyInput);
-        disassemblyInput = "";
+    private void renderAlchemyAndDisassembly() {
+        // Alchemy Section
+        ImGui.Text("High Alchemy");
+        if (ImGui.Button(coaezUtility.getBotState() == CoaezUtility.BotState.ALCHEMY ? 
+            "Stop Alchemy" : "Start Alchemy")) {
+            coaezUtility.setBotState(coaezUtility.getBotState() == CoaezUtility.BotState.ALCHEMY ? 
+                CoaezUtility.BotState.IDLE : CoaezUtility.BotState.ALCHEMY);
+        }
+
+        ImGui.Text("Items to Alchemize");
+        if (ImGui.ListBoxHeader("##AlchemyItems", 300, 150)) {
+            List<String> alchemyItems = coaezUtility.getAlchemy().getAlchemyItems();
+            for (int i = 0; i < alchemyItems.size(); i++) {
+                String itemName = alchemyItems.get(i);
+                ImGui.Text(itemName);
+                ImGui.SameLine();
+                if (ImGui.Button("Remove##Alch" + i)) {
+                    coaezUtility.getAlchemy().removeAlchemyItem(itemName);
+                }
+            }
+            ImGui.ListBoxFooter();
+        }
+
+        alchemyInput = ImGui.InputText("Item Name##Alch", alchemyInput);
+        if (ImGui.Button("Add##Alch") && !alchemyInput.isEmpty()) {
+            coaezUtility.getAlchemy().addAlchemyItem(alchemyInput);
+            preloadedAlchemyItems.add(alchemyInput);
+            alchemyInput = "";
+        }
+
+        ImGui.Separator();
+
+        // Disassembly Section
+        ImGui.Text("Disassembly");
+        if (ImGui.Button(coaezUtility.getBotState() == CoaezUtility.BotState.DISASSEMBLY ? 
+            "Stop Disassembly" : "Start Disassembly")) {
+            coaezUtility.setBotState(coaezUtility.getBotState() == CoaezUtility.BotState.DISASSEMBLY ? 
+                CoaezUtility.BotState.IDLE : CoaezUtility.BotState.DISASSEMBLY);
+        }
+
+        ImGui.Text("Items to Disassemble");
+        if (ImGui.ListBoxHeader("##DisassemblyItems", 300, 150)) {
+            List<String> disassemblyItems = coaezUtility.getDisassembly().getDisassemblyItems();
+            for (int i = 0; i < disassemblyItems.size(); i++) {
+                String itemName = disassemblyItems.get(i);
+                ImGui.Text(itemName);
+                ImGui.SameLine();
+                if (ImGui.Button("Remove##Dis" + i)) {
+                    coaezUtility.getDisassembly().removeDisassemblyItem(itemName);
+                }
+            }
+            ImGui.ListBoxFooter();
+        }
+
+        disassemblyInput = ImGui.InputText("Item Name##Dis", disassemblyInput);
+        if (ImGui.Button("Add##Dis") && !disassemblyInput.isEmpty()) {
+            coaezUtility.getDisassembly().addDisassemblyItem(disassemblyInput);
+            preloadedDisassemblyItems.add(disassemblyInput);
+            disassemblyInput = "";
+        }
     }
-}
 
     public void saveConfig() {
         ScriptConfig config = coaezUtility.getConfig();
