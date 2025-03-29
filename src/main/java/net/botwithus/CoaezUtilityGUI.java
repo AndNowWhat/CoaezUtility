@@ -85,6 +85,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (ImGui.Button("Start Soil Sifting (Screen Mesh)")) {
             coaezUtility.setBotState(CoaezUtility.BotState.SCREEN_MESH);
         }
+
+        ImGui.Separator();
+
+        if (ImGui.Button("Start Gem Crafting")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.GEM_CRAFTING);
+        }
     }
 
     private void renderAlchemyAndDisassembly() {

@@ -9,6 +9,7 @@ import net.botwithus.rs3.game.minimenu.actions.SelectableAction;
 import net.botwithus.rs3.game.queries.builders.components.ComponentQuery;
 import net.botwithus.rs3.game.queries.results.ResultSet;
 import net.botwithus.rs3.script.Execution;
+import net.botwithus.rs3.script.ScriptConsole;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +17,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class Alchemy {
-    private final List<String> alchemyItems = new ArrayList<>();
+    private final List<Pattern> alchemyPatterns = new ArrayList<>();
     private boolean alchemyEnabled = true;
 
     public void setAlchemyEnabled(boolean enabled) {
@@ -27,24 +28,51 @@ public class Alchemy {
         return alchemyEnabled;
     }
 
-    public void addAlchemyItem(String itemName) {
-        if (!alchemyItems.contains(itemName)) {
-            alchemyItems.add(itemName);
+    public void addAlchemyItem(String pattern) {
+        String processedPattern = pattern.toLowerCase()
+            .replace(".", "\\.")
+            .replace("*", ".*")
+            .replace(" ", "\\s+");
+            
+        Pattern itemPattern = Pattern.compile(processedPattern, Pattern.CASE_INSENSITIVE);
+        if (!alchemyPatterns.contains(itemPattern)) {
+            alchemyPatterns.add(itemPattern);
         }
     }
 
-    public void removeAlchemyItem(String itemName) {
-        alchemyItems.remove(itemName);
+    public void removeAlchemyItem(String pattern) {
+        alchemyPatterns.removeIf(p -> p.pattern().equals(pattern));
     }
 
     public List<String> getAlchemyItems() {
-        return new ArrayList<>(alchemyItems);
+        return alchemyPatterns.stream()
+                .map(Pattern::pattern)
+                .collect(Collectors.toList());
     }
 
     private List<Item> fetchItemsToAlch() {
-        return Backpack.getItems().stream()
-                .filter(item -> alchemyItems.stream().anyMatch(alchItem -> Pattern.compile(Pattern.quote(alchItem), Pattern.CASE_INSENSITIVE).matcher(item.getName()).matches()))
+        List<Item> backpackItems = Backpack.getItems();
+        ScriptConsole.println("[Alchemy] Total backpack items: " + backpackItems.size());
+        ScriptConsole.println("[Alchemy] Configured patterns to match: " + getAlchemyItems());
+        
+        List<Item> matchingItems = backpackItems.stream()
+                .filter(item -> {
+                    String itemName = item.getName();
+                    ScriptConsole.println("[Alchemy] Checking item: " + itemName);
+                    boolean matched = alchemyPatterns.stream()
+                            .anyMatch(pattern -> {
+                                boolean matchResult = pattern.matcher(itemName).find();
+                                ScriptConsole.println("[Alchemy] Pattern '" + pattern.pattern() + 
+                                    "' match result for '" + itemName + "': " + matchResult);
+                                return matchResult;
+                            });
+                    ScriptConsole.println("[Alchemy] Item matched: " + matched + " for " + itemName);
+                    return matched;
+                })
                 .collect(Collectors.toList());
+                
+        ScriptConsole.println("[Alchemy] Found matching items: " + matchingItems.size());
+        return matchingItems;
     }
 
     private boolean isAlchemySpellActive() {
@@ -97,27 +125,26 @@ public class Alchemy {
     }
 
     public void clearAlchemyItems() {
-        alchemyItems.clear();
+        alchemyPatterns.clear();
     }
 
     public boolean hasItemsToAlchemize() {
-        List<String> alchemyItems = getAlchemyItems();
         List<Item> backpackItems = Backpack.getItems();
-        for (String itemName : alchemyItems) {
-            boolean found = backpackItems.stream().anyMatch(item -> item.getName().equalsIgnoreCase(itemName));
-            if (found) {
-                return true;
-            }
-        }
-
-        return false;
+        boolean hasItems = backpackItems.stream()
+                .anyMatch(item -> {
+                    String itemName = item.getName();
+                    boolean matched = alchemyPatterns.stream()
+                            .anyMatch(pattern -> pattern.matcher(itemName).find());
+                    ScriptConsole.println("[Alchemy] Checking item: " + itemName + " - matched: " + matched);
+                    return matched;
+                });
+        ScriptConsole.println("[Alchemy] Has items to alchemize: " + hasItems);
+        return hasItems;
     }
 
     public void performAlchemyDuringCombat() {
         if (hasItemsToAlchemize()) {
             castAlchemy();
-            Execution.delay(1200);
-
         }
     }
 

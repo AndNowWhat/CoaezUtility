@@ -25,6 +25,12 @@ import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import net.botwithus.rs3.game.Coordinate;
+import net.botwithus.rs3.game.movement.Movement;
+import net.botwithus.rs3.game.vars.VarManager;
+import net.botwithus.rs3.game.movement.NavPath;
+import net.botwithus.rs3.game.movement.TraverseEvent;
+
 public class CoaezUtility extends LoopingScript {
     private BotState botState = BotState.IDLE;
     private Random random = new Random();
@@ -61,6 +67,7 @@ public class CoaezUtility extends LoopingScript {
         SCREEN_MESH,
         ALCHEMY,
         DISASSEMBLY,
+        GEM_CRAFTING,
         STOPPED
     }
     
@@ -91,7 +98,6 @@ public class CoaezUtility extends LoopingScript {
             LocalPlayer player = Client.getLocalPlayer();
             if (player == null) return;
             int currentRegion = Client.getLocalPlayer().getServerCoordinate().getRegionId();
-            println(currentRegion);
 
             switch (botState) {
                 case IDLE:
@@ -111,6 +117,9 @@ public class CoaezUtility extends LoopingScript {
                 case SCREEN_MESH:
                     handleScreenMesh();
                     break;
+                case GEM_CRAFTING:
+                    handleGemCrafting();
+                    break;
                 case STOPPED:
                     stopScript();
                     break;
@@ -118,10 +127,16 @@ public class CoaezUtility extends LoopingScript {
             Execution.delay(random.nextInt(600, 1200));
         }
 
+        private boolean logging() {
+            int varbitValue = VarManager.getVarbitValue(3829);
+            println("Varbit value: " + varbitValue);
+            return varbitValue > 0;
+        }
+
         private void handleAlchemy() {
             if (alchemy.hasItemsToAlchemize()) {
                 alchemy.castAlchemy();
-                Execution.delay(random.nextLong(600, 1200));
+                Execution.delay(random.nextLong(300, 600));
             } else {
                 Bank.loadLastPreset();
             }
@@ -345,6 +360,64 @@ public class CoaezUtility extends LoopingScript {
             presetLoaded = false;
             Bank.loadLastPreset();
             Execution.delayUntil(random.nextInt(5000) + 5000, () -> presetLoaded);
+        }
+    }
+
+    private boolean moveTo(Coordinate location) {
+        if (Client.getLocalPlayer() == null) {
+            println("Movement failed: Player is null");
+            return false;
+        }
+        
+        println("Current position: " + Client.getLocalPlayer().getCoordinate());
+        println("Distance to target: " + Client.getLocalPlayer().getCoordinate().distanceTo(location));
+        
+        TraverseEvent.State state = Movement.traverse(NavPath.resolve(location));
+        println("Movement state: " + state);
+        
+        boolean result = state == TraverseEvent.State.FINISHED || 
+                         state == TraverseEvent.State.CONTINUE || 
+                         state == TraverseEvent.State.IDLE;
+        
+        println("Movement function returning: " + result);
+        return result;
+    }
+
+    private void handleGemCrafting() {
+        if (Interfaces.isOpen(1251)) {
+            Execution.delayUntil(14000, () -> !Interfaces.isOpen(1251));
+            return;
+        }
+
+        if (Interfaces.isOpen(1371)) {
+            MiniMenu.interact(ComponentAction.DIALOGUE.getType(), 0, -1, 89784350);
+            Execution.delay(random.nextLong(1000, 2000));
+            return;
+        }
+
+        if (hasUncutGems()) {
+            craftGems();
+        } else {
+            Bank.loadLastPreset();
+        }
+    }
+
+    private boolean hasUncutGems() {
+        ResultSet<Item> backpackItems = InventoryItemQuery.newQuery(93).results();
+        for (Item item : backpackItems) {
+            if (item.getName().contains("Uncut")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void craftGems() {
+        Item gem = InventoryItemQuery.newQuery(93).option("Craft").results().first();
+        if (gem != null) {
+            if (inventoryInteract("Craft", gem.getName())) {
+                Execution.delayUntil(5000, () -> Interfaces.isOpen(1371));
+            }
         }
     }
 }
