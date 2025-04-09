@@ -60,6 +60,14 @@ public class CoaezUtility extends LoopingScript {
             "Frost dragon bones", "Reinforced dragon bones"
     };
 
+    String[] ashNames = {
+            "Impious ashes",
+            "Accursed ashes",
+            "Infernal ashes",
+            "Tortured ashes",
+            "Searing ashes"
+    };
+
     enum BotState {
         IDLE,
         POWDER_OF_BURIALS,
@@ -217,6 +225,7 @@ public class CoaezUtility extends LoopingScript {
     }
 
     private boolean hasBonesToBury() {
+        // Check for bones
         for (String itemName : itemNames) {
             Component itemComponent = ComponentQuery.newQuery(1473).componentIndex(5).itemName(itemName).results().first();
             if (itemComponent != null) {
@@ -224,33 +233,56 @@ public class CoaezUtility extends LoopingScript {
                 return true;
             }
         }
+        
+        // Check for ashes
+        for (String ashName : ashNames) {
+            Component itemComponent = ComponentQuery.newQuery(1473).componentIndex(5).itemName(ashName).results().first();
+            if (itemComponent != null) {
+                Execution.delay(random.nextInt(100, 300));
+                return true;
+            }
+        }
+        
         return false;
     }
 
     private void buryBones() {
         noBonesLeft = false; 
         while (!noBonesLeft && isActive()) {
-            boolean success = false;
+            boolean boneSuccess = false;
+            boolean ashSuccess = false;
+            
             for (String itemName : itemNames) {
-                success = ActionBar.useItem(itemName, 1);
-                if (success) {
+                boneSuccess = ActionBar.useItem(itemName, 1);
+                if (boneSuccess) {
                     break;
                 }
             }
-            if (!success) {
-                break; 
+            
+            for (String ashName : ashNames) {
+                ashSuccess = ActionBar.useItem(ashName, 1);
+                if (ashSuccess) {
+                    break;
+                }
             }
+            
+            if (!boneSuccess && !ashSuccess) {
+                break;
+            }
+            
             Execution.delay(random.nextInt(250, 300));
         }
+        
         if (!isActive()) {
-            println("Script stopped while burying bones.");
+            println("Script stopped while burying bones/scattering ashes.");
             return;
         }
+        
         if (noBonesLeft) {
-            println("No bones left to bury.");
+            println("No bones or ashes left to process.");
             loadBankPreset();
         } else {
-            println("Finished burying all available bones.");
+            println("Finished processing all available bones and ashes.");
         }
     }
     
@@ -314,7 +346,7 @@ public class CoaezUtility extends LoopingScript {
 
     private void onChatMessage(ChatMessageEvent event) {
         String message = event.getMessage();
-        if (message.contains("You don't have any left!")) {
+        if (message.contains("You don't have any left!") || message.contains("You don't have any bones")) {
             noBonesLeft = true;
         }
         if (waitingForPreset && message.contains("Your preset is being withdrawn")) {
