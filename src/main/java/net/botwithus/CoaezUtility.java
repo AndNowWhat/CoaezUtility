@@ -1,72 +1,44 @@
 package net.botwithus;
 
+import java.util.List;
+
 import net.botwithus.internal.scripts.ScriptDefinition;
 import net.botwithus.rs3.events.impl.ChatMessageEvent;
 import net.botwithus.rs3.game.Client;
-import net.botwithus.rs3.game.hud.interfaces.Interfaces;
-import net.botwithus.rs3.game.minimenu.MiniMenu;
-import net.botwithus.rs3.game.minimenu.actions.ComponentAction;
-import net.botwithus.rs3.game.queries.results.ResultSet;
 import net.botwithus.rs3.game.scene.entities.characters.player.LocalPlayer;
 import net.botwithus.rs3.script.Execution;
 import net.botwithus.rs3.script.LoopingScript;
 import net.botwithus.rs3.script.config.ScriptConfig;
-import net.botwithus.rs3.game.queries.builders.objects.SceneObjectQuery;
-import net.botwithus.rs3.game.scene.entities.object.SceneObject;
-import net.botwithus.rs3.game.queries.builders.items.InventoryItemQuery;
-import net.botwithus.rs3.game.queries.builders.components.ComponentQuery;
-import net.botwithus.rs3.game.hud.interfaces.Component;
-import net.botwithus.rs3.game.actionbar.ActionBar;
-import net.botwithus.rs3.game.Item;
-import net.botwithus.api.game.hud.inventories.Backpack;
-import net.botwithus.api.game.hud.inventories.Bank;
+import net.botwithus.tasks.*;
+import net.botwithus.model.Alchemy;
+import net.botwithus.model.Disassembly;
 
-import java.util.*;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+import java.util.Random;
 
-import net.botwithus.rs3.game.Coordinate;
-import net.botwithus.rs3.game.movement.Movement;
-import net.botwithus.rs3.game.vars.VarManager;
-import net.botwithus.rs3.game.movement.NavPath;
-import net.botwithus.rs3.game.movement.TraverseEvent;
+import net.botwithus.rs3.script.ScriptConsole;
 
 public class CoaezUtility extends LoopingScript {
-    private BotState botState = BotState.IDLE;
+    private BotState botState = BotState.POWDER_OF_BURIALS;
     private Random random = new Random();
-    private static final int BURIAL_POWDER_SPRITE_ID = 52805;
+    private ScriptConfig config;
+    private volatile boolean noBonesLeft = false;
     private boolean waitingForPreset = false;
     private boolean presetLoaded = false;
-    private volatile boolean noBonesLeft = false;
-    private ScriptConfig config;
-    private Alchemy alchemy;
-    private Disassembly disassembly;
-    private static final List<String> SOIL_ITEMS = Arrays.asList(
-            "Senntisten soil",
-            "Ancient gravel",
-            "Fiery brimstone",
-            "Saltwater mud",
-            "Aerated sediment",
-            "Earthen clay",
-            "Volcanic ash"
-    );
-
-    String[] itemNames = {
-            "Bones", "Wolf bones", "Burnt bones", "Monkey bones", "Bat bones",
-            "Big bones", "Jogre bones", "Zogre bones", "Shaikahan bones",
-            "Baby dragon bones", "Wyvern bones", "Dragon bones", "Fayrg bones",
-            "Raurg bones", "Dagannoth bones", "Airut bones", "Ourg bones",
-            "Hardened dragon bones", "Dragonkin bones", "Dinosaur bones",
-            "Frost dragon bones", "Reinforced dragon bones"
-    };
-
-    String[] ashNames = {
-            "Impious ashes",
-            "Accursed ashes",
-            "Infernal ashes",
-            "Tortured ashes",
-            "Searing ashes"
-    };
+    
+    // Model instances
+    private final Alchemy alchemy;
+    private final Disassembly disassembly;
+    
+    // Task instances
+    private final PowderOfBurialsTask powderOfBurialsTask;
+    private final SiftSoilTask siftSoilTask;
+    private final ScreenMeshTask screenMeshTask;
+    private final AlchemyTask alchemyTask;
+    private final DisassemblyTask disassemblyTask;
+    private final GemCraftingTask gemCraftingTask;
+    
+    // GUI reference
+    private CoaezUtilityGUI gui;
 
     enum BotState {
         IDLE,
@@ -78,14 +50,22 @@ public class CoaezUtility extends LoopingScript {
         GEM_CRAFTING,
         STOPPED
     }
-    
 
     public CoaezUtility(String s, ScriptConfig scriptConfig, ScriptDefinition scriptDefinition) {
         super(s, scriptConfig, scriptDefinition);
-        subscribe(ChatMessageEvent.class, this::onChatMessage);
-        this.alchemy = new Alchemy();
-        this.disassembly = new Disassembly(this);   
         this.config = scriptConfig;
+        
+        this.alchemy = new Alchemy();
+        this.disassembly = new Disassembly(this);
+        
+        // Initialize tasks
+        this.powderOfBurialsTask = new PowderOfBurialsTask(this);
+        this.siftSoilTask = new SiftSoilTask(this);
+        this.screenMeshTask = new ScreenMeshTask(this);
+        this.alchemyTask = new AlchemyTask(this);
+        this.disassemblyTask = new DisassemblyTask(this);
+        this.gemCraftingTask = new GemCraftingTask(this);
+   
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
 
@@ -101,242 +81,99 @@ public class CoaezUtility extends LoopingScript {
         return config;
     }
 
-        @Override
-        public void onLoop () {
+    public Random getRandom() {
+        return random;
+    }
+    
+    public boolean isWaitingForPreset() {
+        return waitingForPreset;
+    }
+    
+    public void setWaitingForPreset(boolean waiting) {
+        this.waitingForPreset = waiting;
+    }
+    
+    public boolean isPresetLoaded() {
+        return presetLoaded;
+    }
+    
+    public void setPresetLoaded(boolean loaded) {
+        this.presetLoaded = loaded;
+    }
+    
+    public boolean isNoBonesLeft() {
+        return noBonesLeft;
+    }
+    
+    public void setNoBonesLeft(boolean noBonesLeft) {
+        this.noBonesLeft = noBonesLeft;
+    }
+
+    @Override
+    public void onActivation() {
+        super.onActivation();
+        ScriptConsole.println("CoaezUtility script activated!");
+        ScriptConsole.println("Current bot state: " + botState);
+        sgc.setOpen(true);
+        subscribe(ChatMessageEvent.class, this::onChatMessage);
+    }
+
+    @Override
+    public void onDeactivation() {
+        super.onDeactivation();
+        ScriptConsole.println("CoaezUtility script deactivated!");
+        sgc.setOpen(false);
+        unsubscribeAll();
+    }
+
+    @Override
+    public void onLoop() {
+        try {
             LocalPlayer player = Client.getLocalPlayer();
-            if (player == null) return;
-            int currentRegion = Client.getLocalPlayer().getServerCoordinate().getRegionId();
+            ScriptConsole.println("Current bot state: " + botState);
+
+            if (player == null) {
+                ScriptConsole.println("Player is null, waiting...");
+                Execution.delay(1200);
+                return;
+            }
 
             switch (botState) {
-                case IDLE:
-                    break;
-                case ALCHEMY:
-                    handleAlchemy();
-                    break;
-                case DISASSEMBLY:
-                    handleDisassembly();
-                    break;
-                case POWDER_OF_BURIALS:
-                    handlePowderOfBurials();
-                    break;
-                case SIFT_SOIL:
-                    handleSiftSoil();
-                    break;
-                case SCREEN_MESH:
-                    handleScreenMesh();
-                    break;
-                case GEM_CRAFTING:
-                    handleGemCrafting();
-                    break;
-                case STOPPED:
+                case IDLE -> ScriptConsole.println("Bot is idle");
+                case ALCHEMY -> {
+                    ScriptConsole.println("Executing alchemy task");
+                    alchemyTask.execute();
+                }
+                case DISASSEMBLY -> {
+                    ScriptConsole.println("Executing disassembly task");
+                    disassemblyTask.execute();
+                }
+                case POWDER_OF_BURIALS -> {
+                    ScriptConsole.println("Executing powder of burials task");
+                    powderOfBurialsTask.execute();
+                }
+                case SIFT_SOIL -> {
+                    ScriptConsole.println("Executing sift soil task");
+                    siftSoilTask.execute();
+                }
+                case SCREEN_MESH -> {
+                    ScriptConsole.println("Executing screen mesh task");
+                    screenMeshTask.execute();
+                }
+                case GEM_CRAFTING -> {
+                    ScriptConsole.println("Executing gem crafting task");
+                    gemCraftingTask.execute();
+                }
+                case STOPPED -> {
+                    ScriptConsole.println("Stopping script");
                     stopScript();
-                    break;
+                }
             }
             Execution.delay(random.nextInt(600, 1200));
-        }
-
-        private boolean logging() {
-            int varbitValue = VarManager.getVarbitValue(3829);
-            println("Varbit value: " + varbitValue);
-            return varbitValue > 0;
-        }
-
-        private void handleAlchemy() {
-            if (alchemy.hasItemsToAlchemize()) {
-                alchemy.castAlchemy();
-                Execution.delay(random.nextLong(300, 600));
-            } else {
-                Bank.loadLastPreset();
-            }
-         }
-        
-         private void handleDisassembly() {
-            println("[handleDisassembly] Starting with botState: " + botState);
-    
-            if(Interfaces.isOpen(1251)) {
-                println("[handleDisassembly] Interface 1251 open, waiting...");
-                Execution.delayUntil(100000, () -> !Interfaces.isOpen(1251));
-                return;
-            }
-    
-            println("[handleDisassembly] Items in disassembly list: " + disassembly.getDisassemblyItems());
-            boolean hasItems = disassembly.hasItemsToDisassemble();
-            println("[handleDisassembly] Has items to disassemble: " + hasItems);
-    
-            List<Item> backpackItems = Backpack.getItems();
-            println("[handleDisassembly] Current backpack items: " + backpackItems.stream()
-                    .map(Item::getName)
-                    .collect(Collectors.joining(", ")));
-    
-            if (hasItems) {
-                println("[handleDisassembly] Casting disassembly");
-                disassembly.castDisassembly();
-                Execution.delay(random.nextLong(600, 1200));
-            } else {
-                println("[handleDisassembly] No items found, loading preset");
-                Bank.loadLastPreset();
-                Execution.delay(random.nextLong(1200, 2000));
-            }
-        }
-        private void handlePowderOfBurials () {
-            if (!isPowderOfBurialsActive()) {
-                activatePowderOfBurials();
-                return;
-            }
-    
-            if (hasBonesToBury()) {
-                buryBones();
-            } else {
-                Bank.loadLastPreset();
-            }
-        }    
-
-        private boolean isPowderOfBurialsActive() {
-            Execution.delay(random.nextLong(100, 200));
-            Component powderOfBurials = ComponentQuery.newQuery(284)
-                .spriteId(BURIAL_POWDER_SPRITE_ID)
-                .results()
-                .first();
-            return powderOfBurials != null;
-        }
-        
-
-    private void activatePowderOfBurials() {
-        if (isPowderOfBurialsActive()) return;
-        Execution.delay(random.nextLong(600, 800));
-
-        if (inventoryInteract("Scatter", "Powder of burials")) {
-            Execution.delayUntil(5000, this::isPowderOfBurialsActive);
-        }
-    }
-
-    private boolean inventoryInteract(String option, String... items) {
-        Pattern pattern = Pattern.compile(String.join("|", items), Pattern.CASE_INSENSITIVE);
-        Item item = InventoryItemQuery.newQuery().name(pattern).results().first();
-
-        if (item != null) {
-            String itemName = item.getName();
-            Component itemComponent = ComponentQuery.newQuery(1473).componentIndex(5).itemName(itemName).results().first();
-            if (itemComponent != null) {
-                return itemComponent.interact(option);
-            }
-        }
-        return false;
-    }
-
-    private boolean hasBonesToBury() {
-        // Check for bones
-        for (String itemName : itemNames) {
-            Component itemComponent = ComponentQuery.newQuery(1473).componentIndex(5).itemName(itemName).results().first();
-            if (itemComponent != null) {
-                Execution.delay(random.nextInt(100, 300));
-                return true;
-            }
-        }
-        
-        // Check for ashes
-        for (String ashName : ashNames) {
-            Component itemComponent = ComponentQuery.newQuery(1473).componentIndex(5).itemName(ashName).results().first();
-            if (itemComponent != null) {
-                Execution.delay(random.nextInt(100, 300));
-                return true;
-            }
-        }
-        
-        return false;
-    }
-
-    private void buryBones() {
-        noBonesLeft = false; 
-        while (!noBonesLeft && isActive()) {
-            boolean boneSuccess = false;
-            boolean ashSuccess = false;
-            
-            for (String itemName : itemNames) {
-                boneSuccess = ActionBar.useItem(itemName, 1);
-                if (boneSuccess) {
-                    break;
-                }
-            }
-            
-            for (String ashName : ashNames) {
-                ashSuccess = ActionBar.useItem(ashName, 1);
-                if (ashSuccess) {
-                    break;
-                }
-            }
-            
-            if (!boneSuccess && !ashSuccess) {
-                break;
-            }
-            
-            Execution.delay(random.nextInt(250, 300));
-        }
-        
-        if (!isActive()) {
-            println("Script stopped while burying bones/scattering ashes.");
-            return;
-        }
-        
-        if (noBonesLeft) {
-            println("No bones or ashes left to process.");
-            loadBankPreset();
-        } else {
-            println("Finished processing all available bones and ashes.");
-        }
-    }
-    
-
-    private void handleSiftSoil() {
-        if (Interfaces.isOpen(1251)) {
-            Execution.delayUntil(14000, () -> !Interfaces.isOpen(1251));
-            return;
-        }
-
-        if (Interfaces.isOpen(1371)) {
-            MiniMenu.interact(ComponentAction.DIALOGUE.getType(), 0, -1, 89784350);
-            Execution.delay(random.nextLong(1000, 2000));
-            return;
-        }
-
-        if (BackpackContainsSoil()) {
-            selectSoilSpell();
-        } else {
-            Bank.loadLastPreset();
-        }
-    }
-
-    private void selectSoilSpell() {
-        ActionBar.useAbility("Sift Soil");
-        Execution.delayUntil(5000, () -> Interfaces.isOpen(1371));
-    }
-
-    private boolean BackpackContainsSoil() {
-        ResultSet<Item> backpackItems = InventoryItemQuery.newQuery(93).results();
-        for (Item item : backpackItems) {
-            if (SOIL_ITEMS.contains(item.getName())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void loadBankPreset() {
-        SceneObject bankObj = SceneObjectQuery.newQuery().name("Bank chest", "Banker", "Bank booth").results().nearest();
-
-        if (bankObj != null) {
-            presetLoaded = false;
-            waitingForPreset = true;
-            Bank.loadLastPreset();
-
-            Execution.delayUntil(random.nextInt(5000) + 5000, () -> presetLoaded);
-            waitingForPreset = false;
-
-            if (botState == BotState.POWDER_OF_BURIALS) {
-                Execution.delayUntil(5000, this::hasBonesToBury);
-            } else if (botState == BotState.SIFT_SOIL) {
-                Execution.delayUntil(5000, this::BackpackContainsSoil);
-            }
+        } catch (Exception e) {
+            ScriptConsole.println("Error in main loop: " + e.getMessage());
+            e.printStackTrace();
+            Execution.delay(1000);
         }
     }
 
@@ -361,95 +198,12 @@ public class CoaezUtility extends LoopingScript {
     public Disassembly getDisassembly() {
         return disassembly;
     }
+
+    public AlchemyTask getAlchemyTask() {
+        return alchemyTask;
+    }
     
-    private void handleScreenMesh() {
-        if (Interfaces.isOpen(1251)) {
-            Execution.delayUntil(14000, () -> !Interfaces.isOpen(1251));
-            return;
-        }
-
-        if (BackpackContainsSoil()) {
-            SceneObject mesh = SceneObjectQuery.newQuery().name("Mesh").option("Screen").results().nearest();
-            
-            if (mesh != null && mesh.interact("Screen")) {
-                Execution.delayUntil(15000, () -> Interfaces.isOpen(1370));
-                
-                Component screenOption = ComponentQuery.newQuery(1370)
-                    .componentIndex(30)  
-                    .results()
-                    .first();
-                
-                if (screenOption != null && screenOption.interact(1)) {
-                    Execution.delay(random.nextLong(1000, 2000));
-                } else {
-                    println("Could not find screening interface option");
-                }
-            } else {
-                println("Could not find mesh object");
-            }
-        } else {
-            waitingForPreset = true;
-            presetLoaded = false;
-            Bank.loadLastPreset();
-            Execution.delayUntil(random.nextInt(5000) + 5000, () -> presetLoaded);
-        }
-    }
-
-    private boolean moveTo(Coordinate location) {
-        if (Client.getLocalPlayer() == null) {
-            println("Movement failed: Player is null");
-            return false;
-        }
-        
-        println("Current position: " + Client.getLocalPlayer().getCoordinate());
-        println("Distance to target: " + Client.getLocalPlayer().getCoordinate().distanceTo(location));
-        
-        TraverseEvent.State state = Movement.traverse(NavPath.resolve(location));
-        println("Movement state: " + state);
-        
-        boolean result = state == TraverseEvent.State.FINISHED || 
-                         state == TraverseEvent.State.CONTINUE || 
-                         state == TraverseEvent.State.IDLE;
-        
-        println("Movement function returning: " + result);
-        return result;
-    }
-
-    private void handleGemCrafting() {
-        if (Interfaces.isOpen(1251)) {
-            Execution.delayUntil(14000, () -> !Interfaces.isOpen(1251));
-            return;
-        }
-
-        if (Interfaces.isOpen(1371)) {
-            MiniMenu.interact(ComponentAction.DIALOGUE.getType(), 0, -1, 89784350);
-            Execution.delay(random.nextLong(1000, 2000));
-            return;
-        }
-
-        if (hasUncutGems()) {
-            craftGems();
-        } else {
-            Bank.loadLastPreset();
-        }
-    }
-
-    private boolean hasUncutGems() {
-        ResultSet<Item> backpackItems = InventoryItemQuery.newQuery(93).results();
-        for (Item item : backpackItems) {
-            if (item.getName().contains("Uncut")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void craftGems() {
-        Item gem = InventoryItemQuery.newQuery(93).option("Craft").results().first();
-        if (gem != null) {
-            if (inventoryInteract("Craft", gem.getName())) {
-                Execution.delayUntil(5000, () -> Interfaces.isOpen(1371));
-            }
-        }
+    public DisassemblyTask getDisassemblyTask() {
+        return disassemblyTask;
     }
 }
