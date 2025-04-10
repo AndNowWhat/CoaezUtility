@@ -12,6 +12,7 @@ import net.botwithus.rs3.script.config.ScriptConfig;
 import net.botwithus.tasks.*;
 import net.botwithus.model.Alchemy;
 import net.botwithus.model.Disassembly;
+import net.botwithus.model.POSD;
 
 import java.util.Random;
 
@@ -28,6 +29,7 @@ public class CoaezUtility extends LoopingScript {
     // Model instances
     private final Alchemy alchemy;
     private final Disassembly disassembly;
+    private final POSD posd;
     
     // Task instances
     private final PowderOfBurialsTask powderOfBurialsTask;
@@ -36,6 +38,7 @@ public class CoaezUtility extends LoopingScript {
     private final AlchemyTask alchemyTask;
     private final DisassemblyTask disassemblyTask;
     private final GemCraftingTask gemCraftingTask;
+    private final POSDTask posdTask;
     
     // GUI reference
     private CoaezUtilityGUI gui;
@@ -48,6 +51,7 @@ public class CoaezUtility extends LoopingScript {
         ALCHEMY,
         DISASSEMBLY,
         GEM_CRAFTING,
+        POSD,
         STOPPED
     }
 
@@ -57,6 +61,7 @@ public class CoaezUtility extends LoopingScript {
         
         this.alchemy = new Alchemy();
         this.disassembly = new Disassembly(this);
+        this.posd = new POSD(this);
         
         // Initialize tasks
         this.powderOfBurialsTask = new PowderOfBurialsTask(this);
@@ -65,6 +70,7 @@ public class CoaezUtility extends LoopingScript {
         this.alchemyTask = new AlchemyTask(this);
         this.disassemblyTask = new DisassemblyTask(this);
         this.gemCraftingTask = new GemCraftingTask(this);
+        this.posdTask = new POSDTask(this);
    
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
@@ -164,6 +170,10 @@ public class CoaezUtility extends LoopingScript {
                     ScriptConsole.println("Executing gem crafting task");
                     gemCraftingTask.execute();
                 }
+                case POSD -> {
+                    ScriptConsole.println("Executing POSD task");
+                    posdTask.execute();
+                }
                 case STOPPED -> {
                     ScriptConsole.println("Stopping script");
                     stopScript();
@@ -198,6 +208,10 @@ public class CoaezUtility extends LoopingScript {
     public Disassembly getDisassembly() {
         return disassembly;
     }
+    
+    public POSD getPOSD() {
+        return posd;
+    }
 
     public AlchemyTask getAlchemyTask() {
         return alchemyTask;
@@ -205,5 +219,9 @@ public class CoaezUtility extends LoopingScript {
     
     public DisassemblyTask getDisassemblyTask() {
         return disassemblyTask;
+    }
+    
+    public POSDTask getPOSDTask() {
+        return posdTask;
     }
 }
