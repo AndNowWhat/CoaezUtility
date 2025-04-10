@@ -1,0 +1,75 @@
+name: Java CI with Gradle
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up JDK 20
+      uses: actions/setup-java@v3
+      with:
+        java-version: '20'
+        distribution: 'temurin'
+
+    - name: Build with Gradle
+      uses: gradle/gradle-build-action@v2
+      with:
+        gradle-version: '8.8'
+        arguments: build
+
+    - name: List build/libs files for Debugging
+      run: ls -al build/libs
+
+    - name: Upload JAR as Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: CoaezUtility
+        path: build/libs/CoaezUtility-1.0-SNAPSHOT.jar
+
+    - name: Delete existing GitHub release and tag
+      env:
+        GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+      run: |
+        # Delete the existing release if it exists
+        release_id=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+          https://api.github.com/repos/${{ github.repository }}/releases/tags/latest | jq -r '.id')
+        
+        if [ "$release_id" != "null" ]; then
+          echo "Deleting existing release with ID: $release_id"
+          curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
+            https://api.github.com/repos/${{ github.repository }}/releases/$release_id
+        else
+          echo "No existing release found with the tag 'latest'."
+        fi
+
+        # Delete the tag if it exists
+        git tag -d latest || true
+        git push origin :refs/tags/latest || true
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+      with:
+        tag_name: 'latest'
+        release_name: 'Latest Build'
+        draft: false
+        prerelease: false
+
+    - name: Upload JAR to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: build/libs/CoaezUtility-1.0-SNAPSHOT.jar
+        asset_name: CoaezUtility.jar
+        asset_content_type: application/java-archive
