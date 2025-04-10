@@ -1,46 +1,20 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
-    id("java")
-    `maven-publish`
+    kotlin("jvm") version "1.9.0"
 }
 
-group = "net.botwithus.debug"
+group = "net.botwithus.example"
 version = "1.0-SNAPSHOT"
-
-repositories {
-    mavenLocal()
-    mavenCentral()
-    maven {
-        setUrl("https://nexus.botwithus.net/repository/maven-release/")
-    }
-}
 
 configurations {
     create("includeInJar") {
-        isTransitive = false
-    }
-}
-
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(20))
+        this.isTransitive = false
     }
 }
 
 tasks.withType<JavaCompile> {
     options.compilerArgs.add("--enable-preview")
-}
-
-tasks.withType<JavaExec> {
-    jvmArgs = listOf("--enable-preview")
-}
-
-dependencies {
-    implementation("net.botwithus.rs3:botwithus-api:1.+")
-    implementation("net.botwithus.xapi.public:api:1.+")
-    "includeInJar"("net.botwithus.xapi.public:api:1.+")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.2")
-    implementation("com.google.code.gson:gson:2.10.1")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.2")
 }
 
 val copyJar by tasks.register<Copy>("copyJar") {
@@ -50,7 +24,6 @@ val copyJar by tasks.register<Copy>("copyJar") {
 }
 
 tasks.named<Jar>("jar") {
-    archiveBaseName.set("CoaezUtility")
     from({
         configurations["includeInJar"].map { zipTree(it) }
     })
@@ -58,7 +31,33 @@ tasks.named<Jar>("jar") {
     finalizedBy(copyJar)
 }
 
-tasks.getByName<Test>("test") {
+tasks.withType<JavaCompile> {
+    sourceCompatibility = "20"
+    targetCompatibility = "20"
+    options.compilerArgs.add("--enable-preview")
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven {
+        setUrl("https://nexus.botwithus.net/repository/maven-releases/")
+    }
+}
+
+dependencies {
+    implementation("net.botwithus.rs3:botwithus-api:1.+")
+    implementation("net.botwithus.xapi.public:api:1.+")
+    "includeInJar"("net.botwithus.xapi.public:api:1.+")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")
+    testImplementation(kotlin("test"))
+}
+
+tasks.test {
     useJUnitPlatform()
-    jvmArgs = listOf("--enable-preview")
+}
+
+tasks.withType<KotlinCompile> {
+    kotlinOptions.jvmTarget = "20"
 }
