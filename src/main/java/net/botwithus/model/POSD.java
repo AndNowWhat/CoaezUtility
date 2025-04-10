@@ -314,15 +314,31 @@ public class POSD {
     }
 
     public boolean interactWithFirstDoor() {
+        ScriptConsole.println("[POSD] Searching for door to interact with...");
         EntityResultSet<SceneObject> door = SceneObjectQuery.newQuery().name("Door").option("Open").results();
-        if (!door.isEmpty()) {
-            SceneObject nearestDoor = door.nearest();
-            if (nearestDoor != null && nearestDoor.interact("Enter dungeon")) {
-                Execution.delay(RandomGenerator.nextInt(5000, 8000));
-                return true;
-            }
+        
+        if (door.isEmpty()) {
+            ScriptConsole.println("[POSD] No door found with name 'Door' and option 'Open'");
+            return false;
         }
-        return false;
+        
+        ScriptConsole.println("[POSD] Found " + door.size() + " doors matching criteria");
+        SceneObject nearestDoor = door.nearest();
+        
+        if (nearestDoor == null) {
+            ScriptConsole.println("[POSD] Nearest door is null");
+            return false;
+        }
+        
+        ScriptConsole.println("[POSD] Attempting to interact with door at position: " + nearestDoor.getCoordinate());
+        if (nearestDoor.interact("Open")) {
+            ScriptConsole.println("[POSD] Successfully interacted with door, waiting for response...");
+            Execution.delay(RandomGenerator.nextInt(5000, 8000));
+            return true;
+        } else {
+            ScriptConsole.println("[POSD] Failed to interact with door");
+            return false;
+        }
     }
 
     public boolean interactWithOtherDoor() {
