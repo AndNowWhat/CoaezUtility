@@ -6,8 +6,6 @@ import net.botwithus.rs3.script.ScriptConsole;
 import net.botwithus.rs3.script.ScriptGraphicsContext;
 import net.botwithus.rs3.script.config.ScriptConfig;
 
-import static net.botwithus.rs3.script.ScriptConsole.println;
-
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -21,12 +19,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private Set<String> preloadedAlchemyItems = new HashSet<>();
     private Set<String> preloadedDisassemblyItems = new HashSet<>();
 
+    // Window dimensions
+    private final int LISTBOX_HEIGHT = 150;
 
     public CoaezUtilityGUI(ScriptConsole scriptConsole, CoaezUtility coaezUtility) {
         super(scriptConsole);
         this.coaezUtility = coaezUtility;
-
-        loadConfig();
         lastBotState = coaezUtility.getBotState();
     }
 
@@ -38,115 +36,135 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         return false;
     }
 
+    @Override
     public void drawSettings() {
-        if (ImGui.Begin("Coaez Utility Settings", ImGuiWindowFlag.AlwaysAutoResize.getValue())) {
-            ImGui.Text("Activity Selection");
-            ImGui.Separator();
-    
+        if (ImGui.Begin("Coaez Utility", ImGuiWindowFlag.None.getValue())) {
+            ImGui.Text("Current State: " + coaezUtility.getBotState());
+             ImGui.Separator();
+            
             if (ImGui.BeginTabBar("MainTabBar", 0)) {
-                if (ImGui.BeginTabItem("Main Activities", 0)) {
-                    renderMainActivities();
+                if (ImGui.BeginTabItem("Activities", 0)) {
+                    renderActivitiesTab();
                     ImGui.EndTabItem();
                 }
-                if (ImGui.BeginTabItem("Alchemy & Disassembly", 0)) {
-                    renderAlchemyAndDisassembly();
+                if (ImGui.BeginTabItem("Alchemy", 0)) {
+                    renderAlchemyTab();
+                    ImGui.EndTabItem();
+                }
+                if (ImGui.BeginTabItem("Disassembly", 0)) {
+                    renderDisassemblyTab();
                     ImGui.EndTabItem();
                 }
                 ImGui.EndTabBar();
             }
-    
-            if (ImGui.Button("Stop Script")) {
+            
+            ImGui.Separator();
+            
+            if (ImGui.Button("Stop All Activities")) {
                 coaezUtility.setBotState(CoaezUtility.BotState.IDLE);
             }
-    
-            ImGui.Text("Current State: " + coaezUtility.getBotState().toString());
-    
+            
             if (hasStateChanged()) {
                 saveConfig();
             }
-    
+             
             ImGui.End();
         }
     }
     
-    private void renderMainActivities() {
-        ImGui.Text("Configure and load a preset before starting");
+    private void renderActivitiesTab() {
+        ImGui.Text("Configure and load a preset before starting any activity");
+        ImGui.Separator();
 
+        ImGui.Text("Prayer & Crafting Activities");
+        
         if (ImGui.Button("Start Powder of Burials")) {
             coaezUtility.setBotState(CoaezUtility.BotState.POWDER_OF_BURIALS);
         }
-
-        ImGui.Separator();
-
-        if (ImGui.Button("Start Soil Sifting (Spell)")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.SIFT_SOIL);
-        }
-
-        if (ImGui.Button("Start Soil Sifting (Screen Mesh)")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.SCREEN_MESH);
-        }
-
-        ImGui.Separator();
-
+        
         if (ImGui.Button("Start Gem Crafting")) {
             coaezUtility.setBotState(CoaezUtility.BotState.GEM_CRAFTING);
         }
+        
+        ImGui.Separator();
+        
+        ImGui.Text("Archaeology Activities");
+        
+        if (ImGui.Button("Start Soil Sifting (Spell)")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.SIFT_SOIL);
+        }
+        
+        if (ImGui.Button("Start Soil Screening (Mesh)")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.SCREEN_MESH);
+        }
     }
-
-    private void renderAlchemyAndDisassembly() {
-        // Alchemy Section
-        ImGui.Text("High Alchemy");
-        if (ImGui.Button(coaezUtility.getBotState() == CoaezUtility.BotState.ALCHEMY ? 
-            "Stop Alchemy" : "Start Alchemy")) {
+    
+    private void renderAlchemyTab() {
+        ImGui.Text("High Level Alchemy");
+        
+        String alchemyButtonText = coaezUtility.getBotState() == CoaezUtility.BotState.ALCHEMY ? 
+            "Stop Alchemy" : "Start Alchemy";
+        if (ImGui.Button(alchemyButtonText)) {
             coaezUtility.setBotState(coaezUtility.getBotState() == CoaezUtility.BotState.ALCHEMY ? 
                 CoaezUtility.BotState.IDLE : CoaezUtility.BotState.ALCHEMY);
         }
-
+        
+        ImGui.Separator();
+        
         ImGui.Text("Items to Alchemize");
-        if (ImGui.ListBoxHeader("##AlchemyItems", 300, 150)) {
+        
+        if (ImGui.ListBoxHeader("##AlchemyItems", 300, LISTBOX_HEIGHT)) {
             List<String> alchemyItems = coaezUtility.getAlchemy().getAlchemyItems();
             for (int i = 0; i < alchemyItems.size(); i++) {
                 String itemName = alchemyItems.get(i);
+                ImGui.PushID("alch_" + i);
                 ImGui.Text(itemName);
                 ImGui.SameLine();
-                if (ImGui.Button("Remove##Alch" + i)) {
+                if (ImGui.Button("Remove")) {
                     coaezUtility.getAlchemy().removeAlchemyItem(itemName);
                 }
+                ImGui.PopID();
             }
             ImGui.ListBoxFooter();
         }
-
+        
         alchemyInput = ImGui.InputText("Item Name##Alch", alchemyInput);
         if (ImGui.Button("Add##Alch") && !alchemyInput.isEmpty()) {
             coaezUtility.getAlchemy().addAlchemyItem(alchemyInput);
             preloadedAlchemyItems.add(alchemyInput);
             alchemyInput = "";
         }
+    }
 
-        ImGui.Separator();
-
-        // Disassembly Section
-        ImGui.Text("Disassembly");
-        if (ImGui.Button(coaezUtility.getBotState() == CoaezUtility.BotState.DISASSEMBLY ? 
-            "Stop Disassembly" : "Start Disassembly")) {
+    private void renderDisassemblyTab() {
+        ImGui.Text("Invention Disassembly");
+        
+        String disassemblyButtonText = coaezUtility.getBotState() == CoaezUtility.BotState.DISASSEMBLY ? 
+            "Stop Disassembly" : "Start Disassembly";
+        if (ImGui.Button(disassemblyButtonText)) {
             coaezUtility.setBotState(coaezUtility.getBotState() == CoaezUtility.BotState.DISASSEMBLY ? 
                 CoaezUtility.BotState.IDLE : CoaezUtility.BotState.DISASSEMBLY);
         }
-
+        
+        ImGui.Separator();
+        
         ImGui.Text("Items to Disassemble");
-        if (ImGui.ListBoxHeader("##DisassemblyItems", 300, 150)) {
+        
+        if (ImGui.ListBoxHeader("##DisassemblyItems", 300, LISTBOX_HEIGHT)) {
             List<String> disassemblyItems = coaezUtility.getDisassembly().getDisassemblyItems();
             for (int i = 0; i < disassemblyItems.size(); i++) {
                 String itemName = disassemblyItems.get(i);
+                ImGui.PushID("dis_" + i);
                 ImGui.Text(itemName);
                 ImGui.SameLine();
-                if (ImGui.Button("Remove##Dis" + i)) {
+                if (ImGui.Button("Remove")) {
                     coaezUtility.getDisassembly().removeDisassemblyItem(itemName);
                 }
+                ImGui.PopID();
             }
             ImGui.ListBoxFooter();
         }
-
+        
         disassemblyInput = ImGui.InputText("Item Name##Dis", disassemblyInput);
         if (ImGui.Button("Add##Dis") && !disassemblyInput.isEmpty()) {
             coaezUtility.getDisassembly().addDisassemblyItem(disassemblyInput);
@@ -168,6 +186,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             config.save();
         }
     }
+    
     public void loadConfig() {
         ScriptConfig config = coaezUtility.getConfig();
         if (config != null) {
@@ -194,5 +213,6 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
 
     @Override
     public void drawOverlay() {
+        super.drawOverlay();
     }
 }

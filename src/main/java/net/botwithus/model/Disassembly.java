@@ -1,4 +1,4 @@
-package net.botwithus;
+package net.botwithus.model;
 
 import net.botwithus.api.game.hud.inventories.Backpack;
 import net.botwithus.rs3.game.Client;
@@ -15,6 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import net.botwithus.CoaezUtility;
 
 public class Disassembly {
     private final List<Pattern> disassemblyPatterns = new ArrayList<>();

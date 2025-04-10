@@ -1,4 +1,4 @@
-package net.botwithus;
+package net.botwithus.model;
 
 import net.botwithus.api.game.hud.inventories.Backpack;
 import net.botwithus.rs3.game.Client;
