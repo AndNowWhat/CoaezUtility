@@ -102,14 +102,18 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (ImGui.Button("Start Soil Screening (Mesh)")) {
             coaezUtility.setBotState(CoaezUtility.BotState.SCREEN_MESH);
         }
-        
-        ImGui.Separator();
-        
-        ImGui.Text("Combat Activities");
+                
+        ImGui.SeparatorText("Combat Activities");
         
         if (ImGui.Button("Start Player Owned Dungeon")) {
             coaezUtility.setBotState(CoaezUtility.BotState.POSD);
         }
+
+        ImGui.SeparatorText("Invention");
+        if (ImGui.Button("Start invention")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.INVENTION);
+        } 
+
     }
     
     private void renderAlchemyTab() {
