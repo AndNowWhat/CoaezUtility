@@ -40,6 +40,7 @@ public class CoaezUtility extends LoopingScript {
     private final GemCraftingTask gemCraftingTask;
     private final POSDTask posdTask;
     private final InventionTask inventionTask;
+    private final EnchantingTask enchantingTask;
     // GUI reference
     private CoaezUtilityGUI gui;
 
@@ -53,6 +54,7 @@ public class CoaezUtility extends LoopingScript {
         GEM_CRAFTING,
         POSD,
         INVENTION,
+        ENCHANTING,
         STOPPED
     }
 
@@ -73,6 +75,7 @@ public class CoaezUtility extends LoopingScript {
         this.gemCraftingTask = new GemCraftingTask(this);
         this.posdTask = new POSDTask(this);
         this.inventionTask = new InventionTask(this);
+        this.enchantingTask = new EnchantingTask(this);
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
 
@@ -179,6 +182,10 @@ public class CoaezUtility extends LoopingScript {
                     ScriptConsole.println("Executing invention task");
                     inventionTask.execute();
                 }
+                case ENCHANTING -> {
+                    ScriptConsole.println("Executing enchanting task");
+                    enchantingTask.execute();
+                }
                 case STOPPED -> {
                     ScriptConsole.println("Stopping script");
                     stopScript();
@@ -188,7 +195,7 @@ public class CoaezUtility extends LoopingScript {
         } catch (Exception e) {
             ScriptConsole.println("Error in main loop: " + e.getMessage());
             e.printStackTrace();
-            Execution.delay(1000);
+            Execution.delay(100);
         }
     }
 

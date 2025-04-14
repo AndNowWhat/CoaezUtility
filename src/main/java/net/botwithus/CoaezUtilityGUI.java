@@ -27,6 +27,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         super(scriptConsole);
         this.coaezUtility = coaezUtility;
         lastBotState = coaezUtility.getBotState();
+        loadConfig();
     }
 
     public boolean hasStateChanged() {
@@ -114,6 +115,11 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             coaezUtility.setBotState(CoaezUtility.BotState.INVENTION);
         } 
 
+        ImGui.SeparatorText("Enchanting");
+        if (ImGui.Button("Start enchanting")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.ENCHANTING);
+        }
+
     }
     
     private void renderAlchemyTab() {
@@ -193,6 +199,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         ImGui.Text("Player Owned Dungeon Settings");
         ImGui.Separator();
         
+
         // Checkboxes for options
         boolean useOverloads = coaezUtility.getPOSD().isUseOverloads();
         if (ImGui.Checkbox("Use Overloads", useOverloads)) {
@@ -344,14 +351,18 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         }
     }
     
-    public void loadConfig() {
+    private void loadConfig() {
         ScriptConfig config = coaezUtility.getConfig();
         if (config != null) {
             config.load();
             
             String botStateValue = config.getProperty("botState");
             if (botStateValue != null) {
-                coaezUtility.setBotState(CoaezUtility.BotState.valueOf(botStateValue));
+                try {
+                    coaezUtility.setBotState(CoaezUtility.BotState.valueOf(botStateValue));
+                } catch (IllegalArgumentException e) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.IDLE);
+                }
             }
 
             // Load Alchemy settings
