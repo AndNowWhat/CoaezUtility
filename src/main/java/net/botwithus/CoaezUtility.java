@@ -41,6 +41,7 @@ public class CoaezUtility extends LoopingScript {
     private final POSDTask posdTask;
     private final InventionTask inventionTask;
     private final EnchantingTask enchantingTask;
+    private final DrinkPerfectPlusJujuTask drinkPerfectPlusJujuTask;
     // GUI reference
     private CoaezUtilityGUI gui;
 
@@ -76,6 +77,7 @@ public class CoaezUtility extends LoopingScript {
         this.posdTask = new POSDTask(this);
         this.inventionTask = new InventionTask(this);
         this.enchantingTask = new EnchantingTask(this);
+        this.drinkPerfectPlusJujuTask = new DrinkPerfectPlusJujuTask(this);
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
 
@@ -147,6 +149,8 @@ public class CoaezUtility extends LoopingScript {
                 Execution.delay(1200);
                 return;
             }
+
+            drinkPerfectPlusJujuTask.execute();
 
             switch (botState) {
                 case IDLE -> ScriptConsole.println("Bot is idle");
