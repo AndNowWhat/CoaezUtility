@@ -115,7 +115,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             coaezUtility.setBotState(CoaezUtility.BotState.INVENTION);
         } 
 
-        ImGui.SeparatorText("Enchanting");
+        ImGui.SeparatorText("Enchanting bolts");
         if (ImGui.Button("Start enchanting")) {
             coaezUtility.setBotState(CoaezUtility.BotState.ENCHANTING);
         }
