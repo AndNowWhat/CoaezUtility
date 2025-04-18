@@ -199,35 +199,39 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         ImGui.Text("Player Owned Dungeon Settings");
         ImGui.Separator();
         
-
         // Checkboxes for options
         boolean useOverloads = coaezUtility.getPOSD().isUseOverloads();
-        if (ImGui.Checkbox("Use Overloads", useOverloads)) {
-            coaezUtility.getPOSD().setUseOverloads(!useOverloads);
+        boolean newUseOverloads = ImGui.Checkbox("Use Overloads", useOverloads);
+        if (newUseOverloads != useOverloads) {
+            coaezUtility.getPOSD().setUseOverloads(newUseOverloads);
             saveConfig();
         }
         
         boolean usePrayerPots = coaezUtility.getPOSD().isUsePrayerPots();
-        if (ImGui.Checkbox("Use Prayer Potions", usePrayerPots)) {
-            coaezUtility.getPOSD().setUsePrayerPots(!usePrayerPots);
+        boolean newUsePrayerPots = ImGui.Checkbox("Use Prayer Potions", usePrayerPots);
+        if (newUsePrayerPots != usePrayerPots) {
+            coaezUtility.getPOSD().setUsePrayerPots(newUsePrayerPots);
             saveConfig();
         }
         
         boolean useAggroPots = coaezUtility.getPOSD().isUseAggroPots();
-        if (ImGui.Checkbox("Use Aggression Potions", useAggroPots)) {
-            coaezUtility.getPOSD().setUseAggroPots(!useAggroPots);
+        boolean newUseAggroPots = ImGui.Checkbox("Use Aggression Potions", useAggroPots);
+        if (newUseAggroPots != useAggroPots) {
+            coaezUtility.getPOSD().setUseAggroPots(newUseAggroPots);
             saveConfig();
         }
         
         boolean useWeaponPoison = coaezUtility.getPOSD().isUseWeaponPoison();
-        if (ImGui.Checkbox("Use Weapon Poison", useWeaponPoison)) {
-            coaezUtility.getPOSD().setUseWeaponPoison(!useWeaponPoison);
+        boolean newUseWeaponPoison = ImGui.Checkbox("Use Weapon Poison", useWeaponPoison);
+        if (newUseWeaponPoison != useWeaponPoison) {
+            coaezUtility.getPOSD().setUseWeaponPoison(newUseWeaponPoison);
             saveConfig();
         }
         
         boolean useQuickPrayers = coaezUtility.getPOSD().isUseQuickPrayers();
-        if (ImGui.Checkbox("Use Quick Prayers", useQuickPrayers)) {
-            coaezUtility.getPOSD().setUseQuickPrayers(!useQuickPrayers);
+        boolean newUseQuickPrayers = ImGui.Checkbox("Use Quick Prayers", useQuickPrayers);
+        if (newUseQuickPrayers != useQuickPrayers) {
+            coaezUtility.getPOSD().setUseQuickPrayers(newUseQuickPrayers);
             saveConfig();
         }
         
@@ -255,26 +259,30 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         
         // More checkboxes
         boolean useLoot = coaezUtility.getPOSD().isUseLoot();
-        if (ImGui.Checkbox("Use Loot", useLoot)) {
-            coaezUtility.getPOSD().setUseLoot(!useLoot);
+        boolean newUseLoot = ImGui.Checkbox("Use Loot", useLoot);
+        if (newUseLoot != useLoot) {
+            coaezUtility.getPOSD().setUseLoot(newUseLoot);
             saveConfig();
         }
         
         boolean lootAll = coaezUtility.getPOSD().isInteractWithLootAll();
-        if (ImGui.Checkbox("Loot All", lootAll)) {
-            coaezUtility.getPOSD().setInteractWithLootAll(!lootAll);
+        boolean newLootAll = ImGui.Checkbox("Loot All", lootAll);
+        if (newLootAll != lootAll) {
+            coaezUtility.getPOSD().setInteractWithLootAll(newLootAll);
             saveConfig();
         }
         
         boolean useScrimshaws = coaezUtility.getPOSD().isUseScrimshaws();
-        if (ImGui.Checkbox("Use Scrimshaws", useScrimshaws)) {
-            coaezUtility.getPOSD().setUseScrimshaws(!useScrimshaws);
+        boolean newUseScrimshaws = ImGui.Checkbox("Use Scrimshaws", useScrimshaws);
+        if (newUseScrimshaws != useScrimshaws) {
+            coaezUtility.getPOSD().setUseScrimshaws(newUseScrimshaws);
             saveConfig();
         }
         
         boolean bankForFood = coaezUtility.getPOSD().isBankForFood();
-        if (ImGui.Checkbox("Bank For Food", bankForFood)) {
-            coaezUtility.getPOSD().setBankForFood(!bankForFood);
+        boolean newBankForFood = ImGui.Checkbox("Bank For Food", bankForFood);
+        if (newBankForFood != bankForFood) {
+            coaezUtility.getPOSD().setBankForFood(newBankForFood);
             saveConfig();
         }
         
