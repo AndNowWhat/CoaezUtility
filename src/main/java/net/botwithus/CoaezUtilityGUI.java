@@ -57,10 +57,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     renderDisassemblyTab();
                     ImGui.EndTabItem();
                 }
+                /* // Commented out POSD Tab
                 if (ImGui.BeginTabItem("POSD", 0)) {
                     renderPOSDTab();
                     ImGui.EndTabItem();
                 }
+                */
                 ImGui.EndTabBar();
             }
             
@@ -92,6 +94,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             coaezUtility.setBotState(CoaezUtility.BotState.GEM_CRAFTING);
         }
         
+        if (ImGui.Button("Start Fungal Bowstrings")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.FUNGAL_BOWSTRINGS);
+        }
+        
         ImGui.Separator();
         
         ImGui.Text("Archaeology Activities");
@@ -106,9 +112,11 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 
         ImGui.SeparatorText("Combat Activities");
         
+        /* // Commented out Start Player Owned Dungeon button
         if (ImGui.Button("Start Player Owned Dungeon")) {
             coaezUtility.setBotState(CoaezUtility.BotState.POSD);
         }
+        */
 
         ImGui.SeparatorText("Invention");
         if (ImGui.Button("Start invention")) {
@@ -195,6 +203,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         }
     }
     
+    /* // Commented out renderPOSDTab method
     private void renderPOSDTab() {
         ImGui.Text("Player Owned Dungeon Settings");
         ImGui.Separator();
@@ -327,6 +336,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             saveConfig();
         }
     }
+    */
     
     private void saveConfig() {
         ScriptConfig config = coaezUtility.getConfig();

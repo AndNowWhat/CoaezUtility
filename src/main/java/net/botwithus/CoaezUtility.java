@@ -42,6 +42,7 @@ public class CoaezUtility extends LoopingScript {
     private final InventionTask inventionTask;
     private final EnchantingTask enchantingTask;
     private final DrinkPerfectPlusJujuTask drinkPerfectPlusJujuTask;
+    private final FungalBowstrings fungalBowstringsTask;
     // GUI reference
     private CoaezUtilityGUI gui;
 
@@ -56,6 +57,7 @@ public class CoaezUtility extends LoopingScript {
         POSD,
         INVENTION,
         ENCHANTING,
+        FUNGAL_BOWSTRINGS,
         STOPPED
     }
 
@@ -78,6 +80,7 @@ public class CoaezUtility extends LoopingScript {
         this.inventionTask = new InventionTask(this);
         this.enchantingTask = new EnchantingTask(this);
         this.drinkPerfectPlusJujuTask = new DrinkPerfectPlusJujuTask(this);
+        this.fungalBowstringsTask = new FungalBowstrings(this);
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
 
@@ -189,6 +192,10 @@ public class CoaezUtility extends LoopingScript {
                 case ENCHANTING -> {
                     ScriptConsole.println("Executing enchanting task");
                     enchantingTask.execute();
+                }
+                case FUNGAL_BOWSTRINGS -> {
+                    ScriptConsole.println("Executing fungal bowstrings task");
+                    fungalBowstringsTask.execute();
                 }
                 case STOPPED -> {
                     ScriptConsole.println("Stopping script");
