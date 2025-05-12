@@ -46,15 +46,11 @@ public class FungalBowstrings implements Task {
             if (interacted) {
                 ScriptConsole.println("Confirmed crafting.");
                 Execution.delayUntil(3000, () -> Interfaces.isOpen(MAKE_X_INTERFACE_ID) || !Interfaces.isOpen(CONFIRMATION_INTERFACE_ID));
+                return;
             }
             return;
         }
         
-        // 4. Start crafting
-        if (Interfaces.isOpen(MAKE_X_INTERFACE_ID)) {
-            Execution.delay(600);
-            return;
-        }
 
         EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery().name("Spinning wheel").option("Spin").results();
         SceneObject spinningWheel = results.first();
