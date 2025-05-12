@@ -131,7 +131,20 @@ public class PortableTask implements Task {
         
         if (currentPortable.hasRequiredItems()) {
             ScriptConsole.println("[" + currentPortable.getType().getName() + "] Found required items, interacting...");
-            currentPortable.interact();
+            if (currentPortable.interact()) {
+                if (!(currentPortable instanceof PortableWorkbench)) { 
+                    ScriptConsole.println("[" + currentPortable.getType().getName() + "] Interaction initiated by Portable.interact(). Checking for confirmation interface...");
+                    int confirmInterfaceId = currentPortable.getConfirmationInterfaceId();
+                    if (Interfaces.isOpen(confirmInterfaceId)) {
+                        ScriptConsole.println("[" + currentPortable.getType().getName() + "] Confirmation interface (" + confirmInterfaceId + ") detected. Calling confirmAction().");
+                        currentPortable.confirmAction();
+                    } else {
+                        ScriptConsole.println("[" + currentPortable.getType().getName() + "] Confirmation interface (" + confirmInterfaceId + ") not detected immediately after interaction.");
+                    }
+                }
+            } else {
+                ScriptConsole.println("[" + currentPortable.getType().getName() + "] Interact method already logged failure reason (not found or interaction failed).");
+            }
         } else {
             ScriptConsole.println("[" + currentPortable.getType().getName() + "] No/Not enough required items found for " + (currentProduct != null ? currentProduct.getName() : "selected portable") + ", loading preset.");
             script.setWaitingForPreset(true);

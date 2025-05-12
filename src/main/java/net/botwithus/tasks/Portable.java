@@ -11,6 +11,8 @@ import net.botwithus.rs3.script.ScriptConsole;
 import net.botwithus.rs3.game.hud.interfaces.Interfaces;
 import net.botwithus.rs3.game.minimenu.MiniMenu;
 import net.botwithus.rs3.game.minimenu.actions.ComponentAction;
+import net.botwithus.rs3.game.js5.types.ItemType;
+import net.botwithus.rs3.game.js5.types.ItemType.Stackability;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -34,10 +36,8 @@ public abstract class Portable {
         return type;
     }
 
-    // Abstract methods to be implemented by subclasses
     public abstract String getInteractionOption();
-    public abstract List<Ingredient> getRequiredItems(); // Reads from structs/configs
-    // Optional: Subclasses can override if they use different interfaces
+    public abstract List<Ingredient> getRequiredItems(); 
     public int getCraftingInterfaceId() { return craftingInterfaceId; }
     public int getConfirmationInterfaceId() { return confirmationInterfaceId; }
     public int getMakeXInterfaceId() { return makeXInterfaceId; }
@@ -46,24 +46,35 @@ public abstract class Portable {
 
     /**
      * Checks if the backpack contains the required items for this portable.
-     * Handles non-stackable items by counting.
+     * Handles stackable items correctly using ItemType.Stackability.
      */
     public boolean hasRequiredItems() {
         List<Ingredient> required = getRequiredItems();
-        if (required.isEmpty()) {
-            ScriptConsole.println("[" + type.getName() + "] No required items defined yet.");
-            return false; // Or true? Depends on desired behavior if requirements aren't loaded
+        if (required == null || required.isEmpty()) { 
+
+             ScriptConsole.println("[" + type.getName() + "] No required items defined or list is null.");
+            return false; 
         }
 
         for (Ingredient req : required) {
-            // TODO: Adapt this based on how Ingredient stores item info (ID vs Name) and stackability
-            long count = Backpack.getItems().stream()
-                .filter(item -> item.getName().equalsIgnoreCase(req.getDisplayName())) // Case-insensitive match
-                // .mapToInt(item -> item.getStackability() == STACKABLE ? item.getStackSize() : 1) // Example if stackability is known
-                .count(); // Simple count for non-stackable for now
+            if (req == null) continue;
+
+            int totalQuantity = Backpack.getItems().stream()
+                .filter(item -> item != null && item.getName().equalsIgnoreCase(req.getDisplayName()))
+                .mapToInt(item -> {
+                    ItemType type = item.getConfigType(); 
+                    if (type == null) return 0; 
+                    
+                    Stackability stackability = type.getStackability(); 
+                    boolean isGenerallyStackable = stackability == Stackability.ALWAYS || stackability == Stackability.SOMETIMES;
+                    boolean isCoin = item.getId() == 995;
+
+                    return (isGenerallyStackable || isCoin) ? item.getStackSize() : 1;
+                })
+                .sum();
             
-            if (count < req.getAmount()) {
-                ScriptConsole.println("[" + type.getName() + "] Missing required item: " + req.getDisplayName() + " (Need " + req.getAmount() + ", Have " + count + ")");
+            if (totalQuantity < req.getAmount()) {
+                ScriptConsole.println("[" + type.getName() + "] Missing required item: " + req.getDisplayName() + " (Need " + req.getAmount() + ", Have " + totalQuantity + ")");
                 return false;
             }
         }
@@ -98,7 +109,6 @@ public abstract class Portable {
         return false;
     }
 
-    // Default confirmation handling (can be overridden)
     public void confirmAction() {
          ScriptConsole.println("[" + type.getName() + "] Confirmation interface open, confirming action");
          MiniMenu.interact(ComponentAction.DIALOGUE.getType(), 0, -1, getConfirmationDialogueAction());

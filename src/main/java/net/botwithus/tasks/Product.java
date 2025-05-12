@@ -5,109 +5,131 @@ import net.botwithus.rs3.game.js5.types.configs.ConfigManager;
 import net.botwithus.rs3.script.ScriptConsole;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public class Product {
-    private final ItemType productItemType;
-    private final List<Ingredient> ingredients;
+    private int id; // Item ID of the product
+    private String name;
+    private ItemType productItemType; // Store the ItemType for param access
+    private List<Ingredient> ingredients = new ArrayList<>();
+    private int outputQuantity; // How many items this product definition yields
 
-    private static final int PRIMARY_INGREDIENT_PARAM_ID = 211;
-    private static final int PRIMARY_INGREDIENT_AMOUNT_PARAM_ID = 212;
-    private static final int LEVEL_REQUIREMENT_PARAM_ID = 23;
-    
-    // CS2 Script Parameter IDs for Crafting
-    private static final int CS2_INGREDIENT_ID_PARAM = 2655;
+    // CS2 Script Parameter IDs for ingredients (example, might vary per item)
+    // Common for things like flatpacks
+    private static final int CS2_INGREDIENT_ID_PARAM = 2655; 
     private static final int CS2_INGREDIENT_QUANTITY_PARAM = 2665;
 
-    // Assuming category 206 is for flatpacks based on example
-    public static final int FLATPACK_CATEGORY_ID = 206; 
+    // General ItemType parameters (example from Mahogany Toy Box)
+    private static final int PRIMARY_INGREDIENT_PARAM_ID = 211;
+    private static final int PRIMARY_INGREDIENT_AMOUNT_PARAM_ID = 212;
+    
 
-    public Product(ItemType productItemType) {
-        this.productItemType = productItemType;
-        this.ingredients = parseIngredients();
+    // Constructor taking an ItemType, typically for workbench products
+    public Product(ItemType itemType) {
+        if (itemType != null) {
+            this.id = itemType.getId();
+            this.name = itemType.getName();
+            this.productItemType = itemType; // Store for param access
+            this.outputQuantity = 1; // Default, can be overridden if product def implies otherwise
+            // Do NOT call parseIngredients here, as it might be called selectively later
+        } else {
+            this.id = -1;
+            this.name = "Invalid Product (null type)";
+            this.outputQuantity = 0;
+        }
     }
 
-    private List<Ingredient> parseIngredients() {
-        List<Ingredient> parsedIngredients = new ArrayList<>();
-        if (productItemType == null) { 
-            return parsedIngredients;
+    // Constructor for specific item ID and output quantity (e.g., from Enum where quantity is known)
+    public Product(int itemId, int outputQuantity) {
+        this.id = itemId;
+        this.outputQuantity = outputQuantity;
+        this.productItemType = ConfigManager.getItemType(itemId);
+        if (this.productItemType != null) {
+            this.name = this.productItemType.getName();
+        } else {
+            this.name = "Unknown Item (ID: " + itemId + ")";
+            ScriptConsole.println("[Product] Failed to get ItemType for ID: " + itemId);
+        }
+        // Do NOT call parseIngredients here
+    }
+
+    // Static factory method, preferred way to create if you only have item ID
+    public static Product fromItemId(int itemId, int outputQuantity) {
+        return new Product(itemId, outputQuantity);
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public List<Ingredient> getIngredients() {
+        return ingredients;
+    }
+
+    public int getOutputQuantity() {
+        return outputQuantity;
+    }
+    
+    public void setIngredients(List<Ingredient> ingredients) {
+        this.ingredients = ingredients;
+    }
+
+    // Method to parse ingredients based on CS2 params (2655 for item ID, 2665 for quantity)
+    // Made public to be callable from PortableCrafter after Product instantiation
+    public void parseIngredients() { 
+        if (this.productItemType == null) {
+            ScriptConsole.println("[Product: " + (this.getName() != null ? this.getName() : "Unknown") + "] Cannot parse ingredients, productItemType is null.");
+            return;
         }
         
+        this.ingredients.clear(); // Clear any existing ingredients before parsing
+
         // Try parsing based on item params (like Mahogany toy box example)
         // Param 211 = Item ID, Param 212 = Amount
-        // Use getIntParam and handle potential absence of the param
-        int paramIngredientId = productItemType.getIntParam(PRIMARY_INGREDIENT_PARAM_ID); // Returns 0 if not present
-        int paramIngredientAmount = productItemType.getIntParam(PRIMARY_INGREDIENT_AMOUNT_PARAM_ID); // Returns 0 if not present
-
+        int paramIngredientId = this.productItemType.getIntParam(PRIMARY_INGREDIENT_PARAM_ID); 
+        int paramIngredientAmount = this.productItemType.getIntParam(PRIMARY_INGREDIENT_AMOUNT_PARAM_ID);
+ 
         boolean foundViaParams = false;
-        // Check if valid values were likely found (param might exist but be 0)
-        // A more robust check might involve querying param *existence* if API allows
         if (paramIngredientId > 0 && paramIngredientAmount > 0) { 
             ItemType ingredientType = ConfigManager.getItemType(paramIngredientId);
             if (ingredientType != null) {
-                ScriptConsole.println("[Product: " + getName() + "] Found ingredient via Item Params: " + ingredientType.getName() + " x" + paramIngredientAmount);
-                parsedIngredients.add(new Ingredient(ingredientType, paramIngredientAmount));
+                ScriptConsole.println("[Product: " + this.getName() + "] Found ingredient via Item Params: " + ingredientType.getName() + " x" + paramIngredientAmount);
+                this.ingredients.add(new Ingredient(ingredientType, paramIngredientAmount));
                 foundViaParams = true;
             } else {
-                ScriptConsole.println("[Product: " + getName() + "] Warning: Found ingredient ID (" + paramIngredientId + ") in param " + PRIMARY_INGREDIENT_PARAM_ID + " but failed to get ItemType.");
+                ScriptConsole.println("[Product: " + this.getName() + "] Warning: Found ingredient ID (" + paramIngredientId + ") in param " + PRIMARY_INGREDIENT_PARAM_ID + " but failed to get ItemType.");
             }
         }
         
-        // If not found via standard params, try CS2 params (used by flatpacks)
+        // If not found via standard params, try CS2 params (used by flatpacks/tanning)
         if (!foundViaParams) {
-            // Try getting CS2 params using getIntParam, as they store integer values
-            int cs2IngredientId = productItemType.getIntParam(CS2_INGREDIENT_ID_PARAM); // Returns 0 if not present
-            int cs2IngredientAmount = productItemType.getIntParam(CS2_INGREDIENT_QUANTITY_PARAM); // Returns 0 if not present
+            ScriptConsole.println("[Product: " + this.getName() + "] Attempting CS2 Param check (IDs " + CS2_INGREDIENT_ID_PARAM + ", " + CS2_INGREDIENT_QUANTITY_PARAM + ")");
+            int cs2IngredientId = this.productItemType.getIntParam(CS2_INGREDIENT_ID_PARAM);
+            int cs2IngredientAmount = this.productItemType.getIntParam(CS2_INGREDIENT_QUANTITY_PARAM);
+            ScriptConsole.println("[Product: " + this.getName() + "]   - getIntParam(" + CS2_INGREDIENT_ID_PARAM + ") result: " + cs2IngredientId);
+            ScriptConsole.println("[Product: " + this.getName() + "]   - getIntParam(" + CS2_INGREDIENT_QUANTITY_PARAM + ") result: " + cs2IngredientAmount);
             
             if (cs2IngredientId > 0 && cs2IngredientAmount > 0) {
                  ItemType ingredientType = ConfigManager.getItemType(cs2IngredientId);
                  if (ingredientType != null) {
-                     ScriptConsole.println("[Product: " + getName() + "] Found ingredient via CS2 Params (getIntParam): " + ingredientType.getName() + " x" + cs2IngredientAmount);
-                     parsedIngredients.add(new Ingredient(ingredientType, cs2IngredientAmount));
+                     ScriptConsole.println("[Product: " + this.getName() + "]   - Found CS2 ingredient ItemType: " + ingredientType.getName());
+                     this.ingredients.add(new Ingredient(ingredientType, cs2IngredientAmount));
                  } else {
-                     ScriptConsole.println("[Product: " + getName() + "] Warning: Found ingredient ID (" + cs2IngredientId + ") in CS2 param " + CS2_INGREDIENT_ID_PARAM + " but failed to get ItemType.");
+                     ScriptConsole.println("[Product: " + this.getName() + "]   - WARNING: Found ingredient ID (" + cs2IngredientId + ") in CS2 param " + CS2_INGREDIENT_ID_PARAM + " but failed to get ItemType.");
                  }
-            } else {
-                // Only log this if neither method worked
-                 ScriptConsole.println("[Product: " + getName() + "] No ingredient data found using Item Params or CS2 Params (getIntParam ID=" + cs2IngredientId +", Amount=" + cs2IngredientAmount + ").");
-            }
+             }
         }
         
-        // Add secondary/tertiary/etc ingredient parsing if necessary
-
-        return parsedIngredients;
+        // Fallback: If NO ingredients found via any param method, for some items, the product itself might be considered the input (e.g. if it's a transformation)
+        // This was a previous broad fallback, but for tanning, the CS2 params *should* work.
+        // If ingredients list is still empty, it means parsing failed or params were absent/zero.
+        if (this.ingredients.isEmpty()) {
+             ScriptConsole.println("[Product: " + this.getName() + "] No specific ingredients found via param checks.");
+        }
     }
-
-    public String getName() {
-        return productItemType != null ? productItemType.getName() : "Unknown Product";
-    }
-
-    public int getId() {
-        return productItemType != null ? productItemType.getId() : -1;
-    }
-
-    public ItemType getProductItemType() {
-        return productItemType;
-    }
-
-    public List<Ingredient> getIngredients() {
-        return Collections.unmodifiableList(ingredients);
-    }
-
-    public int getLevelRequirement() {
-        // Using param 23 based on example JSON
-        // Returns 0 if not present, default to 1 in that case.
-        int level = productItemType != null ? productItemType.getIntParam(LEVEL_REQUIREMENT_PARAM_ID) : 0;
-        return level > 0 ? level : 1;
-    }
-
-    /* // Removing the dynamic discovery method again as there's no known API 
-       // method to get all items or items by category.
-       // The approach using a predefined list of product IDs in PortableWorkbench must be used.
-    public static List<Product> getAllWorkbenchProducts() {
-        // ... method content removed ...
-    }
-    */
-
 } 
