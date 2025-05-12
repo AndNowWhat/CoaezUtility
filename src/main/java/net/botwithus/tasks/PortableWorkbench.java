@@ -147,10 +147,8 @@ public class PortableWorkbench extends Portable {
                     ItemType itemType = ConfigManager.getItemType(productId);
                     if (itemType != null) {
                         Product product = new Product(itemType);
+                        product.parseIngredients();
                         productsInGroup.add(product);
-                        if (product.getIngredients().isEmpty()) {
-                            //ScriptConsole.println("[PortableWorkbench] Note: Product ID " + productId + " (" + itemType.getName() + ") loaded from sub-enum " + subGroupEnumId + " but has no parsed ingredients.");
-                        }
                     } else {
                         ScriptConsole.println("[PortableWorkbench] Warning: Could not load ItemType for product ID from sub-enum " + subGroupEnumId + " (Name: " + subGroupName + "): " + productId);
                     }

@@ -115,7 +115,9 @@ public class PortableCrafter extends Portable {
                             ItemType itemType = ConfigManager.getItemType(productId);
                             if (itemType != null) {
                                 // Assumes Product(ItemType) constructor exists
-                                productsInGroup.add(new Product(itemType));
+                                Product product = new Product(itemType);
+                                product.parseIngredients();
+                                productsInGroup.add(product);
                             }
                         }
                     }

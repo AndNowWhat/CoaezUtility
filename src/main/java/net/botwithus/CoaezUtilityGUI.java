@@ -9,6 +9,7 @@ import net.botwithus.tasks.PortableType;
 import net.botwithus.tasks.PortableWorkbench;
 import net.botwithus.tasks.Product;
 import net.botwithus.tasks.Ingredient;
+import net.botwithus.tasks.Portable;
 import net.botwithus.rs3.game.js5.types.configs.ConfigManager;
 import net.botwithus.tasks.SimplePortable;
 import net.botwithus.tasks.PortableCrafter;
@@ -546,21 +547,47 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         }
 
         if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() != null) {
-            ImGui.Text("Active Portable: " + coaezUtility.getPortableTask().getActivePortable().getType().getName());
-            Product currentProd = coaezUtility.getPortableTask().getSelectedProduct();
+            Portable currentPortable = coaezUtility.getPortableTask().getActivePortable(); // Get the Portable object
+            ImGui.Text("Active Portable: " + currentPortable.getType().getName()); // Use getType() on the object
+ 
+            Product currentProd = null;
+ 
+            if (currentPortable instanceof PortableWorkbench) {
+                currentProd = ((PortableWorkbench) currentPortable).getSelectedProduct();
+            } else if (currentPortable instanceof PortableCrafter) {
+                PortableCrafter pc = (PortableCrafter) currentPortable;
+                currentProd = pc.getSelectedProduct(); 
+                ImGui.Text("Selected Action: " + (pc.getInteractionOption() != null ? pc.getInteractionOption() : "None"));
+                if (!pc.getGroupEnumIds().isEmpty() && pc.getSelectedGroupId() != -1) {
+                     ImGui.Text("Selected Category: " + pc.getGroupName(pc.getSelectedGroupId()));
+                }
+            }
+             
+            // Simplified Product Display
             if (currentProd != null) {
                 ImGui.Text("Selected Product: " + currentProd.getName());
+                
+                // Restore Ingredient Display
                 ImGui.Text("Required Ingredients:");
-                if (currentProd.getIngredients() != null) {
-                    for (net.botwithus.tasks.Ingredient ingredient : currentProd.getIngredients()) {
+                List<Ingredient> ingredients = currentProd.getIngredients();
+                if (ingredients != null && !ingredients.isEmpty()) {
+                    for (Ingredient ingredient : ingredients) {
                         if (ingredient != null) {
-                             ImGui.Text("- " + ingredient.getAmount() + " x " + ingredient.getDisplayName());
+                            ImGui.Text(String.format("- %d x %s", ingredient.getAmount(), ingredient.getDisplayName()));
+                        } else {
+                            ImGui.Text("- (null ingredient)");
                         }
                     }
                 } else {
-                     ImGui.Text("- (No ingredient data)");
+                    ImGui.Text("- (No ingredient data found)");
+                }
+            } else {
+                // Display only if it's a type that *should* have a product
+                if (currentPortable instanceof PortableWorkbench || currentPortable instanceof PortableCrafter) {
+                    ImGui.Text("Selected Product: None");
                 }
             }
+ 
         } else {
             ImGui.Text("Active Portable: None");
         }

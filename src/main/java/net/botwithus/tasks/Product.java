@@ -95,6 +95,8 @@ public class Product {
         int paramIngredientAmount = this.productItemType.getIntParam(PRIMARY_INGREDIENT_AMOUNT_PARAM_ID);
  
         boolean foundViaParams = false;
+
+        
         if (paramIngredientId > 0 && paramIngredientAmount > 0) { 
             ItemType ingredientType = ConfigManager.getItemType(paramIngredientId);
             if (ingredientType != null) {
@@ -109,19 +111,14 @@ public class Product {
         // If not found via standard params, try CS2 params (used by flatpacks/tanning)
         if (!foundViaParams) {
             ScriptConsole.println("[Product: " + this.getName() + "] Attempting CS2 Param check (IDs " + CS2_INGREDIENT_ID_PARAM + ", " + CS2_INGREDIENT_QUANTITY_PARAM + ")");
-            int cs2IngredientId = this.productItemType.getIntParam(CS2_INGREDIENT_ID_PARAM);
-            int cs2IngredientAmount = this.productItemType.getIntParam(CS2_INGREDIENT_QUANTITY_PARAM);
-            ScriptConsole.println("[Product: " + this.getName() + "]   - getIntParam(" + CS2_INGREDIENT_ID_PARAM + ") result: " + cs2IngredientId);
-            ScriptConsole.println("[Product: " + this.getName() + "]   - getIntParam(" + CS2_INGREDIENT_QUANTITY_PARAM + ") result: " + cs2IngredientAmount);
-            
+            int cs2IngredientId = this.productItemType.getIntParam(CS2_INGREDIENT_ID_PARAM); // 2655
+            int cs2IngredientAmount = this.productItemType.getIntParam(CS2_INGREDIENT_QUANTITY_PARAM); // 2665
+            // ... logs results ...
             if (cs2IngredientId > 0 && cs2IngredientAmount > 0) {
-                 ItemType ingredientType = ConfigManager.getItemType(cs2IngredientId);
+                 ItemType ingredientType = ConfigManager.getItemType(cs2IngredientId); // Should get Uncut opal (1625)
                  if (ingredientType != null) {
-                     ScriptConsole.println("[Product: " + this.getName() + "]   - Found CS2 ingredient ItemType: " + ingredientType.getName());
-                     this.ingredients.add(new Ingredient(ingredientType, cs2IngredientAmount));
-                 } else {
-                     ScriptConsole.println("[Product: " + this.getName() + "]   - WARNING: Found ingredient ID (" + cs2IngredientId + ") in CS2 param " + CS2_INGREDIENT_ID_PARAM + " but failed to get ItemType.");
-                 }
+                     this.ingredients.add(new Ingredient(ingredientType, cs2IngredientAmount)); // Add Uncut opal x 1
+                 } // ...
              }
         }
         
