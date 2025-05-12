@@ -34,7 +34,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private final PortableType[] portableTypes = PortableType.values();
     
     // Workbench specific state
-    private int selectedGroupIndex = 0; 
+    private int selectedGroupIndex = 0;
     private List<Integer> currentGroupIds = new ArrayList<>();
     private List<String> currentGroupNames = new ArrayList<>();
     private int selectedWorkbenchProductIndex = 0;
@@ -54,17 +54,17 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     public CoaezUtilityGUI(ScriptConsole scriptConsole, CoaezUtility coaezUtility) {
         super(scriptConsole);
         this.coaezUtility = coaezUtility;
-        ScriptConsole.println("[CoaezUtilityGUI] Constructor started.");
+        
         if (this.coaezUtility != null) {
             lastBotState = this.coaezUtility.getBotState();
             loadConfig(); // This calls updateActivePortableType internally
-            
+
             // Initialize GUI state based on current task state AFTER loadConfig
             // This section should align the GUI with whatever state was set by loadConfig
             // or the default state if loadConfig didn't set a portable.
             if (this.coaezUtility.getPortableTask() != null && this.coaezUtility.getPortableTask().getActivePortable() != null) {
                 PortableType currentTaskType = this.coaezUtility.getPortableTask().getActivePortable().getType();
-                 ScriptConsole.println("[CoaezUtilityGUI] Initializing GUI based on active portable type: " + currentTaskType);
+                 
                 for (int i = 0; i < portableTypes.length; i++) {
                     if (portableTypes[i] == currentTaskType) {
                         selectedPortableTypeIndex = i;
@@ -74,7 +74,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
 
                 if (currentTaskType == PortableType.WORKBENCH && this.coaezUtility.getPortableTask().getActivePortable() instanceof PortableWorkbench) {
                     PortableWorkbench wbInstance = (PortableWorkbench) this.coaezUtility.getPortableTask().getActivePortable();
-                    
+
                     // Update group lists from the workbench instance
                     this.currentGroupIds = wbInstance.getGroupEnumIds();
                     if (this.currentGroupIds != null && !this.currentGroupIds.isEmpty()) {
@@ -102,9 +102,9 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         } else {
                             selectedWorkbenchProductIndex = 0;
                         }
-                         ScriptConsole.println("[CoaezUtilityGUI] Workbench GUI state initialized. Group: " + (this.currentGroupNames.isEmpty() ? "None" : this.currentGroupNames.get(selectedGroupIndex)) + ", Product Index: " + selectedWorkbenchProductIndex);
+                         
                     } else {
-                         ScriptConsole.println("[CoaezUtilityGUI] Workbench instance has no groups to display.");
+                         
                         this.currentGroupNames.clear();
                         this.currentWorkbenchProducts.clear();
                         selectedGroupIndex = 0;
@@ -112,7 +112,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     }
                 }
             } else {
-                 ScriptConsole.println("[CoaezUtilityGUI] No active portable task to initialize GUI from, or task is null.");
+                 
                  // Reset workbench specific state if no active portable
                 this.currentGroupIds.clear();
                 this.currentGroupNames.clear();
@@ -123,7 +123,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         } else {
              ScriptConsole.println("[CoaezUtilityGUI] CRITICAL: CoaezUtility instance is null in GUI constructor.");
         }
-        ScriptConsole.println("[CoaezUtilityGUI] Constructor finished.");
+        
     }
 
     public boolean hasStateChanged() {
@@ -346,8 +346,8 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         selectedGroupIndex = newGroupIndex;
                         int selectedGroupId = currentGroupIds.get(selectedGroupIndex);
                         currentWorkbenchProducts = new ArrayList<>(currentWorkbench.getProductsForGroup(selectedGroupId));
-                        selectedWorkbenchProductIndex = 0; 
-                        
+                        selectedWorkbenchProductIndex = 0;
+
                         if (!currentWorkbenchProducts.isEmpty()) {
                              coaezUtility.getPortableTask().setSelectedProduct(currentWorkbenchProducts.get(0));
                         } else {
@@ -359,16 +359,16 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         String[] productNames = currentWorkbenchProducts.stream()
                                                                     .map(p -> (p != null && p.getName() != null) ? p.getName() : "Unnamed Product")
                                                                     .toArray(String[]::new);
-                        
+
                         if (selectedWorkbenchProductIndex >= productNames.length && productNames.length > 0) selectedWorkbenchProductIndex = 0;
                         else if (productNames.length == 0) selectedWorkbenchProductIndex = 0;
-                        
+
                         int newProductIndex = ImGui.Combo("Select Product", selectedWorkbenchProductIndex, productNames);
                         if (newProductIndex != selectedWorkbenchProductIndex && newProductIndex < currentWorkbenchProducts.size()) {
                             selectedWorkbenchProductIndex = newProductIndex;
                             Product chosenProduct = currentWorkbenchProducts.get(selectedWorkbenchProductIndex);
                             coaezUtility.getPortableTask().setSelectedProduct(chosenProduct);
-                            saveConfig(); 
+                            saveConfig();
                         }
                     } else {
                         ImGui.Text("No products available for this group: " + (currentGroupNames.isEmpty() ? "" : currentGroupNames.get(selectedGroupIndex)));
@@ -383,40 +383,40 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         } else if (portableTypes[selectedPortableTypeIndex] == PortableType.CRAFTER) {
             if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() instanceof PortableCrafter) {
                 PortableCrafter currentCrafter = (PortableCrafter) coaezUtility.getPortableTask().getActivePortable();
-                
+
                 // Crafter Option Dropdown (Cut Gems, Craft, etc.)
-                ScriptConsole.println("[GUI|Render|Crafter] Checking Crafter Option Dropdown. Current selectedCrafterOptionIndex = " + selectedCrafterOptionIndex);
+                
                 int newCrafterOptionIndex = ImGui.Combo("Select Action", selectedCrafterOptionIndex, PortableCrafter.CRAFTER_OPTIONS);
-                ScriptConsole.println("[GUI|Render|Crafter] ImGui.Combo returned newCrafterOptionIndex = " + newCrafterOptionIndex);
+                
                 if (newCrafterOptionIndex != selectedCrafterOptionIndex) {
                     selectedCrafterOptionIndex = newCrafterOptionIndex;
                     String chosenOption = PortableCrafter.CRAFTER_OPTIONS[selectedCrafterOptionIndex];
-                    ScriptConsole.println("[GUI|OptionChange] Crafter option changed to: " + chosenOption + ". Telling Crafter instance to load...");
+                    
                     currentCrafter.setSelectedInteractionOption(chosenOption); // Loads groups/products
-                    ScriptConsole.println("[GUI|OptionChange] Call to currentCrafter.setSelectedInteractionOption(" + chosenOption + ") finished.");
- 
+                    
+
                     currentCrafterGroupIds = currentCrafter.getGroupEnumIds();
-                    ScriptConsole.println("[GUI|OptionChange] currentCrafter.getGroupEnumIds() returned: " + currentCrafterGroupIds + " (Size: " + currentCrafterGroupIds.size() + ")");
- 
+                    
+
                     if (!currentCrafterGroupIds.isEmpty()) { // Grouped Mode
-                        ScriptConsole.println("[GUI|OptionChange] Entered Grouped Mode update logic for: " + chosenOption);
+                        
                         currentCrafterGroupNames = currentCrafterGroupIds.stream()
                                                         .map(currentCrafter::getGroupName)
                                                         .collect(Collectors.toList());
-                        selectedCrafterGroupIndex = 0; 
+                        selectedCrafterGroupIndex = 0;
                         int defaultGroupId = currentCrafterGroupIds.get(0);
                         currentCrafterProducts = new ArrayList<>(currentCrafter.getProductsForGroup(defaultGroupId));
-                        ScriptConsole.println("[GUI|OptionChange] Updated GUI product list from group ID " + defaultGroupId + ". New GUI product list size: " + currentCrafterProducts.size());
-                        selectedCrafterProductIndex = 0; 
+                        
+                        selectedCrafterProductIndex = 0;
                     } else { // Direct Product Mode (or option doesn't use groups by design)
-                        ScriptConsole.println("[GUI|OptionChange] Entered Direct Product Mode update logic for: " + chosenOption);
+                        
                         currentCrafterGroupNames.clear();
-                        selectedCrafterGroupIndex = 0; 
+                        selectedCrafterGroupIndex = 0;
                         currentCrafterProducts = new ArrayList<>(currentCrafter.getDirectProducts());
-                        ScriptConsole.println("[GUI|OptionChange] Updated GUI product list from direct products. New GUI product list size: " + currentCrafterProducts.size());
-                        selectedCrafterProductIndex = 0; 
+                        
+                        selectedCrafterProductIndex = 0;
                     }
- 
+
                     // Select default product in crafter instance
                     if (!currentCrafterProducts.isEmpty()) {
                         currentCrafter.setSelectedProduct(currentCrafterProducts.get(0));
@@ -425,12 +425,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     }
                     saveConfig();
                 }
- 
+
                 // Determine if the *current* state of the crafter (after any changes) uses groups
                 // This must be checked *after* the option change logic has populated currentCrafterGroupIds
-                boolean usesGroups = !currentCrafterGroupIds.isEmpty(); 
-                ScriptConsole.println("[GUI|Render|Crafter] Determined usesGroups = " + usesGroups + " for option: " + currentCrafter.getInteractionOption());
- 
+                boolean usesGroups = !currentCrafterGroupIds.isEmpty();
+                
+
                 if (usesGroups) {
                     // --- Render Grouped Mode UI for Crafter (e.g., Cut Gems) ---
                     if (currentCrafterGroupNames.isEmpty() && !currentCrafterGroupIds.isEmpty()) {
@@ -438,25 +438,25 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         currentCrafterGroupNames = currentCrafterGroupIds.stream()
                                                         .map(currentCrafter::getGroupName)
                                                         .collect(Collectors.toList());
-                        ScriptConsole.println("[GUI|Render|Crafter|Grouped] Refreshed currentCrafterGroupNames. Size: " + currentCrafterGroupNames.size());
+                        
                     }
- 
+
                     if (!currentCrafterGroupNames.isEmpty()) {
                         String[] groupNameArray = currentCrafterGroupNames.toArray(String[]::new);
                         if(selectedCrafterGroupIndex >= groupNameArray.length && groupNameArray.length > 0) selectedCrafterGroupIndex = 0;
                         else if (groupNameArray.length == 0) selectedCrafterGroupIndex = 0;
- 
-                        ScriptConsole.println("[GUI|Render|Crafter|Grouped] Rendering 'Select Category' dropdown. currentCrafterGroupNames size: " + currentCrafterGroupNames.size() + ", selectedCrafterGroupIndex: " + selectedCrafterGroupIndex);
+
+                        
                         int newGroupIndex = ImGui.Combo("Select Category", selectedCrafterGroupIndex, groupNameArray);
                         if (newGroupIndex != selectedCrafterGroupIndex && newGroupIndex < currentCrafterGroupIds.size()) {
                             selectedCrafterGroupIndex = newGroupIndex;
                             int selectedGroupId = currentCrafterGroupIds.get(selectedCrafterGroupIndex);
                             currentCrafter.setSelectedGroupId(selectedGroupId); // Set group in crafter instance
- 
+
                             currentCrafterProducts = new ArrayList<>(currentCrafter.getProductsForGroup(selectedGroupId));
                             selectedCrafterProductIndex = 0; // Reset product selection
-                            ScriptConsole.println("[GUI|Render|Crafter|Grouped] Category changed. New product list size: " + currentCrafterProducts.size());
- 
+                            
+
                             if (!currentCrafterProducts.isEmpty()) {
                                 currentCrafter.setSelectedProduct(currentCrafterProducts.get(0));
                             } else {
@@ -466,40 +466,40 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         }
                     } else {
                         ImGui.Text("No categories loaded for this Crafter option.");
-                        ScriptConsole.println("[GUI|Render|Crafter|Grouped] No categories (currentCrafterGroupNames empty) to display for option: " + currentCrafter.getInteractionOption());
+                        
                     }
-                    
+
                     // Product Dropdown (for selected group)
                     // Safety check/refresh: Ensure currentCrafterProducts matches selectedCrafterGroupIndex
                     if (!currentCrafterGroupIds.isEmpty() && selectedCrafterGroupIndex < currentCrafterGroupIds.size()) {
                          int currentSelectedGroupId = currentCrafterGroupIds.get(selectedCrafterGroupIndex);
-                         // Only refresh if list seems out of sync (e.g., empty when it shouldn't be) or very first render?
+                         // Only refresh if list seems out of sync (e.g., empty when it's not)
                          // Let's just update it based on the current selected group ID before drawing product list
                          currentCrafterProducts = new ArrayList<>(currentCrafter.getProductsForGroup(currentSelectedGroupId));
-                         ScriptConsole.println("[GUI|Render|Crafter|Grouped|ProductSafety] Refreshed product list for group ID "+ currentSelectedGroupId + ". Size: " + currentCrafterProducts.size());
+                         
                     } else {
-                         ScriptConsole.println("[GUI|Render|Crafter|Grouped|ProductSafety] Skipping product refresh (no groups or invalid index).");
+                         
                          if (currentCrafterProducts.isEmpty()) { // Ensure it's clear if no group selected/valid
                               ImGui.Text("Select a valid category first.");
                               // Don't proceed to render empty product combo
-                              return; // Or just skip the product combo block
+                              
                          }
                     }
+
                     
-                    ScriptConsole.println("[GUI|Render|Crafter|Grouped] Checking products for category. currentCrafterProducts size: " + currentCrafterProducts.size());
                     if (!currentCrafterProducts.isEmpty()) {
                         String[] productNames = currentCrafterProducts.stream()
                                                                      .map(p -> (p != null && p.getName() != null) ? p.getName() : "Unnamed")
                                                                      .toArray(String[]::new);
                         if (selectedCrafterProductIndex >= productNames.length && productNames.length > 0) selectedCrafterProductIndex = 0;
                         else if (productNames.length == 0) selectedCrafterProductIndex = 0;
- 
+
                         int newProductIndex = ImGui.Combo("Select Product", selectedCrafterProductIndex, productNames);
                         if (newProductIndex != selectedCrafterProductIndex && newProductIndex < currentCrafterProducts.size()) {
                             selectedCrafterProductIndex = newProductIndex;
                             Product chosenProduct = currentCrafterProducts.get(selectedCrafterProductIndex);
                             currentCrafter.setSelectedProduct(chosenProduct);
-                            ScriptConsole.println("[GUI|Render|Crafter|Grouped] Product selected: " + chosenProduct.getName());
+                            
                             saveConfig();
                         }
                     } else {
@@ -508,25 +508,25 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 } else {
                      // --- Render Direct Product Mode UI for Crafter (e.g., Tan Leather IF it was direct) ---
                      // Now that Tan Leather is also faked as grouped, this path might be less used unless a true direct option exists.
-                    ScriptConsole.println("[GUI|Render|Crafter|Direct] In Direct Product Mode. currentCrafterProducts size: " + currentCrafterProducts.size());
- 
+                    
+
                     if (!currentCrafterProducts.isEmpty()) {
                         String[] productNames = currentCrafterProducts.stream()
                                                                      .map(p -> (p != null && p.getName() != null) ? p.getName() : "Unnamed")
                                                                      .toArray(String[]::new);
                         if (selectedCrafterProductIndex >= productNames.length && productNames.length > 0) selectedCrafterProductIndex = 0;
                         else if (productNames.length == 0) selectedCrafterProductIndex = 0;
- 
+
                         int newProductIndex = ImGui.Combo("Select Product", selectedCrafterProductIndex, productNames);
                         if (newProductIndex != selectedCrafterProductIndex && newProductIndex < currentCrafterProducts.size()) {
                             selectedCrafterProductIndex = newProductIndex;
                             Product chosenProduct = currentCrafterProducts.get(selectedCrafterProductIndex);
                             currentCrafter.setSelectedProduct(chosenProduct);
-                            ScriptConsole.println("[GUI|Render|Crafter|Direct] Product selected: " + chosenProduct.getName());
+                            
                             saveConfig();
                         }
                     } else {
-                         ImGui.Text("No products available for action: " + (PortableCrafter.CRAFTER_OPTIONS.length > selectedCrafterOptionIndex ? PortableCrafter.CRAFTER_OPTIONS[selectedCrafterOptionIndex] : "Unknown Action"));
+                        ImGui.Text("No products available for action: " + (PortableCrafter.CRAFTER_OPTIONS.length > selectedCrafterOptionIndex ? PortableCrafter.CRAFTER_OPTIONS[selectedCrafterOptionIndex] : "Unknown Action"));
                     }
                 }
             } else {
@@ -549,37 +549,38 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() != null) {
             Portable currentPortable = coaezUtility.getPortableTask().getActivePortable(); // Get the Portable object
             ImGui.Text("Active Portable: " + currentPortable.getType().getName()); // Use getType() on the object
- 
+
             Product currentProd = null;
- 
+
             if (currentPortable instanceof PortableWorkbench) {
                 currentProd = ((PortableWorkbench) currentPortable).getSelectedProduct();
             } else if (currentPortable instanceof PortableCrafter) {
                 PortableCrafter pc = (PortableCrafter) currentPortable;
-                currentProd = pc.getSelectedProduct(); 
+                currentProd = pc.getSelectedProduct();
                 ImGui.Text("Selected Action: " + (pc.getInteractionOption() != null ? pc.getInteractionOption() : "None"));
                 if (!pc.getGroupEnumIds().isEmpty() && pc.getSelectedGroupId() != -1) {
                      ImGui.Text("Selected Category: " + pc.getGroupName(pc.getSelectedGroupId()));
                 }
             }
-             
+
             // Simplified Product Display
             if (currentProd != null) {
                 ImGui.Text("Selected Product: " + currentProd.getName());
-                
+
                 // Restore Ingredient Display
                 ImGui.Text("Required Ingredients:");
-                List<Ingredient> ingredients = currentProd.getIngredients();
+                List<Ingredient> ingredients = currentProd.getIngredients(); // Get ingredients
+                
                 if (ingredients != null && !ingredients.isEmpty()) {
                     for (Ingredient ingredient : ingredients) {
-                        if (ingredient != null) {
-                            ImGui.Text(String.format("- %d x %s", ingredient.getAmount(), ingredient.getDisplayName()));
-                        } else {
+                         if (ingredient != null) { // Added null check for safety
+                            ImGui.Text(String.format("- %d x %s", ingredient.getAmount(), ingredient.getDisplayName())); // Fixed: Use getDisplayName()
+                         } else {
                             ImGui.Text("- (null ingredient)");
-                        }
+                         }
                     }
                 } else {
-                    ImGui.Text("- (No ingredient data found)");
+                     ImGui.Text("- (No ingredient data found)");
                 }
             } else {
                 // Display only if it's a type that *should* have a product
@@ -587,22 +588,22 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     ImGui.Text("Selected Product: None");
                 }
             }
- 
+
         } else {
             ImGui.Text("Active Portable: None");
         }
     }
-    
+
     private void updateActivePortableType() {
-        ScriptConsole.println("[GUI] updateActivePortableType called. New type index: " + selectedPortableTypeIndex);
+        
         if (coaezUtility.getPortableTask() == null) {
-            ScriptConsole.println("[GUI] PortableTask is null in updateActivePortableType. Cannot proceed.");
+            
             return;
         }
 
         PortableType selectedType = portableTypes[selectedPortableTypeIndex];
-        ScriptConsole.println("[GUI] Selected portable type: " + selectedType.getName());
-            
+        
+
         if (selectedType != PortableType.WORKBENCH && selectedType != PortableType.CRAFTER) {
             currentGroupIds.clear();
             currentGroupNames.clear();
@@ -615,21 +616,21 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
 
         switch (selectedType) {
             case WORKBENCH:
-                ScriptConsole.println("[GUI] Setting up Workbench.");
-                PortableWorkbench wb = new PortableWorkbench(coaezUtility); 
-                coaezUtility.getPortableTask().setActivePortable(wb);
                 
+                PortableWorkbench wb = new PortableWorkbench(coaezUtility);
+                coaezUtility.getPortableTask().setActivePortable(wb);
+
                 this.currentGroupIds = wb.getGroupEnumIds();
                 if (this.currentGroupIds != null && !this.currentGroupIds.isEmpty()) {
                     this.currentGroupNames = this.currentGroupIds.stream()
                                                 .map(wb::getGroupName)
                                                 .collect(Collectors.toList());
-                    ScriptConsole.println("[GUI] Loaded " + this.currentGroupNames.size() + " groups for Workbench.");
+                    
                 } else {
-                    ScriptConsole.println("[GUI] Workbench loaded 0 groups.");
+                    
                     this.currentGroupNames.clear();
                 }
-                
+
                 String savedProductIdStr = coaezUtility.getConfig().getProperty("workbenchProductId");
                 int lastSelectedProductId = -1;
                 boolean productRestored = false;
@@ -637,7 +638,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 if (savedProductIdStr != null && !savedProductIdStr.isEmpty()) {
                     try {
                         lastSelectedProductId = Integer.parseInt(savedProductIdStr);
-                         ScriptConsole.println("[GUI] Attempting to restore saved product ID: " + lastSelectedProductId);
+                         
                     } catch (NumberFormatException e) {
                         ScriptConsole.println("[GUI] Error parsing saved workbenchProductId: " + savedProductIdStr);
                         lastSelectedProductId = -1;
@@ -648,95 +649,95 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     for (int gIdx = 0; gIdx < this.currentGroupIds.size(); gIdx++) {
                         int groupId = this.currentGroupIds.get(gIdx);
                         List<Product> productsInGroup = wb.getProductsForGroup(groupId);
-                        if (productsInGroup == null) continue; 
+                        if (productsInGroup == null) continue;
 
                         for (int pIdx = 0; pIdx < productsInGroup.size(); pIdx++) {
                             Product p = productsInGroup.get(pIdx);
                             if (p != null && p.getId() == lastSelectedProductId) {
                                 selectedGroupIndex = gIdx;
                                 selectedWorkbenchProductIndex = pIdx;
-                                currentWorkbenchProducts = new ArrayList<>(productsInGroup); 
+                                currentWorkbenchProducts = new ArrayList<>(productsInGroup);
                                 coaezUtility.getPortableTask().setSelectedProduct(p);
                                 productRestored = true;
-                                ScriptConsole.println("[GUI] Restored WB Group: " + (this.currentGroupNames.isEmpty() ? "Unknown" : this.currentGroupNames.get(gIdx)) + " (Index: " + gIdx + "), Product: " + p.getName() + " (Index: " + pIdx +")");
-                                break; 
+                                
+                                break;
                             }
                         }
-                        if (productRestored) break; 
+                        if (productRestored) break;
                     }
                 }
 
                 if (!productRestored) {
-                    ScriptConsole.println("[GUI] Product not restored. Setting default selection.");
+                    
                     selectedGroupIndex = 0;
                     selectedWorkbenchProductIndex = 0;
                     if (this.currentGroupIds != null && !this.currentGroupIds.isEmpty()) {
                          int defaultGroupId = this.currentGroupIds.get(0);
                          currentWorkbenchProducts = new ArrayList<>(wb.getProductsForGroup(defaultGroupId));
-                         if (!currentWorkbenchProducts.isEmpty()) { 
+                         if (!currentWorkbenchProducts.isEmpty()) {
                              coaezUtility.getPortableTask().setSelectedProduct(currentWorkbenchProducts.get(0));
-                              ScriptConsole.println("[GUI] Default product set to first in first group: " + currentWorkbenchProducts.get(0).getName());
+                              
                          } else {
                              coaezUtility.getPortableTask().setSelectedProduct(null);
-                             currentWorkbenchProducts.clear(); 
-                             ScriptConsole.println("[GUI] Default group is empty.");
+                             currentWorkbenchProducts.clear();
+                              
                          }
-                    } else {
-                         coaezUtility.getPortableTask().setSelectedProduct(null);
-                         currentWorkbenchProducts.clear(); // Safe to clear
-                         if (this.currentGroupNames != null) this.currentGroupNames.clear(); else this.currentGroupNames = new ArrayList<>();
-                         ScriptConsole.println("[GUI] No groups available for default selection.");
-                    }
-                }
-                break; 
+                     } else {
+                          coaezUtility.getPortableTask().setSelectedProduct(null);
+                          currentWorkbenchProducts.clear(); // Safe to clear
+                          if (this.currentGroupNames != null) this.currentGroupNames.clear(); else this.currentGroupNames = new ArrayList<>();
+                          
+                     }
+                 }
+                 break;
 
-            case BRAZIER:
-            case FLETCHER:
-            case SAWMILL:
-            case RANGE:
-            case CRAFTER:
-            case WELL:
-                ScriptConsole.println("[GUI|UpdateActivePortableType|CRAFTER] Entered CRAFTER case."); // Keep this log if already added
-                PortableCrafter pc = null;
-                 try {
-                     pc = new PortableCrafter(coaezUtility); // The line that might be failing
-                     ScriptConsole.println("[GUI|UpdateActivePortableType|CRAFTER] PortableCrafter instance created successfully: " + (pc != null));
-                 } catch (Throwable t) { // Catch Throwable to get Errors too
-                     ScriptConsole.println("[GUI|UpdateActivePortableType|CRAFTER] CRITICAL EXCEPTION during PortableCrafter constructor: " + t.getMessage());
-                     t.printStackTrace(); // Print detailed stack trace
-                     pc = null; // Ensure pc is null if constructor failed
-                 }
-                 if (pc != null && coaezUtility.getPortableTask() != null) {
-                     coaezUtility.getPortableTask().setActivePortable(pc);
-                     coaezUtility.getPortableTask().setSelectedProduct(null);
-                 }
-                break;
+             case BRAZIER:
+             case FLETCHER:
+             case SAWMILL:
+             case RANGE:
+             case CRAFTER:
+             case WELL:
+                 
+                 PortableCrafter pc = null;
+                  try {
+                      pc = new PortableCrafter(coaezUtility);
+                      
+                  } catch (Throwable t) {
+                       ScriptConsole.println("[GUI|UpdateActivePortableType|CRAFTER] CRITICAL EXCEPTION during PortableCrafter constructor: " + t.getMessage());
+                       t.printStackTrace();
+                       pc = null;
+                    }
+                    if (pc != null && coaezUtility.getPortableTask() != null) {
+                      coaezUtility.getPortableTask().setActivePortable(pc);
+                      coaezUtility.getPortableTask().setSelectedProduct(null);
+                  }
+                 break;
             default:
-                ScriptConsole.println("[GUI] Unknown portable type selected in update: " + selectedType);
-                coaezUtility.getPortableTask().setActivePortable(null); 
-                coaezUtility.getPortableTask().setSelectedProduct(null);
+                 ScriptConsole.println("[GUI] Unknown portable type selected in update: " + selectedType);
+                  coaezUtility.getPortableTask().setActivePortable(null);
+                  coaezUtility.getPortableTask().setSelectedProduct(null);
                 break;
         }
         saveConfig();
     }
-    
-    
+
+
     private void saveConfig() {
         if (coaezUtility == null || coaezUtility.getConfig() == null) return;
         ScriptConfig config = coaezUtility.getConfig();
-        
+
         config.addProperty("botState", coaezUtility.getBotState().name());
-        
+
         if (coaezUtility.getAlchemy() != null) {
             List<String> alchemyItems = coaezUtility.getAlchemy().getAlchemyItems();
             config.addProperty("alchemyItems", String.join(",", alchemyItems));
         }
-        
+
         if (coaezUtility.getDisassembly() != null) {
             List<String> disassemblyItems = coaezUtility.getDisassembly().getDisassemblyItems();
             config.addProperty("disassemblyItems", String.join(",", disassemblyItems));
         }
-        
+
         // POSD settings - assuming POSD object can be null if not used
         if (coaezUtility.getPOSD() != null) {
             config.addProperty("posdUseOverloads", String.valueOf(coaezUtility.getPOSD().isUseOverloads()));
@@ -744,39 +745,46 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             config.addProperty("posdUseAggroPots", String.valueOf(coaezUtility.getPOSD().isUseAggroPots()));
             config.addProperty("posdUseWeaponPoison", String.valueOf(coaezUtility.getPOSD().isUseWeaponPoison()));
             config.addProperty("posdUseQuickPrayers", String.valueOf(coaezUtility.getPOSD().isUseQuickPrayers()));
-            config.addProperty("posdQuickPrayersNumber", String.valueOf(coaezUtility.getPOSD().getQuickPrayersNumber()));
-            config.addProperty("posdHealthThreshold", String.valueOf(coaezUtility.getPOSD().getHealthPointsThreshold()));
-            config.addProperty("posdPrayerThreshold", String.valueOf(coaezUtility.getPOSD().getPrayerPointsThreshold()));
-            config.addProperty("posdUseLoot", String.valueOf(coaezUtility.getPOSD().isUseLoot()));
-            config.addProperty("posdLootAll", String.valueOf(coaezUtility.getPOSD().isInteractWithLootAll()));
-            config.addProperty("posdUseScrimshaws", String.valueOf(coaezUtility.getPOSD().isUseScrimshaws()));
-            config.addProperty("posdBankForFood", String.valueOf(coaezUtility.getPOSD().isBankForFood() ));
-            List<String> targetItems = coaezUtility.getPOSD().getTargetItemNames();
-            config.addProperty("posdTargetItems", String.join(",", targetItems));
+            try {
+                String quickPrayersNumStr = config.getProperty("posdQuickPrayersNumber");
+                coaezUtility.getPOSD().setQuickPrayersNumber(quickPrayersNumStr != null ? Integer.parseInt(quickPrayersNumStr) : 1);
+
+                String healthThresholdStr = config.getProperty("posdHealthThreshold");
+                coaezUtility.getPOSD().setHealthPointsThreshold(healthThresholdStr != null ? Integer.parseInt(healthThresholdStr) : 50);
+
+                String prayerThresholdStr = config.getProperty("posdPrayerThreshold");
+                coaezUtility.getPOSD().setPrayerPointsThreshold(prayerThresholdStr != null ? Integer.parseInt(prayerThresholdStr) : 200);
+            } catch (NumberFormatException e) {
+                ScriptConsole.println("[GUI] Error parsing POSD numeric settings: " + e.getMessage());
+            }
+            coaezUtility.getPOSD().setUseLoot(Boolean.parseBoolean(config.getProperty("posdUseLoot")));
+            coaezUtility.getPOSD().setInteractWithLootAll(Boolean.parseBoolean(config.getProperty("posdLootAll")));
+            coaezUtility.getPOSD().setUseScrimshaws(Boolean.parseBoolean(config.getProperty("posdUseScrimshaws")));
+            coaezUtility.getPOSD().setBankForFood(Boolean.parseBoolean(config.getProperty("posdBankForFood")));
+            String targetItemsStr = config.getProperty("posdTargetItems");
+            if (targetItemsStr != null && !targetItemsStr.isEmpty()) {
+                Arrays.stream(targetItemsStr.split(","))
+                        .forEach(item -> coaezUtility.getPOSD().addTargetItem(item));
+            }
         }
-        
+
         if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() != null) {
             config.addProperty("selectedPortableType", coaezUtility.getPortableTask().getActivePortable().getType().name());
             if (coaezUtility.getPortableTask().getActivePortable().getType() == PortableType.WORKBENCH && coaezUtility.getPortableTask().getSelectedProduct() != null) {
                 config.addProperty("workbenchProductId", String.valueOf(coaezUtility.getPortableTask().getSelectedProduct().getId()));
-            } else {
-                config.removeProperty("workbenchProductId");
             }
-        } else {
-            config.removeProperty("selectedPortableType");
-            config.removeProperty("workbenchProductId");
         }
-        
+
         config.save();
     }
-    
+
     private void loadConfig() {
         if (coaezUtility == null || coaezUtility.getConfig() == null) return;
         ScriptConfig config = coaezUtility.getConfig();
-        
+
         config.load();
-        ScriptConsole.println("[GUI] loadConfig started.");
         
+
         String botStateValue = config.getProperty("botState");
         if (botStateValue != null) {
             try {
@@ -794,7 +802,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         .forEach(item -> coaezUtility.getAlchemy().addAlchemyItem(item));
             }
         }
-        
+
         // Load Disassembly settings
         if (coaezUtility.getDisassembly() != null) {
             String disassemblyItemsStr = config.getProperty("disassemblyItems");
@@ -803,7 +811,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         .forEach(item -> coaezUtility.getDisassembly().addDisassemblyItem(item));
             }
         }
-        
+
         if (coaezUtility.getPOSD() != null) {
             coaezUtility.getPOSD().setUseOverloads(Boolean.parseBoolean(config.getProperty("posdUseOverloads")));
             coaezUtility.getPOSD().setUsePrayerPots(Boolean.parseBoolean(config.getProperty("posdUsePrayerPots")));
@@ -813,10 +821,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             try {
                 String quickPrayersNumStr = config.getProperty("posdQuickPrayersNumber");
                 coaezUtility.getPOSD().setQuickPrayersNumber(quickPrayersNumStr != null ? Integer.parseInt(quickPrayersNumStr) : 1);
-                
+
                 String healthThresholdStr = config.getProperty("posdHealthThreshold");
                 coaezUtility.getPOSD().setHealthPointsThreshold(healthThresholdStr != null ? Integer.parseInt(healthThresholdStr) : 50);
-                
+
                 String prayerThresholdStr = config.getProperty("posdPrayerThreshold");
                 coaezUtility.getPOSD().setPrayerPointsThreshold(prayerThresholdStr != null ? Integer.parseInt(prayerThresholdStr) : 200);
             } catch (NumberFormatException e) {
@@ -834,7 +842,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         }
 
         String selectedPortableTypeName = config.getProperty("selectedPortableType");
-        ScriptConsole.println("[GUI] Config - selectedPortableType: " + selectedPortableTypeName);
+        
 
         if (selectedPortableTypeName != null && coaezUtility.getPortableTask() != null) {
             try {
@@ -850,22 +858,21 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 if (typeSet) {
                     updateActivePortableType();
                 } else {
-                     ScriptConsole.println("[GUI] Saved portable type name " + selectedPortableTypeName + " not found in PortableType enum. Defaulting.");
-                    selectedPortableTypeIndex = 0;
-                    updateActivePortableType(); 
-                }
-            } catch (IllegalArgumentException e) {
-                ScriptConsole.println("[GUI] Failed to load portable type from config: " + selectedPortableTypeName + ". " + e.getMessage());
-                selectedPortableTypeIndex = 0; 
-                updateActivePortableType(); 
-            }
-        } else if (coaezUtility.getPortableTask() != null) {
-             ScriptConsole.println("[GUI] No portable type in config or task is new. Defaulting portable type.");
-             selectedPortableTypeIndex = 0;
-             updateActivePortableType();
-        }
-        ScriptConsole.println("[GUI] loadConfig finished.");
-    }
+                      ScriptConsole.println("[GUI] Saved portable type name " + selectedPortableTypeName + " not found in PortableType enum. Defaulting.");
+                     selectedPortableTypeIndex = 0;
+                     updateActivePortableType();
+                 }
+             } catch (IllegalArgumentException e) {
+                 ScriptConsole.println("[GUI] Failed to load portable type from config: " + selectedPortableTypeName + ". " + e.getMessage());
+                 selectedPortableTypeIndex = 0;
+                 updateActivePortableType();
+             }
+         } else if (coaezUtility.getPortableTask() != null) {
+               selectedPortableTypeIndex = 0;
+               updateActivePortableType();
+          }
+        
+     }
 
     @Override
     public void drawOverlay() {

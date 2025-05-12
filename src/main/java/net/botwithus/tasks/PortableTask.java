@@ -132,8 +132,26 @@ public class PortableTask implements Task {
         if (currentPortable.hasRequiredItems()) {
             ScriptConsole.println("[" + currentPortable.getType().getName() + "] Found required items, interacting...");
             if (currentPortable.interact()) {
-                if (!(currentPortable instanceof PortableWorkbench)) { 
+                if (!(currentPortable instanceof PortableWorkbench)) {
                     ScriptConsole.println("[" + currentPortable.getType().getName() + "] Interaction initiated by Portable.interact(). Checking for confirmation interface...");
+                    
+                    if (currentPortable instanceof PortableCrafter) {
+                        PortableCrafter crafter = (PortableCrafter) currentPortable;
+                        int crafterMakeXInterfaceId = 1371;
+                        if (Interfaces.isOpen(crafterMakeXInterfaceId)) {
+                            ScriptConsole.println("[" + currentPortable.getType().getName() + "] Crafter product selection interface (" + crafterMakeXInterfaceId + ") detected. Attempting to select product...");
+                            boolean selectionSuccessful = crafter.handleMakeXSelection();
+                            if (selectionSuccessful) {
+                                ScriptConsole.println("[" + currentPortable.getType().getName() + "] Product selection attempted.");
+                            } else {
+                                ScriptConsole.println("[" + currentPortable.getType().getName() + "] Product selection failed.");
+                                return;
+                            }
+                        } else {
+                            ScriptConsole.println("[" + currentPortable.getType().getName() + "] Crafter product selection interface (" + crafterMakeXInterfaceId + ") NOT detected after interaction.");
+                        }
+                    }
+
                     int confirmInterfaceId = currentPortable.getConfirmationInterfaceId();
                     if (Interfaces.isOpen(confirmInterfaceId)) {
                         ScriptConsole.println("[" + currentPortable.getType().getName() + "] Confirmation interface (" + confirmInterfaceId + ") detected. Calling confirmAction().");
@@ -141,6 +159,8 @@ public class PortableTask implements Task {
                     } else {
                         ScriptConsole.println("[" + currentPortable.getType().getName() + "] Confirmation interface (" + confirmInterfaceId + ") not detected immediately after interaction.");
                     }
+                } else {
+                    ScriptConsole.println("[" + currentPortable.getType().getName() + "] Is a Workbench. Assuming interface handling is done elsewhere in interact() or subsequent logic.");
                 }
             } else {
                 ScriptConsole.println("[" + currentPortable.getType().getName() + "] Interact method already logged failure reason (not found or interaction failed).");
