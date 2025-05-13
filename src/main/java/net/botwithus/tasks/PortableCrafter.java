@@ -38,7 +38,7 @@ public class PortableCrafter extends Portable {
     private static final int GEM_CRUSHING_ENUM_ID = 6240;
     private static final int BOLT_TIPS_ENUM_ID = 6961;
     private static final int TAN_LEATHER_PRODUCTS_ENUM_ID = 2018; // Added for Tan Leather products
-    private static final int CLAY_R_GROUP_ENUM_ID = 7008;   // For (r) items, "Fire Clay" path
+    private static final int CLAY_R_GROUP_ENUM_ID = 16172;   // For (r) items, "Fire Clay" path
     private static final int CLAY_UNF_GROUP_ENUM_ID = 7004; // For (unf) items, "Form Clay" path
 
     // --- Interaction Options ---
@@ -212,18 +212,18 @@ public class PortableCrafter extends Portable {
                 }
 
                 String subGroupName;
-                switch (subGroupId) { // Names for (r) items - SAME AS (unf) NAMES
-                    case 7018: subGroupName = "Cooking Urns"; break;
-                    case 12910: subGroupName = "Divination Urns"; break;
-                    case 12913: subGroupName = "Farming Urns"; break;
-                    case 7021: subGroupName = "Fishing Urns"; break;
-                    case 12916: subGroupName = "Hunter Urns"; break;
-                    case 7024: subGroupName = "Mining Urns"; break;
-                    case 7027: subGroupName = "Prayer Urns"; break;
-                    case 12919: subGroupName = "Runecrafting Urns"; break;
-                    case 7030: subGroupName = "Smelting Urns"; break;
-                    case 7033: subGroupName = "Woodcutting Urns"; break;
-                    default: subGroupName = "Unknown Urn Group (" + subGroupId + ")"; break; // Remove (R)
+                switch (subGroupId) { // Names for (r) items - based on ENUM 16172
+                    case 7017: subGroupName = "Cooking Urns"; break;
+                    case 12909: subGroupName = "Divination Urns"; break;
+                    case 12912: subGroupName = "Farming Urns"; break;
+                    case 7020: subGroupName = "Fishing Urns"; break;
+                    case 12915: subGroupName = "Hunter Urns"; break;
+                    case 7023: subGroupName = "Mining Urns"; break;
+                    case 7026: subGroupName = "Prayer Urns"; break;
+                    case 12918: subGroupName = "Runecrafting Urns"; break;
+                    case 7029: subGroupName = "Smelting Urns"; break;
+                    case 7032: subGroupName = "Woodcutting Urns"; break;
+                    default: subGroupName = "Unknown Urn Group (" + subGroupId + ")"; break;
                 }
 
                 orderedGroupIds.add(subGroupId);
