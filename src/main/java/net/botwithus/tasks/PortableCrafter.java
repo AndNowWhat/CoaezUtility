@@ -40,6 +40,7 @@ public class PortableCrafter extends Portable {
     private static final int TAN_LEATHER_PRODUCTS_ENUM_ID = 2018; // Added for Tan Leather products
     private static final int CLAY_R_GROUP_ENUM_ID = 16172;   // For (r) items, "Fire Clay" path
     private static final int CLAY_UNF_GROUP_ENUM_ID = 7004; // For (unf) items, "Form Clay" path
+    private static final int CRAFT_ARMOUR_GROUP_ENUM_ID = 6987; // For "Craft" > Armour
 
     // --- Interaction Options ---
     public static final String OPT_CUT_GEMS = "Cut Gems";
@@ -86,9 +87,9 @@ public class PortableCrafter extends Portable {
     public PortableCrafter(CoaezUtility script) {
         super(script, PortableType.CRAFTER);
         this.groupEnumIdToProducts = new LinkedHashMap<>();
-        this.groupEnumIdToName = new LinkedHashMap<>(); // Keep names ordered too
+        this.groupEnumIdToName = new LinkedHashMap<>(); 
         this.orderedGroupIds = new ArrayList<>();
-        this.directProducts = new ArrayList<>(); // Initialize the direct products list
+        this.directProducts = new ArrayList<>(); 
         try {
             // Load data for the default option
             loadDataForOption(this.selectedInteractionOption);
@@ -164,7 +165,7 @@ public class PortableCrafter extends Portable {
             }
         } else if (OPT_TAN_LEATHER.equals(option)) {
             ScriptConsole.println("[PortableCrafter] Loading 'Tan Leather' products using Enum: " + TAN_LEATHER_PRODUCTS_ENUM_ID + " (faking group)");
-            int fakeGroupId = TAN_LEATHER_PRODUCTS_ENUM_ID; // Use the product enum ID as the fake group ID
+            int fakeGroupId = TAN_LEATHER_PRODUCTS_ENUM_ID; 
             String fakeGroupName = "Tan Leather";
 
             orderedGroupIds.add(fakeGroupId);
@@ -269,9 +270,8 @@ public class PortableCrafter extends Portable {
                 }
                 
                 String subGroupName;
-                // Manual name mapping for (unf) groups from enum 7004 - SAME AS (r) NAMES
                 switch (subGroupId) {
-                    case 7014: subGroupName = "Pottery"; break; // Changed from Pottery Items (unf)
+                    case 7014: subGroupName = "Pottery"; break;
                     case 7016: subGroupName = "Cooking Urns"; break;
                     case 12908: subGroupName = "Divination Urns"; break;
                     case 12911: subGroupName = "Farming Urns"; break;
@@ -282,7 +282,7 @@ public class PortableCrafter extends Portable {
                     case 12917: subGroupName = "Runecrafting Urns"; break;
                     case 7028: subGroupName = "Smelting Urns"; break;
                     case 7031: subGroupName = "Woodcutting Urns"; break;
-                    default: subGroupName = "Unknown Urn Group (" + subGroupId + ")"; break; // Remove (UNF)
+                    default: subGroupName = "Unknown Urn Group (" + subGroupId + ")"; break; 
                 }
 
                 orderedGroupIds.add(subGroupId);
@@ -307,11 +307,86 @@ public class PortableCrafter extends Portable {
                 groupEnumIdToProducts.put(subGroupId, productsInGroup);
                 ScriptConsole.println("[PortableCrafter] Loaded " + productsInGroup.size() + " products for clay (form) group: " + subGroupName);
             }
+        } else if (OPT_CRAFT.equals(option)) {
+            ScriptConsole.println("[PortableCrafter|Craft] Loading group data for 'Craft' (Armour) using Group Enum: " + CRAFT_ARMOUR_GROUP_ENUM_ID);
+            EnumType mainGroupEnum = ConfigManager.getEnumType(CRAFT_ARMOUR_GROUP_ENUM_ID);
+            
+            if (mainGroupEnum == null || mainGroupEnum.getOutputs() == null) {
+                 ScriptConsole.println("[PortableCrafter|Craft] CRITICAL: Failed to load main group enum " + CRAFT_ARMOUR_GROUP_ENUM_ID + " or its outputs.");
+                 return;
+            }
+            ScriptConsole.println("[PortableCrafter|Craft] Main group enum " + CRAFT_ARMOUR_GROUP_ENUM_ID + " loaded. Processing outputs...");
+
+            List<Object> subGroupEnumIds = mainGroupEnum.getOutputs();
+            for (Object subIdObj : subGroupEnumIds) {
+                if (!(subIdObj instanceof Integer)) {
+                    ScriptConsole.println("[PortableCrafter|Craft] WARNING: Encountered non-integer output in main group enum: " + subIdObj);
+                    continue;
+                }
+                int subGroupId = (Integer) subIdObj;
+                String subGroupName;
+
+                // Manual name mapping based on Enum 6987 dump
+                switch (subGroupId) {
+                    case 6991: subGroupName = "Leather"; break;
+                    case 13219: subGroupName = "Wizard Armour"; break;
+                    case 7002: subGroupName = "Imphide Armour"; break;
+                    case 7001: subGroupName = "Spider Silk Armour"; break;
+                    case 7000: subGroupName = "Batwing Armour"; break;
+                    case 7003: subGroupName = "Carapace Armour"; break;
+                    case 6992: subGroupName = "Snakeskin"; break;
+                    case 6993: subGroupName = "Green Dragonhide"; break;
+                    case 6994: subGroupName = "Blue Dragonhide"; break;
+                    case 13220: subGroupName = "Mystic Armour"; break;
+                    case 6995: subGroupName = "Red Dragonhide"; break;
+                    case 6996: subGroupName = "Black Dragonhide"; break;
+                    case 6997: subGroupName = "Royal Dragonhide"; break;
+                    case 17215: subGroupName = "Undead Dragonhide"; break;
+                    case 17216: subGroupName = "Dracolich"; break;
+                    case 6998: subGroupName = "Yak Hide"; break;
+                    case 6999: subGroupName = "Enhanced Armour"; break;
+                    case 15304: subGroupName = "Dinosaur Equipment"; break;
+                    default: 
+                        subGroupName = "Unknown Armour Group (" + subGroupId + ")"; 
+                        ScriptConsole.println("[PortableCrafter|Craft] WARNING: Unmapped subGroupId encountered: " + subGroupId);
+                        break;
+                }
+                ScriptConsole.println("[PortableCrafter|Craft] Processing SubGroupID: " + subGroupId + ", MappedName: '" + subGroupName + "'");
+
+                orderedGroupIds.add(subGroupId);
+                groupEnumIdToName.put(subGroupId, subGroupName);
+
+                EnumType subGroupEnum = ConfigManager.getEnumType(subGroupId);
+                List<Product> productsInGroup = new ArrayList<>();
+                
+                if (subGroupEnum == null) {
+                    ScriptConsole.println("[PortableCrafter|Craft] WARNING: Failed to load sub-group enum: " + subGroupId + " for group '" + subGroupName + "'. Product list will be empty.");
+                } else if (subGroupEnum.getOutputs() == null) {
+                    ScriptConsole.println("[PortableCrafter|Craft] WARNING: Sub-group enum " + subGroupId + " ('" + subGroupName + "') has null outputs. Product list will be empty.");
+                } else {
+                    ScriptConsole.println("[PortableCrafter|Craft] Loading products for sub-group " + subGroupId + " ('" + subGroupName + "'). Output count: " + subGroupEnum.getOutputs().size());
+                    for (Object prodIdObj : subGroupEnum.getOutputs()) {
+                        if (prodIdObj instanceof Integer) {
+                            int productId = (Integer) prodIdObj;
+                            ItemType itemType = ConfigManager.getItemType(productId);
+                            if (itemType != null) {
+                                Product product = new Product(itemType);
+                                product.parseIngredients(); // Assumes Product class handles CS2 keys 2650/2655/2665
+                                productsInGroup.add(product);
+                            }
+                        }
+                    }
+                    productsInGroup.sort(Comparator.comparing(Product::getName, String.CASE_INSENSITIVE_ORDER));
+                }
+                groupEnumIdToProducts.put(subGroupId, productsInGroup);
+                ScriptConsole.println("[PortableCrafter|Craft] Loaded " + productsInGroup.size() + " products for craft group: " + subGroupName);
+            }
+            ScriptConsole.println("[PortableCrafter|Craft] Finished processing. Final orderedGroupIds count: " + orderedGroupIds.size());
         } else {
-            // Handle other options like "Craft"
-            // If they have their own direct product enums, load them here into a general list.
-            // For now, just log and ensure group data is clear.
-            ScriptConsole.println("[PortableCrafter] Option '" + option + "' does not currently load grouped products.");
+            // This block now handles any option NOT explicitly covered above (e.g., Cut Gems, Tan Leather, Clay, Craft with Armour).
+            // If other options have their own direct product enums, they could be loaded here.
+            // For now, just log that the option is not specifically handled.
+            ScriptConsole.println("[PortableCrafter] Option '" + option + "' does not currently load grouped products. No specific handler implemented.");
         }
 
         // Set the object interaction override if a clay option is chosen
@@ -576,36 +651,36 @@ public class PortableCrafter extends Portable {
             ScriptConsole.println("[PortableCrafter|handleMakeXSelection] Incorrect item selected in interface. Attempting to find and select " + this.selectedProduct.getName() + " (ID: " + targetProductId + ") by index calculation.");
 
             // Determine which Enum holds the products for the currently selected interaction option.
-            // This logic depends on the selectedInteractionOption state.
-            int productEnumId;
-            if (OPT_CUT_GEMS.equals(selectedInteractionOption)) {
-                // For Cut Gems, we need the products from the *selected subgroup* (e.g., Gem Cutting, Gem Crushing).
-                // The selectedGroupId holds the Enum ID for the products of the selected category.
-                 if(selectedGroupId == -1) {
-                      ScriptConsole.println("[PortableCrafter|handleMakeXSelection] ERROR: Cut Gems selected, but no sub-group selected.");
-                      return false; // Cannot proceed if no sub-group is selected
-                 }
-                 productEnumId = selectedGroupId; // Use the selected group ID as the product enum ID
-                 ScriptConsole.println("[PortableCrafter|handleMakeXSelection] Using selected group Enum ID for products: " + productEnumId);
+            int productEnumId = -1; // Initialize to invalid
 
-            } else if (OPT_TAN_LEATHER.equals(selectedInteractionOption)) {
-                // For Tan Leather, the product enum ID is fixed.
+            // Special case: Tan Leather uses a fixed product enum ID regardless of group selection (as it's faked)
+            if (OPT_TAN_LEATHER.equals(selectedInteractionOption)) {
                 productEnumId = TAN_LEATHER_PRODUCTS_ENUM_ID;
-                 ScriptConsole.println("[PortableCrafter|handleMakeXSelection] Using Tan Leather product Enum ID: " + productEnumId);
-            } else if (OPT_CLAY_FIRE.equals(selectedInteractionOption) || OPT_CLAY_FORM.equals(selectedInteractionOption)) {
-                 // For Clay Crafting (Fire or Form), use the selected subgroup Enum ID.
-                 if(selectedGroupId == -1) {
-                      ScriptConsole.println("[PortableCrafter|handleMakeXSelection] ERROR: Clay Crafting selected, but no sub-group selected.");
-                      return false; 
-                 }
-                 productEnumId = selectedGroupId; 
-                 ScriptConsole.println("[PortableCrafter|handleMakeXSelection] Using selected Clay Crafting (" + selectedInteractionOption + ") group Enum ID for products: " + productEnumId);
-            } else {
-                 // Handle other options if they have a single product enum list directly
-                  ScriptConsole.println("[PortableCrafter|handleMakeXSelection] Selection logic not implemented for option: " + selectedInteractionOption);
-                 return false; // Cannot select product if logic is not defined
+                ScriptConsole.println("[PortableCrafter|handleMakeXSelection] Using Tan Leather product Enum ID: " + productEnumId);
+            } 
+            // General case for all other grouped options (Cut Gems, Clay Fire, Clay Form, Craft)
+            else if (groupEnumIdToProducts.containsKey(selectedGroupId)) { 
+                // Check if a valid group is actually selected for these options
+                if (selectedGroupId == -1) {
+                    ScriptConsole.println("[PortableCrafter|handleMakeXSelection] ERROR: Grouped option selected (" + selectedInteractionOption + "), but no sub-group selected (selectedGroupId is -1).");
+                    return false;
+                }
+                // Use the selected group's Enum ID to find the product within that group's list
+                productEnumId = selectedGroupId; 
+                ScriptConsole.println("[PortableCrafter|handleMakeXSelection] Using selected group Enum ID (" + selectedGroupId + " - '"+getGroupName(selectedGroupId)+"') for products for option: " + selectedInteractionOption);
+            } 
+            // Fallback/Error case: Option not handled or invalid state
+            else {
+                ScriptConsole.println("[PortableCrafter|handleMakeXSelection] Product selection logic not implemented or invalid state for option: " + selectedInteractionOption + " (Selected Group ID: "+selectedGroupId+")");
+                return false; // Cannot select product if logic is not defined or group invalid
             }
 
+            // Check if productEnumId was successfully determined
+            if (productEnumId == -1) {
+                 ScriptConsole.println("[PortableCrafter|handleMakeXSelection] CRITICAL: Failed to determine productEnumId for option: " + selectedInteractionOption);
+                 return false;
+            }
+            
             EnumType productEnum = ConfigManager.getEnumType(productEnumId);
             if (productEnum == null || productEnum.getOutputs() == null) {
                  ScriptConsole.println("[PortableCrafter|handleMakeXSelection] CRITICAL: Could not get product enum data or its outputs for enum ID: " + productEnumId + " for option " + selectedInteractionOption);
@@ -681,36 +756,37 @@ public class PortableCrafter extends Portable {
     }
 
     /**
-     * Helper method to infer a user-friendly group name from an enum name string.
-     * Example: "recipe_products_cooking_urns_3" -> "Cooking Urns"
-     * @param enumName The raw enum name.
-     * @return A formatted group name or the original name if formatting fails.
+     * Helper method to format a product group name from its raw enum string value.
+     * Example: "recipe_products_leather" -> "Leather"
+     * @param rawName The raw string value from the enum.
+     * @return A formatted group name or the original name if formatting fails or not applicable.
      */
-    // Removed inferGroupNameFromEnumName as it's not currently used due to lack of EnumType.getName()
-    /*
-    private String inferGroupNameFromEnumName(String enumName) {
-        if (enumName == null || !enumName.startsWith("recipe_products_")) {
-            return enumName != null ? enumName : "Unknown Enum Name"; // Return original or default
+    private String formatProductGroupName(String rawName) {
+        if (rawName == null) {
+            return "Unknown Group";
         }
-        try {
-            // Remove prefix and potential suffix (_#)
-            String baseName = enumName.substring("recipe_products_".length());
-            baseName = baseName.replaceAll("_\\d+$", ""); // Remove trailing _number if present
+        String baseName = rawName;
+        if (rawName.startsWith("recipe_products_")) {
+            baseName = rawName.substring("recipe_products_".length());
+        } else if (rawName.startsWith("recipe_group_")) { // Handle other prefixes if needed
+            baseName = rawName.substring("recipe_group_".length());
+        } else {
+            // Not a recognized prefix, maybe it's already a clean name or an unexpected format
+            // You might want to return rawName directly or apply a default formatting
+        }
 
-            // Split by underscore, capitalize words, join with spaces
-            String[] parts = baseName.split("_");
-            StringBuilder formattedName = new StringBuilder();
-            for (String part : parts) {
-                if (part.isEmpty()) continue;
-                formattedName.append(Character.toUpperCase(part.charAt(0)))
-                             .append(part.substring(1).toLowerCase())
-                             .append(" ");
-            }
-            return formattedName.toString().trim(); // Return the formatted string
-        } catch (Exception e) {
-            ScriptConsole.println("[PortableCrafter] Error inferring group name from '" + enumName + "': " + e.getMessage());
-            return enumName; // Fallback to original name on error
+        // Remove trailing _number if present (e.g., some_group_name_1 -> some_group_name)
+        baseName = baseName.replaceAll("_\\d+$", "");
+
+        String[] parts = baseName.split("_");
+        StringBuilder formattedName = new StringBuilder();
+        for (String part : parts) {
+            if (part.isEmpty()) continue;
+            formattedName.append(Character.toUpperCase(part.charAt(0)))
+                         .append(part.substring(1).toLowerCase())
+                         .append(" ");
         }
+        String finalName = formattedName.toString().trim();
+        return finalName.isEmpty() ? rawName : finalName; // Fallback to rawName if formatting results in empty string
     }
-    */
 } 

@@ -422,10 +422,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     saveConfig();
                 }
 
-                // Determine if the *current* state of the crafter (after any changes) uses groups
-                // This must be checked *after* the option change logic has populated currentCrafterGroupIds
-                boolean usesGroups = !currentCrafterGroupIds.isEmpty();
-                
+                boolean usesGroups = !currentCrafterGroupIds.isEmpty(); 
 
                 if (usesGroups) {
                     // --- Render Grouped Mode UI for Crafter (e.g., Cut Gems) ---
@@ -808,16 +805,18 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 } */
             } else if (currentPortable instanceof PortableCrafter) {
                 PortableCrafter pc = (PortableCrafter) currentPortable;
-                config.addProperty("crafterOptionIndex", String.valueOf(selectedCrafterOptionIndex));
+                // Save the actual selected option string for robustness
+                config.addProperty("crafterOptionString", pc.getSelectedGuiInteractionOption()); 
                 
                 if (pc.getSelectedProduct() != null) {
                     config.addProperty("crafterProductId", String.valueOf(pc.getSelectedProduct().getId()));
                 }
-                // Only save group ID if the current option uses groups and a valid group is selected
-                if (!currentCrafterGroupIds.isEmpty() && selectedCrafterGroupIndex < currentCrafterGroupIds.size() && selectedCrafterGroupIndex >= 0) {
-                     config.addProperty("crafterSelectedGroupId", String.valueOf(currentCrafterGroupIds.get(selectedCrafterGroupIndex)));
+                // Save the group ID directly from the PortableCrafter if a valid group is selected
+                int groupIdToSave = pc.getSelectedGroupId();
+                if (groupIdToSave != -1) {
+                     config.addProperty("crafterSelectedGroupId", String.valueOf(groupIdToSave));
                 } else {
-                    // If no groups or invalid index, perhaps remove the property or save -1
+                    // If no group selected (-1), remove the property to avoid loading issues
                     config.removeProperty("crafterSelectedGroupId"); 
                 }
             }
