@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.concurrent.Callable;
 
+import net.botwithus.rs3.input.GameInput;
+
 public class PortableTask implements Task {
     private final CoaezUtility script;
     private Portable currentPortable;

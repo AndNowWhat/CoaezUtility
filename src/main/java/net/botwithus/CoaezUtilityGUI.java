@@ -13,6 +13,8 @@ import net.botwithus.tasks.Portable;
 import net.botwithus.rs3.game.js5.types.configs.ConfigManager;
 import net.botwithus.tasks.SimplePortable;
 import net.botwithus.tasks.PortableCrafter;
+import net.botwithus.tasks.SawmillPlank;
+import net.botwithus.tasks.PortableSawmill;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -47,6 +49,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private List<Product> currentCrafterProducts = new ArrayList<>();
     private List<Integer> currentCrafterGroupIds = new ArrayList<>();
     private List<String> currentCrafterGroupNames = new ArrayList<>();
+
+    // Sawmill specific state
+    private int selectedSawmillPlankIndex = 0;
+    private final SawmillPlank[] sawmillPlanks = SawmillPlank.values();
 
     // Window dimensions
     private final int LISTBOX_HEIGHT = 150;
@@ -525,17 +531,57 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             } else {
                  ImGui.Text("Crafter selected, but no active crafter task found or task is of wrong type.");
             }
+        } else if (portableTypes[selectedPortableTypeIndex] == PortableType.SAWMILL) {
+            if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() instanceof PortableSawmill) {
+                PortableSawmill currentSawmill = (PortableSawmill) coaezUtility.getPortableTask().getActivePortable();
+                String[] plankNames = Arrays.stream(sawmillPlanks).map(SawmillPlank::getDisplayName).toArray(String[]::new);
+
+                if (selectedSawmillPlankIndex >= plankNames.length && plankNames.length > 0) selectedSawmillPlankIndex = 0;
+                else if (plankNames.length == 0) selectedSawmillPlankIndex = 0; // Should not happen with enum
+
+                int newPlankIndex = ImGui.Combo("Select Plank", selectedSawmillPlankIndex, plankNames);
+                if (newPlankIndex != selectedSawmillPlankIndex && newPlankIndex < sawmillPlanks.length) {
+                    selectedSawmillPlankIndex = newPlankIndex;
+                    currentSawmill.setSelectedPlank(sawmillPlanks[selectedSawmillPlankIndex]);
+                    saveConfig(); // Save selection
+                }
+            } else {
+                ImGui.Text("Sawmill selected, but no active sawmill task found or task is of wrong type.");
+            }
         } else {
             ImGui.Text("Portable selected, but no active portable task found or task is of wrong type.");
         }
 
         if (ImGui.Button("Start Current Portable Task")) {
             if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() != null &&
-                (portableTypes[selectedPortableTypeIndex] != PortableType.WORKBENCH && portableTypes[selectedPortableTypeIndex] != PortableType.CRAFTER)) {
+                (portableTypes[selectedPortableTypeIndex] != PortableType.WORKBENCH && 
+                 portableTypes[selectedPortableTypeIndex] != PortableType.CRAFTER && 
+                 portableTypes[selectedPortableTypeIndex] != PortableType.SAWMILL)) { // Non-configurable portables
                 coaezUtility.setBotState(CoaezUtility.BotState.PORTABLES);
                 saveConfig();
+            } else if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() != null && 
+                       (portableTypes[selectedPortableTypeIndex] == PortableType.WORKBENCH || 
+                        portableTypes[selectedPortableTypeIndex] == PortableType.CRAFTER || 
+                        portableTypes[selectedPortableTypeIndex] == PortableType.SAWMILL)) {
+                // Check if product/plank is selected for configurable portables
+                boolean canStart = false;
+                Portable currentPortable = coaezUtility.getPortableTask().getActivePortable();
+                if (currentPortable instanceof PortableWorkbench && ((PortableWorkbench) currentPortable).getSelectedProduct() != null) {
+                    canStart = true;
+                } else if (currentPortable instanceof PortableCrafter && ((PortableCrafter) currentPortable).getSelectedProduct() != null) {
+                    canStart = true;
+                } else if (currentPortable instanceof PortableSawmill && ((PortableSawmill) currentPortable).getSelectedPlank() != null) {
+                    canStart = true;
+                }
+
+                if (canStart) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.PORTABLES);
+                    saveConfig();
+                } else {
+                    ScriptConsole.println("[GUI] Cannot start Portables: No product/plank selected for the current portable type.");
+                }
             } else {
-                ScriptConsole.println("[GUI] Cannot start Portables: No active portable or no product selected for workbench or crafter.");
+                ScriptConsole.println("[GUI] Cannot start Portables: No active portable or no product/plank selected.");
             }
         }
 
@@ -544,6 +590,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             ImGui.Text("Active Portable: " + currentPortable.getType().getName());
 
             Product currentProd = null;
+            SawmillPlank currentPlank = null;
 
             if (currentPortable instanceof PortableWorkbench) {
                 currentProd = ((PortableWorkbench) currentPortable).getSelectedProduct();
@@ -554,6 +601,8 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 if (!pc.getGroupEnumIds().isEmpty() && pc.getSelectedGroupId() != -1) {
                      ImGui.Text("Selected Category: " + pc.getGroupName(pc.getSelectedGroupId()));
                 }
+            } else if (currentPortable instanceof PortableSawmill) {
+                currentPlank = ((PortableSawmill) currentPortable).getSelectedPlank();
             }
 
             // Simplified Product Display
@@ -575,10 +624,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 } else {
                      ImGui.Text("- (No ingredient data found)");
                 }
+            } else if (currentPlank != null) {
+                ImGui.Text("Selected Plank: " + currentPlank.getDisplayName());
             } else {
-                // Display only if it's a type that *should* have a product
-                if (currentPortable instanceof PortableWorkbench || currentPortable instanceof PortableCrafter) {
-                    ImGui.Text("Selected Product: None");
+                // Display only if it's a type that *should* have a product/plank
+                if (currentPortable instanceof PortableWorkbench || currentPortable instanceof PortableCrafter || currentPortable instanceof PortableSawmill) {
+                    ImGui.Text("Selected Product/Plank: None");
                 }
             }
 
@@ -597,7 +648,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         PortableType selectedType = portableTypes[selectedPortableTypeIndex];
         
 
-        if (selectedType != PortableType.WORKBENCH && selectedType != PortableType.CRAFTER) {
+        if (selectedType != PortableType.WORKBENCH && selectedType != PortableType.CRAFTER && selectedType != PortableType.SAWMILL) {
             currentGroupIds.clear();
             currentGroupNames.clear();
             currentWorkbenchProducts.clear();
@@ -686,92 +737,132 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
 
              case BRAZIER:
              case FLETCHER:
-             case SAWMILL:
              case RANGE:
-             case CRAFTER:
              case WELL:
-                 
-                 PortableCrafter pc_instance = null;
-                  try {
-                      pc_instance = new PortableCrafter(coaezUtility);
-                  } catch (Throwable t) {
-                       ScriptConsole.println("[GUI|UpdateActivePortableType|CRAFTER] CRITICAL EXCEPTION during PortableCrafter constructor: " + t.getMessage());
-                       t.printStackTrace();
-                       // Clear related GUI state if crafter creation fails
-                       this.currentCrafterGroupIds.clear();
-                       this.currentCrafterGroupNames.clear();
-                       this.currentCrafterProducts.clear();
-                       this.selectedCrafterOptionIndex = 0;
-                       this.selectedCrafterGroupIndex = 0;
-                       this.selectedCrafterProductIndex = 0;
-                       if (coaezUtility.getPortableTask() != null) {
-                            coaezUtility.getPortableTask().setActivePortable(null);
-                            coaezUtility.getPortableTask().setSelectedProduct(null);
-                       }
-                       break; // Exit switch
-                    }
-
-                    if (pc_instance != null && coaezUtility.getPortableTask() != null) {
-                        coaezUtility.getPortableTask().setActivePortable(pc_instance);
-                        // Initialize GUI state and PortableCrafter for the default (0th) crafter option
-                        this.selectedCrafterOptionIndex = 0; 
-                        
-                        // Ensure PortableCrafter.CRAFTER_OPTIONS is accessible and has elements
-                        if (PortableCrafter.CRAFTER_OPTIONS != null && PortableCrafter.CRAFTER_OPTIONS.length > 0) {
-                            String defaultOptionName = PortableCrafter.CRAFTER_OPTIONS[this.selectedCrafterOptionIndex];
-                            pc_instance.setSelectedInteractionOption(defaultOptionName);
-
-                            this.currentCrafterGroupIds = pc_instance.getGroupEnumIds();
-
-                            if (!this.currentCrafterGroupIds.isEmpty()) { // Grouped Mode for default option
-                                this.selectedCrafterGroupIndex = 0; // Default to first group
-                                if (!this.currentCrafterGroupIds.isEmpty()) { // Check again before get()
-                                    int defaultGroupId = this.currentCrafterGroupIds.get(this.selectedCrafterGroupIndex);
-                                    pc_instance.setSelectedGroupId(defaultGroupId); // Inform crafter instance
-                                    this.currentCrafterGroupNames = this.currentCrafterGroupIds.stream()
-                                                                        .map(pc_instance::getGroupName)
-                                                                        .collect(Collectors.toList());
-                                    this.currentCrafterProducts = new ArrayList<>(pc_instance.getProductsForGroup(defaultGroupId));
-                                    this.selectedCrafterProductIndex = 0;
-                                } else { // Should be rare, if getGroupEnumIds was non-empty
-                                     this.currentCrafterGroupNames.clear();
-                                     this.currentCrafterProducts.clear();
-                                     this.selectedCrafterProductIndex = 0;
-                                }
-                            } else { // Direct Product Mode for default option
-                                this.currentCrafterGroupNames.clear();
-                                this.selectedCrafterGroupIndex = 0;
-                                pc_instance.setSelectedGroupId(-1); // Indicate no group
-                                this.currentCrafterProducts = new ArrayList<>(pc_instance.getDirectProducts());
-                                this.selectedCrafterProductIndex = 0;
-                            }
-
-                            // Set default product in crafter instance itself
-                            if (!this.currentCrafterProducts.isEmpty() && this.selectedCrafterProductIndex < this.currentCrafterProducts.size()) {
-                                pc_instance.setSelectedProduct(this.currentCrafterProducts.get(this.selectedCrafterProductIndex));
-                            } else {
-                                pc_instance.setSelectedProduct(null);
-                                this.selectedCrafterProductIndex = 0; // Ensure index is safe
-                            }
-                        } else {
-                            // Handle case where CRAFTER_OPTIONS might be empty or null
-                            ScriptConsole.println("[GUI|UpdateActivePortableType|CRAFTER] CRAFTER_OPTIONS is not available. Cannot initialize default option.");
-                            this.currentCrafterGroupIds.clear();
-                            this.currentCrafterGroupNames.clear();
-                            this.currentCrafterProducts.clear();
-                            pc_instance.setSelectedProduct(null);
-                        }
-                        // coaezUtility.getPortableTask().setSelectedProduct(null); // Redundant if pc_instance manages its own product
-                  }
+                 Portable simplePortable = new SimplePortable(coaezUtility, selectedType);
+                 coaezUtility.getPortableTask().setActivePortable(simplePortable);
+                 coaezUtility.getPortableTask().setSelectedProduct(null);
+                 // Clear workbench state
+                currentGroupIds.clear();
+                currentGroupNames.clear();
+                currentWorkbenchProducts.clear();
+                selectedGroupIndex = 0;
+                selectedWorkbenchProductIndex = 0;
+                // Clear crafter state
+                currentCrafterGroupIds.clear();
+                currentCrafterGroupNames.clear();
+                currentCrafterProducts.clear();
+                selectedCrafterOptionIndex = 0;
+                selectedCrafterGroupIndex = 0;
+                selectedCrafterProductIndex = 0;
+                // Clear sawmill state (selectedSawmillPlankIndex is fine as is, used by GUI)
                  break;
+            case SAWMILL:
+                PortableSawmill sawmill = new PortableSawmill(coaezUtility);
+                coaezUtility.getPortableTask().setActivePortable(sawmill);
+                coaezUtility.getPortableTask().setSelectedProduct(null); // Sawmill doesn't use general Product
+
+                // Clear workbench state
+                currentGroupIds.clear();
+                currentGroupNames.clear();
+                currentWorkbenchProducts.clear();
+                selectedGroupIndex = 0;
+                selectedWorkbenchProductIndex = 0;
+                // Clear crafter state
+                currentCrafterGroupIds.clear();
+                currentCrafterGroupNames.clear();
+                currentCrafterProducts.clear();
+                selectedCrafterOptionIndex = 0;
+                selectedCrafterGroupIndex = 0;
+                selectedCrafterProductIndex = 0;
+                // selectedSawmillPlankIndex will be updated by loadConfig or user interaction
+                break;
             default:
                  ScriptConsole.println("[GUI] Unknown portable type selected in update: " + selectedType);
                   coaezUtility.getPortableTask().setActivePortable(null);
                   coaezUtility.getPortableTask().setSelectedProduct(null);
                 break;
         }
-        saveConfig();
-    }
+
+        // Separate logic block for CRAFTER type
+        if (selectedType == PortableType.CRAFTER) {
+            PortableCrafter pc_instance = null;
+            try {
+                pc_instance = new PortableCrafter(coaezUtility);
+            } catch (Throwable t) {
+                 ScriptConsole.println("[GUI|UpdateActivePortableType|CRAFTER] CRITICAL EXCEPTION during PortableCrafter constructor: " + t.getMessage());
+                 t.printStackTrace();
+                 this.currentCrafterGroupIds.clear();
+                 this.currentCrafterGroupNames.clear();
+                 this.currentCrafterProducts.clear();
+                 this.selectedCrafterOptionIndex = 0;
+                 this.selectedCrafterGroupIndex = 0;
+                 this.selectedCrafterProductIndex = 0;
+                 if (coaezUtility.getPortableTask() != null) {
+                      coaezUtility.getPortableTask().setActivePortable(null);
+                      coaezUtility.getPortableTask().setSelectedProduct(null);
+                 }
+                 // Clear workbench state if crafter fails
+                currentGroupIds.clear();
+                currentGroupNames.clear();
+                currentWorkbenchProducts.clear();
+                selectedGroupIndex = 0;
+                selectedWorkbenchProductIndex = 0;
+            } // End catch
+
+            if (pc_instance != null && coaezUtility.getPortableTask() != null) {
+                coaezUtility.getPortableTask().setActivePortable(pc_instance);
+                this.selectedCrafterOptionIndex = 0; 
+                if (PortableCrafter.CRAFTER_OPTIONS != null && PortableCrafter.CRAFTER_OPTIONS.length > 0) {
+                    String defaultOptionName = PortableCrafter.CRAFTER_OPTIONS[this.selectedCrafterOptionIndex];
+                    pc_instance.setSelectedInteractionOption(defaultOptionName);
+                    this.currentCrafterGroupIds = pc_instance.getGroupEnumIds();
+                    if (!this.currentCrafterGroupIds.isEmpty()) { 
+                        this.selectedCrafterGroupIndex = 0;
+                        if (!this.currentCrafterGroupIds.isEmpty()) { 
+                            int defaultGroupId = this.currentCrafterGroupIds.get(this.selectedCrafterGroupIndex);
+                            pc_instance.setSelectedGroupId(defaultGroupId); 
+                            this.currentCrafterGroupNames = this.currentCrafterGroupIds.stream()
+                                                                .map(pc_instance::getGroupName)
+                                                                .collect(Collectors.toList());
+                            this.currentCrafterProducts = new ArrayList<>(pc_instance.getProductsForGroup(defaultGroupId));
+                            this.selectedCrafterProductIndex = 0;
+                        } else { 
+                             this.currentCrafterGroupNames.clear();
+                             this.currentCrafterProducts.clear();
+                             this.selectedCrafterProductIndex = 0;
+                        }
+                    } else { 
+                        this.currentCrafterGroupNames.clear();
+                        this.selectedCrafterGroupIndex = 0;
+                        pc_instance.setSelectedGroupId(-1); 
+                        this.currentCrafterProducts = new ArrayList<>(pc_instance.getDirectProducts());
+                        this.selectedCrafterProductIndex = 0;
+                    }
+                    if (!this.currentCrafterProducts.isEmpty() && this.selectedCrafterProductIndex < this.currentCrafterProducts.size()) {
+                        pc_instance.setSelectedProduct(this.currentCrafterProducts.get(this.selectedCrafterProductIndex));
+                    } else {
+                        pc_instance.setSelectedProduct(null);
+                        this.selectedCrafterProductIndex = 0; 
+                    }
+                } else {
+                    ScriptConsole.println("[GUI|UpdateActivePortableType|CRAFTER] CRAFTER_OPTIONS is not available. Cannot initialize default option.");
+                    this.currentCrafterGroupIds.clear();
+                    this.currentCrafterGroupNames.clear();
+                    this.currentCrafterProducts.clear();
+                    if(pc_instance != null) pc_instance.setSelectedProduct(null);
+                }
+                 // Clear workbench state when Crafter is selected
+                currentGroupIds.clear();
+                currentGroupNames.clear();
+                currentWorkbenchProducts.clear();
+                selectedGroupIndex = 0;
+                selectedWorkbenchProductIndex = 0;
+            } // End if pc_instance != null
+        } // End if selectedType == PortableType.CRAFTER
+
+        saveConfig(); // This should be the last call before the method ends
+    } // End of updateActivePortableType method
 
 
     private void saveConfig() {
