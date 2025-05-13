@@ -1,6 +1,7 @@
 package net.botwithus.tasks;
 
 import net.botwithus.CoaezUtility;
+import net.botwithus.api.game.hud.Dialog;
 import net.botwithus.api.game.hud.inventories.Bank;
 import net.botwithus.rs3.game.hud.interfaces.Interfaces;
 import net.botwithus.rs3.script.Execution;
@@ -18,6 +19,7 @@ import net.botwithus.rs3.game.minimenu.actions.SelectableAction;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.concurrent.Callable;
 
 public class PortableTask implements Task {
     private final CoaezUtility script;
@@ -118,11 +120,28 @@ public class PortableTask implements Task {
         ScriptConsole.println("[PortableTask] Executing for: " + currentPortable.getType().getName()
             + (currentProduct != null ? " (Product: " + currentProduct.getName() + ")" : ""));
 
+        // --- Interface Handling FIRST ---
+        // Check for Workbench Make-X List (Interface 1370, but uses var 1169/1170 like 1371)
         if (currentPortable instanceof PortableWorkbench && Interfaces.isOpen(MAKE_X_LIST_INTERFACE_ID)) {
+            ScriptConsole.println("[PortableTask] Workbench Make-X Interface (" + MAKE_X_LIST_INTERFACE_ID + ") open. Handling...");
             handleWorkbenchMakeXInterface((PortableWorkbench) currentPortable);
-            return;
+            return; // End cycle after handling interface
+        }
+
+        // Check for Crafter Make-X Interface (1371)
+        if (currentPortable instanceof PortableCrafter && Interfaces.isOpen(PortableCrafter.CRAFTER_MAKE_X_INTERFACE_ID)) {
+            ScriptConsole.println("[PortableTask] Crafter Make-X Interface (" + PortableCrafter.CRAFTER_MAKE_X_INTERFACE_ID + ") open. Handling...");
+            PortableCrafter crafter = (PortableCrafter) currentPortable;
+            boolean actionTaken = crafter.handleMakeXSelection();
+            if (actionTaken) {
+                 ScriptConsole.println("[PortableTask] Crafter interface action attempted (category/item/make). Ending cycle.");
+            } else {
+                 ScriptConsole.println("[PortableTask] Crafter interface action failed or nothing to do. Ending cycle.");
+            }
+            return; // End cycle after attempting to handle interface
         }
         
+        // Check if actively crafting (Interface 1251)
         if (Interfaces.isOpen(CRAFTING_IN_PROGRESS_INTERFACE_ID)) {
             ScriptConsole.println("[" + currentPortable.getType().getName() + "] Crafting interface (" + CRAFTING_IN_PROGRESS_INTERFACE_ID + ") is open, waiting...");
             Execution.delayUntil(14000L, () -> !Interfaces.isOpen(CRAFTING_IN_PROGRESS_INTERFACE_ID));
@@ -131,39 +150,61 @@ public class PortableTask implements Task {
         
         if (currentPortable.hasRequiredItems()) {
             ScriptConsole.println("[" + currentPortable.getType().getName() + "] Found required items, interacting...");
-            if (currentPortable.interact()) {
-                if (!(currentPortable instanceof PortableWorkbench)) {
-                    ScriptConsole.println("[" + currentPortable.getType().getName() + "] Interaction initiated by Portable.interact(). Checking for confirmation interface...");
-                    
-                    if (currentPortable instanceof PortableCrafter) {
-                        PortableCrafter crafter = (PortableCrafter) currentPortable;
-                        int crafterMakeXInterfaceId = 1371;
-                        if (Interfaces.isOpen(crafterMakeXInterfaceId)) {
-                            ScriptConsole.println("[" + currentPortable.getType().getName() + "] Crafter product selection interface (" + crafterMakeXInterfaceId + ") detected. Attempting to select product...");
-                            boolean selectionSuccessful = crafter.handleMakeXSelection();
-                            if (selectionSuccessful) {
-                                ScriptConsole.println("[" + currentPortable.getType().getName() + "] Product selection attempted.");
+            boolean interactionInitiated = currentPortable.interact();
+
+            if (interactionInitiated) {
+                // --- Clay Crafting Dialog Handling --- START ---
+                if (currentPortable instanceof PortableCrafter) {
+                    PortableCrafter crafter = (PortableCrafter) currentPortable;
+                    String currentGuiOption = crafter.getSelectedGuiInteractionOption();
+
+                    if (PortableCrafter.OPT_CLAY_FORM.equals(currentGuiOption) || PortableCrafter.OPT_CLAY_FIRE.equals(currentGuiOption)) {
+                        if (Dialog.isOpen()) {
+                            ScriptConsole.println("[PortableTask] Clay Crafting dialog detected for GUI option: " + currentGuiOption);
+                            int dialogOptionToSelect = -1;
+                            if (PortableCrafter.OPT_CLAY_FORM.equals(currentGuiOption)) {
+                                dialogOptionToSelect = 0; // "Form Clay"
+                            } else { // Must be OPT_CLAY_FIRE
+                                dialogOptionToSelect = 1; // "Fire Clay"
+                            }
+
+                            ScriptConsole.println("[PortableTask] Attempting to select dialog option: " + dialogOptionToSelect);
+                            if (Dialog.interact(dialogOptionToSelect)) {
+                                ScriptConsole.println("[PortableTask] Clicked dialog option " + dialogOptionToSelect);
+                                Callable<Boolean> condition = () -> !Dialog.isOpen() || Interfaces.isOpen(PortableCrafter.CRAFTER_MAKE_X_INTERFACE_ID);
+                                Execution.delayUntil(3000, condition);
+                                Execution.delay(script.getRandom().nextInt(300) + 200);
+                                ScriptConsole.println("[PortableTask] Clay dialog processed. Ending cycle to allow Make-X detection.");
+                                return;
                             } else {
-                                ScriptConsole.println("[" + currentPortable.getType().getName() + "] Product selection failed.");
+                                ScriptConsole.println("[PortableTask] Failed to interact with clay dialog option " + dialogOptionToSelect);
                                 return;
                             }
                         } else {
-                            ScriptConsole.println("[" + currentPortable.getType().getName() + "] Crafter product selection interface (" + crafterMakeXInterfaceId + ") NOT detected after interaction.");
+                            ScriptConsole.println("[PortableTask] Clay Crafting option active, but initial dialog not detected. Interaction likely opened Make-X directly or failed.");
                         }
                     }
+                } // --- Clay Crafting Dialog Handling --- END ---
 
+                // --- General Confirmation Handling (Interface 1370) ---
+                if (!(currentPortable instanceof PortableWorkbench) && !(currentPortable instanceof PortableCrafter)) { // Only check for non-workbench/crafter
                     int confirmInterfaceId = currentPortable.getConfirmationInterfaceId();
                     if (Interfaces.isOpen(confirmInterfaceId)) {
-                        ScriptConsole.println("[" + currentPortable.getType().getName() + "] Confirmation interface (" + confirmInterfaceId + ") detected. Calling confirmAction().");
+                        ScriptConsole.println("[" + currentPortable.getType().getName() + "] General Confirmation interface (" + confirmInterfaceId + ") detected. Calling confirmAction().");
                         currentPortable.confirmAction();
+                        return;
                     } else {
-                        ScriptConsole.println("[" + currentPortable.getType().getName() + "] Confirmation interface (" + confirmInterfaceId + ") not detected immediately after interaction.");
+                        ScriptConsole.println("[" + currentPortable.getType().getName() + "] General Confirmation interface (" + confirmInterfaceId + ") not detected after interaction.");
                     }
-                } else {
-                    ScriptConsole.println("[" + currentPortable.getType().getName() + "] Is a Workbench. Assuming interface handling is done elsewhere in interact() or subsequent logic.");
+                } 
+                // --- End General Confirmation Handling ---
+
+                else if (currentPortable instanceof PortableWorkbench) {
+                     ScriptConsole.println("[" + currentPortable.getType().getName() + "] Is a Workbench. Assuming interface 1371 handling is done elsewhere.");
                 }
+
             } else {
-                ScriptConsole.println("[" + currentPortable.getType().getName() + "] Interact method already logged failure reason (not found or interaction failed).");
+                ScriptConsole.println("[" + currentPortable.getType().getName() + "] Interact method failed or portable not found.");
             }
         } else {
             ScriptConsole.println("[" + currentPortable.getType().getName() + "] No/Not enough required items found for " + (currentProduct != null ? currentProduct.getName() : "selected portable") + ", loading preset.");
@@ -307,3 +348,4 @@ public class PortableTask implements Task {
         }
     }
 }
+

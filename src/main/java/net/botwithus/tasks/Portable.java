@@ -1,5 +1,6 @@
 package net.botwithus.tasks;
 
+import net.botwithus.api.game.hud.Dialog;
 import net.botwithus.CoaezUtility;
 import net.botwithus.api.game.hud.inventories.Backpack;
 import net.botwithus.rs3.game.Item;
@@ -98,7 +99,7 @@ public abstract class Portable {
             if (portableObject.interact(getInteractionOption())) {
                 // Wait for the confirmation or make-x interface to appear
                 Execution.delayUntil(5000L, () ->  // Ensure delay is long
-                    Interfaces.isOpen(getConfirmationInterfaceId()) || Interfaces.isOpen(getMakeXInterfaceId())
+                    Interfaces.isOpen(getConfirmationInterfaceId()) || Interfaces.isOpen(getMakeXInterfaceId()) || Dialog.isOpen()
                 );
                 return true;
             }

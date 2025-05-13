@@ -543,8 +543,8 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         }
 
         if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() != null) {
-            Portable currentPortable = coaezUtility.getPortableTask().getActivePortable(); // Get the Portable object
-            ImGui.Text("Active Portable: " + currentPortable.getType().getName()); // Use getType() on the object
+            Portable currentPortable = coaezUtility.getPortableTask().getActivePortable();
+            ImGui.Text("Active Portable: " + currentPortable.getType().getName());
 
             Product currentProd = null;
 
@@ -794,9 +794,32 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         }
 
         if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() != null) {
-            config.addProperty("selectedPortableType", coaezUtility.getPortableTask().getActivePortable().getType().name());
-            if (coaezUtility.getPortableTask().getActivePortable().getType() == PortableType.WORKBENCH && coaezUtility.getPortableTask().getSelectedProduct() != null) {
-                config.addProperty("workbenchProductId", String.valueOf(coaezUtility.getPortableTask().getSelectedProduct().getId()));
+            Portable currentPortable = coaezUtility.getPortableTask().getActivePortable();
+            config.addProperty("selectedPortableType", currentPortable.getType().name());
+
+            if (currentPortable instanceof PortableWorkbench) {
+                PortableWorkbench wb = (PortableWorkbench) currentPortable;
+                if (wb.getSelectedProduct() != null) {
+                    config.addProperty("workbenchProductId", String.valueOf(wb.getSelectedProduct().getId()));
+                }
+                // Removed saving workbenchSelectedGroupId - product ID restoration handles this implicitly.
+                /* if (wb.getSelectedGroupId() != -1 && selectedGroupIndex < currentGroupIds.size() && selectedGroupIndex >= 0) { 
+                    config.addProperty("workbenchSelectedGroupId", String.valueOf(currentGroupIds.get(selectedGroupIndex)));
+                } */
+            } else if (currentPortable instanceof PortableCrafter) {
+                PortableCrafter pc = (PortableCrafter) currentPortable;
+                config.addProperty("crafterOptionIndex", String.valueOf(selectedCrafterOptionIndex));
+                
+                if (pc.getSelectedProduct() != null) {
+                    config.addProperty("crafterProductId", String.valueOf(pc.getSelectedProduct().getId()));
+                }
+                // Only save group ID if the current option uses groups and a valid group is selected
+                if (!currentCrafterGroupIds.isEmpty() && selectedCrafterGroupIndex < currentCrafterGroupIds.size() && selectedCrafterGroupIndex >= 0) {
+                     config.addProperty("crafterSelectedGroupId", String.valueOf(currentCrafterGroupIds.get(selectedCrafterGroupIndex)));
+                } else {
+                    // If no groups or invalid index, perhaps remove the property or save -1
+                    config.removeProperty("crafterSelectedGroupId"); 
+                }
             }
         }
 
@@ -858,7 +881,128 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                      selectedPortableTypeIndex = 0;
                      updateActivePortableType();
                  }
-             } catch (IllegalArgumentException e) {
+
+                // ** Crafter State Restoration START **
+                if (portableTypes[selectedPortableTypeIndex] == PortableType.CRAFTER && coaezUtility.getPortableTask().getActivePortable() instanceof PortableCrafter) {
+                    PortableCrafter crafterInstance = (PortableCrafter) coaezUtility.getPortableTask().getActivePortable();
+                    
+                    // 1. Restore Crafter Option Index
+                    String savedCrafterOptionIndexStr = config.getProperty("crafterOptionIndex");
+                    int savedCrafterOptionIndex = 0; // Default to 0
+                    if (savedCrafterOptionIndexStr != null) {
+                        try { savedCrafterOptionIndex = Integer.parseInt(savedCrafterOptionIndexStr); } catch (NumberFormatException e) { /* Use default */ }
+                    }
+                    // Ensure index is valid
+                    if (savedCrafterOptionIndex < 0 || savedCrafterOptionIndex >= PortableCrafter.CRAFTER_OPTIONS.length) {
+                        savedCrafterOptionIndex = 0;
+                    }
+
+                    // Only update if the saved option is different from the one set by updateActivePortableType (which defaults to 0)
+                    if (savedCrafterOptionIndex != selectedCrafterOptionIndex) {
+                         selectedCrafterOptionIndex = savedCrafterOptionIndex;
+                         // Set the option on the crafter instance to load correct groups/products
+                         String chosenOption = PortableCrafter.CRAFTER_OPTIONS[selectedCrafterOptionIndex];
+                         crafterInstance.setSelectedInteractionOption(chosenOption); 
+                         ScriptConsole.println("[GUI Load] Set Crafter option to index: " + selectedCrafterOptionIndex + " (" + chosenOption + ")");
+                         // Refresh GUI lists based on the loaded option
+                         currentCrafterGroupIds = crafterInstance.getGroupEnumIds();
+                         currentCrafterGroupNames = currentCrafterGroupIds.stream().map(crafterInstance::getGroupName).collect(Collectors.toList());
+                         // Determine if groups are used *after* setting the option
+                         boolean usesGroupsNow = !currentCrafterGroupIds.isEmpty();
+                         if(usesGroupsNow) {
+                            currentCrafterProducts.clear(); // Clear products, will be loaded based on group
+                         } else {
+                            currentCrafterProducts = new ArrayList<>(crafterInstance.getDirectProducts()); // Load direct products
+                         }
+                         selectedCrafterGroupIndex = 0; // Reset group/product indices for the new option
+                         selectedCrafterProductIndex = 0;
+                    }
+                    
+                    // 2. Restore Crafter Group Index (only if the selected option uses groups)
+                    currentCrafterGroupIds = crafterInstance.getGroupEnumIds(); // Re-fetch just in case
+                    boolean usesGroups = !currentCrafterGroupIds.isEmpty();
+                    int savedCrafterGroupId = -1;
+                    int savedCrafterGroupIndex = -1; // The index within the *current* list
+
+                    if (usesGroups) {
+                        String savedCrafterGroupIdStr = config.getProperty("crafterSelectedGroupId");
+                        if (savedCrafterGroupIdStr != null) {
+                            try { savedCrafterGroupId = Integer.parseInt(savedCrafterGroupIdStr); } catch (NumberFormatException e) { savedCrafterGroupId = -1; }
+                        }
+                        
+                        // Find the index of the saved Group ID in the current list for this option
+                        for (int i = 0; i < currentCrafterGroupIds.size(); i++) {
+                            if (currentCrafterGroupIds.get(i) == savedCrafterGroupId) {
+                                savedCrafterGroupIndex = i;
+                                break;
+                            }
+                        }
+                        
+                        if (savedCrafterGroupIndex != -1) {
+                            selectedCrafterGroupIndex = savedCrafterGroupIndex;
+                            crafterInstance.setSelectedGroupId(savedCrafterGroupId);
+                            ScriptConsole.println("[GUI Load] Set Crafter group to index: " + selectedCrafterGroupIndex + " (ID: " + savedCrafterGroupId + ")");
+                            // Load products for the restored group
+                            currentCrafterProducts = new ArrayList<>(crafterInstance.getProductsForGroup(savedCrafterGroupId));
+                            selectedCrafterProductIndex = 0; // Reset product index for new group
+                        } else {
+                            // Saved group ID not found in current option's groups, use default group (index 0)
+                            selectedCrafterGroupIndex = 0;
+                            if (!currentCrafterGroupIds.isEmpty()) {
+                                int defaultGroupId = currentCrafterGroupIds.get(0);
+                                crafterInstance.setSelectedGroupId(defaultGroupId);
+                                currentCrafterProducts = new ArrayList<>(crafterInstance.getProductsForGroup(defaultGroupId));
+                            } else {
+                                currentCrafterProducts.clear(); // Should not happen if usesGroups is true
+                            }
+                             selectedCrafterProductIndex = 0;
+                        }
+                    } else {
+                        // Option does not use groups, ensure products are loaded if not already
+                        if (currentCrafterProducts.isEmpty()) {
+                            currentCrafterProducts = new ArrayList<>(crafterInstance.getDirectProducts());
+                        }
+                        selectedCrafterGroupIndex = 0; // Or -1, consistent with GUI rendering
+                        selectedCrafterProductIndex = 0;
+                    }
+
+                    // 3. Restore Crafter Product Index
+                    String savedCrafterProductIdStr = config.getProperty("crafterProductId");
+                    int savedCrafterProductId = -1;
+                    if (savedCrafterProductIdStr != null) {
+                        try { savedCrafterProductId = Integer.parseInt(savedCrafterProductIdStr); } catch (NumberFormatException e) { /* Use default */ }
+                    }
+                    
+                    int restoredProductIndex = -1;
+                    if (savedCrafterProductId != -1 && currentCrafterProducts != null && !currentCrafterProducts.isEmpty()) {
+                        for (int i = 0; i < currentCrafterProducts.size(); i++) {
+                            Product p = currentCrafterProducts.get(i);
+                            if (p != null && p.getId() == savedCrafterProductId) {
+                                restoredProductIndex = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (restoredProductIndex != -1) {
+                        selectedCrafterProductIndex = restoredProductIndex;
+                        crafterInstance.setSelectedProduct(currentCrafterProducts.get(selectedCrafterProductIndex));
+                        ScriptConsole.println("[GUI Load] Restored Crafter product to index: " + selectedCrafterProductIndex + " (ID: " + savedCrafterProductId + ")");
+                    } else {
+                        // Select default product (index 0) if restoration failed or no ID saved
+                        selectedCrafterProductIndex = 0;
+                        if (currentCrafterProducts != null && !currentCrafterProducts.isEmpty()) {
+                            crafterInstance.setSelectedProduct(currentCrafterProducts.get(0));
+                             ScriptConsole.println("[GUI Load] Setting default Crafter product (index 0). ID: " + currentCrafterProducts.get(0).getId());
+                        } else {
+                            crafterInstance.setSelectedProduct(null); // No products available
+                             ScriptConsole.println("[GUI Load] No Crafter products available for selected group/option.");
+                        }
+                    }
+                } 
+                // ** Crafter State Restoration END **
+
+            } catch (IllegalArgumentException e) {
                  ScriptConsole.println("[GUI] Failed to load portable type from config: " + selectedPortableTypeName + ". " + e.getMessage());
                  selectedPortableTypeIndex = 0;
                  updateActivePortableType();
