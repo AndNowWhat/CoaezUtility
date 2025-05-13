@@ -1,5 +1,6 @@
 package net.botwithus.model;
 
+import net.botwithus.CoaezUtility;
 import net.botwithus.api.game.hud.inventories.Backpack;
 import net.botwithus.rs3.game.Client;
 import net.botwithus.rs3.game.Item;
@@ -10,6 +11,9 @@ import net.botwithus.rs3.game.queries.builders.components.ComponentQuery;
 import net.botwithus.rs3.game.queries.results.ResultSet;
 import net.botwithus.rs3.script.Execution;
 import net.botwithus.rs3.script.ScriptConsole;
+import net.botwithus.rs3.game.cs2.ScriptBuilder;
+import net.botwithus.rs3.game.cs2.layouts.Layout;
+import net.botwithus.rs3.game.cs2.ReturnValue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +23,13 @@ import java.util.stream.Collectors;
 public class Alchemy {
     private final List<Pattern> alchemyPatterns = new ArrayList<>();
     private boolean alchemyEnabled = true;
+    private CoaezUtility script;
+
+    private static final ScriptBuilder cancelSelectionScript = ScriptBuilder.of(9666).returns(Layout.INT);
+
+    public Alchemy(CoaezUtility script) {
+        this.script = script;
+    }
 
     public void setAlchemyEnabled(boolean enabled) {
         this.alchemyEnabled = enabled;
@@ -120,8 +131,25 @@ public class Alchemy {
         return null;
     }
 
+    private boolean clearSelection() {
+        ScriptConsole.println("[Alchemy] Attempting to clear selection via ScriptBuilder invokeExact(9666)");
+        List<ReturnValue> result = cancelSelectionScript.invokeExact();
+        boolean success = !result.isEmpty() && result.get(0).asInt() == 1; 
+        ScriptConsole.println("[Alchemy] Clear selection invoke success: " + success + " (Result size: " + result.size() + ")");
+        if (success) {
+            Execution.delay(script.getRandom().nextInt(100) + 50);
+        }
+        return success;
+    }
+
     private void selectItemForAlchemy(Item item) {
-        MiniMenu.interact(SelectableAction.SELECT_COMPONENT_ITEM.getType(), 0, item.getSlot(), 96534533);
+        ScriptConsole.println("[Alchemy] Attempting to select item for alchemy: " + item.getName() + " (ID: " + item.getId() + ") in slot " + item.getSlot());
+        boolean success = MiniMenu.interact(SelectableAction.SELECT_COMPONENT_ITEM.getType(), 0, item.getSlot(), 96534533);
+        ScriptConsole.println("[Alchemy] Item selection success: " + success);
+        if (success) {
+            Execution.delay(script.getRandom().nextInt(150) + 100);
+            clearSelection();
+        }
     }
 
     public void clearAlchemyItems() {

@@ -6,6 +6,7 @@ import net.botwithus.rs3.game.Item;
 import net.botwithus.rs3.game.hud.interfaces.Component;
 import net.botwithus.rs3.game.minimenu.MiniMenu;
 import net.botwithus.rs3.game.minimenu.actions.SelectableAction;
+import net.botwithus.rs3.game.minimenu.actions.ComponentAction;
 import net.botwithus.rs3.game.queries.builders.components.ComponentQuery;
 import net.botwithus.rs3.game.queries.results.ResultSet;
 import net.botwithus.rs3.script.Execution;
@@ -17,10 +18,16 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import net.botwithus.CoaezUtility;
+import net.botwithus.rs3.game.cs2.ScriptBuilder;
+import net.botwithus.rs3.game.cs2.layouts.Layout;
+import net.botwithus.rs3.game.cs2.ReturnValue;
 
 public class Disassembly {
     private final List<Pattern> disassemblyPatterns = new ArrayList<>();
     private boolean disassemblyEnabled = true;
+    private CoaezUtility script;
+
+    private static final ScriptBuilder cancelSelectionScript = ScriptBuilder.of(9666).returns(Layout.INT);
 
     public void setDisassemblyEnabled(boolean enabled) {
         ScriptConsole.println("[Disassembly] Setting enabled state to: " + enabled);
@@ -89,10 +96,19 @@ public class Disassembly {
         return animating;
     }
 
-    private CoaezUtility script;
-
     public Disassembly(CoaezUtility script) {
         this.script = script;
+    }
+
+    private boolean clearSelection() {
+        ScriptConsole.println("[Disassembly] Attempting to clear selection via ScriptBuilder invokeExact(9666)");
+        List<ReturnValue> result = cancelSelectionScript.invokeExact();
+        boolean success = !result.isEmpty() && result.get(0).asInt() == 1;
+        ScriptConsole.println("[Disassembly] Clear selection invoke success: " + success + " (Result size: " + result.size() + ")");
+        if (success) {
+            Execution.delay(script.getRandom().nextInt(100) + 50);
+        }
+        return success;
     }
 
     public void castDisassembly() {
@@ -155,8 +171,14 @@ public class Disassembly {
     }
 
     private void selectItemForDisassembly(Item item) {
+        ScriptConsole.println("[Disassembly] Attempting to select item for disassembly: " + item.getName() + " (ID: " + item.getId() + ") in slot " + item.getSlot());
         boolean success = MiniMenu.interact(SelectableAction.SELECT_COMPONENT_ITEM.getType(), 0, item.getSlot(), 96534533);
         ScriptConsole.println("[Disassembly] Item selection success: " + success);
+        if (success) {
+            // Delay for the game to register the item click before trying to clear selection
+            Execution.delay(script.getRandom().nextInt(150) + 100); // 100-250ms
+            clearSelection();
+        }
     }
 
     public void clearDisassemblyItems() {

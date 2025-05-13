@@ -67,7 +67,7 @@ public class CoaezUtility extends LoopingScript {
         super(s, scriptConfig, scriptDefinition);
         this.config = scriptConfig;
         
-        this.alchemy = new Alchemy();
+        this.alchemy = new Alchemy(this);
         this.disassembly = new Disassembly(this);
         this.posd = new POSD(this);
         
