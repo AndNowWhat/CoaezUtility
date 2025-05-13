@@ -394,26 +394,22 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     
                     currentCrafter.setSelectedInteractionOption(chosenOption); // Loads groups/products
                     
-
                     currentCrafterGroupIds = currentCrafter.getGroupEnumIds();
                     
-
                     if (!currentCrafterGroupIds.isEmpty()) { // Grouped Mode
-                        
                         currentCrafterGroupNames = currentCrafterGroupIds.stream()
                                                         .map(currentCrafter::getGroupName)
                                                         .collect(Collectors.toList());
-                        selectedCrafterGroupIndex = 0;
+                        selectedCrafterGroupIndex = 0; // Default to first group
                         int defaultGroupId = currentCrafterGroupIds.get(0);
+                        currentCrafter.setSelectedGroupId(defaultGroupId);
                         currentCrafterProducts = new ArrayList<>(currentCrafter.getProductsForGroup(defaultGroupId));
-                        
                         selectedCrafterProductIndex = 0;
                     } else { // Direct Product Mode (or option doesn't use groups by design)
-                        
                         currentCrafterGroupNames.clear();
                         selectedCrafterGroupIndex = 0;
+                        currentCrafter.setSelectedGroupId(-1); // Indicate no group is selected for direct mode
                         currentCrafterProducts = new ArrayList<>(currentCrafter.getDirectProducts());
-                        
                         selectedCrafterProductIndex = 0;
                     }
 
@@ -698,18 +694,77 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
              case CRAFTER:
              case WELL:
                  
-                 PortableCrafter pc = null;
+                 PortableCrafter pc_instance = null;
                   try {
-                      pc = new PortableCrafter(coaezUtility);
-                      
+                      pc_instance = new PortableCrafter(coaezUtility);
                   } catch (Throwable t) {
                        ScriptConsole.println("[GUI|UpdateActivePortableType|CRAFTER] CRITICAL EXCEPTION during PortableCrafter constructor: " + t.getMessage());
                        t.printStackTrace();
-                       pc = null;
+                       // Clear related GUI state if crafter creation fails
+                       this.currentCrafterGroupIds.clear();
+                       this.currentCrafterGroupNames.clear();
+                       this.currentCrafterProducts.clear();
+                       this.selectedCrafterOptionIndex = 0;
+                       this.selectedCrafterGroupIndex = 0;
+                       this.selectedCrafterProductIndex = 0;
+                       if (coaezUtility.getPortableTask() != null) {
+                            coaezUtility.getPortableTask().setActivePortable(null);
+                            coaezUtility.getPortableTask().setSelectedProduct(null);
+                       }
+                       break; // Exit switch
                     }
-                    if (pc != null && coaezUtility.getPortableTask() != null) {
-                      coaezUtility.getPortableTask().setActivePortable(pc);
-                      coaezUtility.getPortableTask().setSelectedProduct(null);
+
+                    if (pc_instance != null && coaezUtility.getPortableTask() != null) {
+                        coaezUtility.getPortableTask().setActivePortable(pc_instance);
+                        // Initialize GUI state and PortableCrafter for the default (0th) crafter option
+                        this.selectedCrafterOptionIndex = 0; 
+                        
+                        // Ensure PortableCrafter.CRAFTER_OPTIONS is accessible and has elements
+                        if (PortableCrafter.CRAFTER_OPTIONS != null && PortableCrafter.CRAFTER_OPTIONS.length > 0) {
+                            String defaultOptionName = PortableCrafter.CRAFTER_OPTIONS[this.selectedCrafterOptionIndex];
+                            pc_instance.setSelectedInteractionOption(defaultOptionName);
+
+                            this.currentCrafterGroupIds = pc_instance.getGroupEnumIds();
+
+                            if (!this.currentCrafterGroupIds.isEmpty()) { // Grouped Mode for default option
+                                this.selectedCrafterGroupIndex = 0; // Default to first group
+                                if (!this.currentCrafterGroupIds.isEmpty()) { // Check again before get()
+                                    int defaultGroupId = this.currentCrafterGroupIds.get(this.selectedCrafterGroupIndex);
+                                    pc_instance.setSelectedGroupId(defaultGroupId); // Inform crafter instance
+                                    this.currentCrafterGroupNames = this.currentCrafterGroupIds.stream()
+                                                                        .map(pc_instance::getGroupName)
+                                                                        .collect(Collectors.toList());
+                                    this.currentCrafterProducts = new ArrayList<>(pc_instance.getProductsForGroup(defaultGroupId));
+                                    this.selectedCrafterProductIndex = 0;
+                                } else { // Should be rare, if getGroupEnumIds was non-empty
+                                     this.currentCrafterGroupNames.clear();
+                                     this.currentCrafterProducts.clear();
+                                     this.selectedCrafterProductIndex = 0;
+                                }
+                            } else { // Direct Product Mode for default option
+                                this.currentCrafterGroupNames.clear();
+                                this.selectedCrafterGroupIndex = 0;
+                                pc_instance.setSelectedGroupId(-1); // Indicate no group
+                                this.currentCrafterProducts = new ArrayList<>(pc_instance.getDirectProducts());
+                                this.selectedCrafterProductIndex = 0;
+                            }
+
+                            // Set default product in crafter instance itself
+                            if (!this.currentCrafterProducts.isEmpty() && this.selectedCrafterProductIndex < this.currentCrafterProducts.size()) {
+                                pc_instance.setSelectedProduct(this.currentCrafterProducts.get(this.selectedCrafterProductIndex));
+                            } else {
+                                pc_instance.setSelectedProduct(null);
+                                this.selectedCrafterProductIndex = 0; // Ensure index is safe
+                            }
+                        } else {
+                            // Handle case where CRAFTER_OPTIONS might be empty or null
+                            ScriptConsole.println("[GUI|UpdateActivePortableType|CRAFTER] CRAFTER_OPTIONS is not available. Cannot initialize default option.");
+                            this.currentCrafterGroupIds.clear();
+                            this.currentCrafterGroupNames.clear();
+                            this.currentCrafterProducts.clear();
+                            pc_instance.setSelectedProduct(null);
+                        }
+                        // coaezUtility.getPortableTask().setSelectedProduct(null); // Redundant if pc_instance manages its own product
                   }
                  break;
             default:
@@ -736,36 +791,6 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (coaezUtility.getDisassembly() != null) {
             List<String> disassemblyItems = coaezUtility.getDisassembly().getDisassemblyItems();
             config.addProperty("disassemblyItems", String.join(",", disassemblyItems));
-        }
-
-        // POSD settings - assuming POSD object can be null if not used
-        if (coaezUtility.getPOSD() != null) {
-            config.addProperty("posdUseOverloads", String.valueOf(coaezUtility.getPOSD().isUseOverloads()));
-            config.addProperty("posdUsePrayerPots", String.valueOf(coaezUtility.getPOSD().isUsePrayerPots()));
-            config.addProperty("posdUseAggroPots", String.valueOf(coaezUtility.getPOSD().isUseAggroPots()));
-            config.addProperty("posdUseWeaponPoison", String.valueOf(coaezUtility.getPOSD().isUseWeaponPoison()));
-            config.addProperty("posdUseQuickPrayers", String.valueOf(coaezUtility.getPOSD().isUseQuickPrayers()));
-            try {
-                String quickPrayersNumStr = config.getProperty("posdQuickPrayersNumber");
-                coaezUtility.getPOSD().setQuickPrayersNumber(quickPrayersNumStr != null ? Integer.parseInt(quickPrayersNumStr) : 1);
-
-                String healthThresholdStr = config.getProperty("posdHealthThreshold");
-                coaezUtility.getPOSD().setHealthPointsThreshold(healthThresholdStr != null ? Integer.parseInt(healthThresholdStr) : 50);
-
-                String prayerThresholdStr = config.getProperty("posdPrayerThreshold");
-                coaezUtility.getPOSD().setPrayerPointsThreshold(prayerThresholdStr != null ? Integer.parseInt(prayerThresholdStr) : 200);
-            } catch (NumberFormatException e) {
-                ScriptConsole.println("[GUI] Error parsing POSD numeric settings: " + e.getMessage());
-            }
-            coaezUtility.getPOSD().setUseLoot(Boolean.parseBoolean(config.getProperty("posdUseLoot")));
-            coaezUtility.getPOSD().setInteractWithLootAll(Boolean.parseBoolean(config.getProperty("posdLootAll")));
-            coaezUtility.getPOSD().setUseScrimshaws(Boolean.parseBoolean(config.getProperty("posdUseScrimshaws")));
-            coaezUtility.getPOSD().setBankForFood(Boolean.parseBoolean(config.getProperty("posdBankForFood")));
-            String targetItemsStr = config.getProperty("posdTargetItems");
-            if (targetItemsStr != null && !targetItemsStr.isEmpty()) {
-                Arrays.stream(targetItemsStr.split(","))
-                        .forEach(item -> coaezUtility.getPOSD().addTargetItem(item));
-            }
         }
 
         if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() != null) {
@@ -809,35 +834,6 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             if (disassemblyItemsStr != null && !disassemblyItemsStr.isEmpty()) {
                 Arrays.stream(disassemblyItemsStr.split(","))
                         .forEach(item -> coaezUtility.getDisassembly().addDisassemblyItem(item));
-            }
-        }
-
-        if (coaezUtility.getPOSD() != null) {
-            coaezUtility.getPOSD().setUseOverloads(Boolean.parseBoolean(config.getProperty("posdUseOverloads")));
-            coaezUtility.getPOSD().setUsePrayerPots(Boolean.parseBoolean(config.getProperty("posdUsePrayerPots")));
-            coaezUtility.getPOSD().setUseAggroPots(Boolean.parseBoolean(config.getProperty("posdUseAggroPots")));
-            coaezUtility.getPOSD().setUseWeaponPoison(Boolean.parseBoolean(config.getProperty("posdUseWeaponPoison")));
-            coaezUtility.getPOSD().setUseQuickPrayers(Boolean.parseBoolean(config.getProperty("posdUseQuickPrayers")));
-            try {
-                String quickPrayersNumStr = config.getProperty("posdQuickPrayersNumber");
-                coaezUtility.getPOSD().setQuickPrayersNumber(quickPrayersNumStr != null ? Integer.parseInt(quickPrayersNumStr) : 1);
-
-                String healthThresholdStr = config.getProperty("posdHealthThreshold");
-                coaezUtility.getPOSD().setHealthPointsThreshold(healthThresholdStr != null ? Integer.parseInt(healthThresholdStr) : 50);
-
-                String prayerThresholdStr = config.getProperty("posdPrayerThreshold");
-                coaezUtility.getPOSD().setPrayerPointsThreshold(prayerThresholdStr != null ? Integer.parseInt(prayerThresholdStr) : 200);
-            } catch (NumberFormatException e) {
-                ScriptConsole.println("[GUI] Error parsing POSD numeric settings: " + e.getMessage());
-            }
-            coaezUtility.getPOSD().setUseLoot(Boolean.parseBoolean(config.getProperty("posdUseLoot")));
-            coaezUtility.getPOSD().setInteractWithLootAll(Boolean.parseBoolean(config.getProperty("posdLootAll")));
-            coaezUtility.getPOSD().setUseScrimshaws(Boolean.parseBoolean(config.getProperty("posdUseScrimshaws")));
-            coaezUtility.getPOSD().setBankForFood(Boolean.parseBoolean(config.getProperty("posdBankForFood")));
-            String targetItemsStr = config.getProperty("posdTargetItems");
-            if (targetItemsStr != null && !targetItemsStr.isEmpty()) {
-                Arrays.stream(targetItemsStr.split(","))
-                        .forEach(item -> coaezUtility.getPOSD().addTargetItem(item));
             }
         }
 
