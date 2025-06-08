@@ -44,7 +44,7 @@ public class CoaezUtility extends LoopingScript {
     private final DrinkPerfectPlusJujuTask drinkPerfectPlusJujuTask;
     private final FungalBowstrings fungalBowstringsTask;
     private final PortableTask portableTask;
-    private final SmithingTask smithingTask;
+    //private final SmithingTask smithingTask;
     private final SheepShearingTask sheepShearingTask;
     // GUI reference
     private CoaezUtilityGUI gui;
@@ -62,7 +62,7 @@ public class CoaezUtility extends LoopingScript {
         ENCHANTING,
         FUNGAL_BOWSTRINGS,
         PORTABLES,
-        SMITHING,
+        //SMITHING,
         SHEEP_SHEARING,
         STOPPED
     }
@@ -88,7 +88,7 @@ public class CoaezUtility extends LoopingScript {
         this.drinkPerfectPlusJujuTask = new DrinkPerfectPlusJujuTask(this);
         this.fungalBowstringsTask = new FungalBowstrings(this);
         this.portableTask = new PortableTask(this);
-        this.smithingTask = new SmithingTask(this);
+        //this.smithingTask = new SmithingTask(this);
         this.sheepShearingTask = new SheepShearingTask(this);
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
@@ -269,7 +269,7 @@ public class CoaezUtility extends LoopingScript {
         return portableTask;
     }
 
-    public SmithingTask getSmithingTask() {
+    /* public SmithingTask getSmithingTask() {
         return smithingTask;
-    }
+    } */
 }
