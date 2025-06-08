@@ -1,6 +1,7 @@
 package net.botwithus;
 
 import net.botwithus.rs3.imgui.ImGui;
+import net.botwithus.rs3.imgui.ImGuiCol;
 import net.botwithus.rs3.imgui.ImGuiWindowFlag;
 import net.botwithus.rs3.script.ScriptConsole;
 import net.botwithus.rs3.script.ScriptGraphicsContext;
@@ -15,6 +16,8 @@ import net.botwithus.tasks.SimplePortable;
 import net.botwithus.tasks.PortableCrafter;
 import net.botwithus.tasks.SawmillPlank;
 import net.botwithus.tasks.PortableSawmill;
+import net.botwithus.tasks.SmithingTask;
+import net.botwithus.tasks.SmithingTask.SmithingCategoryEnum;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -54,6 +57,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private int selectedSawmillPlankIndex = 0;
     private final SawmillPlank[] sawmillPlanks = SawmillPlank.values();
 
+    // Smithing specific state
+    private int selectedSmithingCategoryIndex = 0;
+    private int selectedSmithingProductIndex = 0;
+    private List<SmithingCategoryEnum> currentSmithingCategories = new ArrayList<>();
+    private List<Product> currentSmithingProducts = new ArrayList<>();
+
     // Window dimensions
     private final int LISTBOX_HEIGHT = 150;
 
@@ -64,6 +73,44 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (this.coaezUtility != null) {
             lastBotState = this.coaezUtility.getBotState();
             loadConfig(); // This calls updateActivePortableType internally
+
+            // Initialize Smithing Categories if SmithingTask is available
+            if (this.coaezUtility.getSmithingTask() != null) {
+                this.currentSmithingCategories = this.coaezUtility.getSmithingTask().getCategories();
+                // Initialize products for the first category or saved category (if implementing load for smithing)
+                if (!this.currentSmithingCategories.isEmpty()) {
+                    SmithingTask.SmithingCategoryEnum initialCategory = this.coaezUtility.getSmithingTask().getSelectedCategory();
+                    if (initialCategory == null) { // if no category selected in task, default to first
+                        initialCategory = this.currentSmithingCategories.get(0);
+                        this.coaezUtility.getSmithingTask().setSelectedCategory(initialCategory);
+                    }
+                    // find index for initialCategory
+                    for(int i=0; i < this.currentSmithingCategories.size(); i++) {
+                        if (this.currentSmithingCategories.get(i) == initialCategory) {
+                            this.selectedSmithingCategoryIndex = i;
+                            break;
+                        }
+                    }
+                    this.currentSmithingProducts = this.coaezUtility.getSmithingTask().getProductsForCategory(initialCategory);
+                    Product initialProduct = this.coaezUtility.getSmithingTask().getSelectedProduct();
+                    if(initialProduct != null && !this.currentSmithingProducts.isEmpty()) {
+                        for(int i=0; i < this.currentSmithingProducts.size(); i++) {
+                            if (this.currentSmithingProducts.get(i).getId() == initialProduct.getId()) {
+                                this.selectedSmithingProductIndex = i;
+                                break;
+                            }
+                        }
+                    } else {
+                        this.selectedSmithingProductIndex = 0;
+                        if(!this.currentSmithingProducts.isEmpty()) {
+                            this.coaezUtility.getSmithingTask().setSelectedProduct(this.currentSmithingProducts.get(0));
+                        }
+                    }
+                } else {
+                     this.selectedSmithingCategoryIndex = 0;
+                     this.selectedSmithingProductIndex = 0;
+                }
+            }
 
             // Initialize GUI state based on current task state AFTER loadConfig
             // This section should align the GUI with whatever state was set by loadConfig
@@ -148,7 +195,11 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             return;
         }
         if (ImGui.Begin("Coaez Utility", ImGuiWindowFlag.None.getValue())) {
-            ImGui.Text("Current State: " + coaezUtility.getBotState());
+            ImGui.Text("Current State: ");
+            ImGui.SameLine();
+            ImGui.PushStyleColor(ImGuiCol.Text.getValue(), 1.0f, 1.0f, 0.0f, 1.0f); // Yellow
+            ImGui.Text(coaezUtility.getBotState().name());
+            ImGui.PopStyleColor();
             ImGui.Separator();
             
             if (ImGui.BeginTabBar("MainTabBar", 0)) {
@@ -168,6 +219,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     renderPortablesTab();
                     ImGui.EndTabItem();
                 }
+                /* if (ImGui.BeginTabItem("Smithing", 0)) {
+                    renderSmithingTab();
+                    ImGui.EndTabItem();
+                } */
                 ImGui.EndTabBar();
             }
             
@@ -195,10 +250,14 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             coaezUtility.setBotState(CoaezUtility.BotState.POWDER_OF_BURIALS);
         }
         
+        if (ImGui.Button("Start Sheep Shearing")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.SHEEP_SHEARING);
+        }
+        
         if (ImGui.Button("Start Gem Crafting")) {
             coaezUtility.setBotState(CoaezUtility.BotState.GEM_CRAFTING);
         }
-        
+
         if (ImGui.Button("Start Fungal Bowstrings")) {
             coaezUtility.setBotState(CoaezUtility.BotState.FUNGAL_BOWSTRINGS);
         }
@@ -206,6 +265,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (ImGui.Button("Start Portables")) {
             coaezUtility.setBotState(CoaezUtility.BotState.PORTABLES);
         }
+
+/*         if (ImGui.Button("Start Smithing")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.SMITHING);
+        } */
         
         ImGui.Separator();
         
@@ -224,7 +287,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         ImGui.SeparatorText("Invention");
         if (ImGui.Button("Start invention")) {
             coaezUtility.setBotState(CoaezUtility.BotState.INVENTION);
-        } 
+        }
 
         ImGui.SeparatorText("Enchanting bolts");
         if (ImGui.Button("Start enchanting")) {
@@ -330,7 +393,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     this.currentGroupNames = this.currentGroupIds.stream()
                                                     .map(currentWorkbench::getGroupName)
                                                     .collect(Collectors.toList());
-                    if(selectedGroupIndex >= this.currentGroupNames.size()) selectedGroupIndex = 0;
+                    if(selectedGroupIndex >= this.currentGroupIds.size()) selectedGroupIndex = 0;
                     if (!this.currentGroupIds.isEmpty()) {
                         this.currentWorkbenchProducts = new ArrayList<>(currentWorkbench.getProductsForGroup(this.currentGroupIds.get(selectedGroupIndex)));
                         if(selectedWorkbenchProductIndex >= this.currentWorkbenchProducts.size()) selectedWorkbenchProductIndex = 0;
@@ -638,6 +701,103 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         }
     }
 
+    /* private void renderSmithingTab() {
+        if (coaezUtility.getSmithingTask() == null) {
+            ImGui.Text("Smithing Task not available.");
+            return;
+        }
+        SmithingTask smithingTask = coaezUtility.getSmithingTask();
+
+        ImGui.Text("Smithing Station");
+        ImGui.Separator();
+
+        // Reload categories in case they are dynamic (though ours is enum based now)
+        currentSmithingCategories = smithingTask.getCategories(); 
+        String[] categoryNames = currentSmithingCategories.stream()
+                                                        .map(SmithingCategoryEnum::getDisplayName)
+                                                        .toArray(String[]::new);
+
+        if (categoryNames.length == 0) {
+            ImGui.Text("No smithing categories defined in SmithingTask.");
+            return;
+        }
+
+        // Ensure selectedSmithingCategoryIndex is valid
+        if (selectedSmithingCategoryIndex >= categoryNames.length) {
+            selectedSmithingCategoryIndex = 0;
+        }
+
+        int newCategoryIndex = ImGui.Combo("Select Category", selectedSmithingCategoryIndex, categoryNames);
+        if (newCategoryIndex != selectedSmithingCategoryIndex || currentSmithingProducts.isEmpty() && !currentSmithingCategories.isEmpty()) {
+            selectedSmithingCategoryIndex = newCategoryIndex;
+            if (!currentSmithingCategories.isEmpty() && selectedSmithingCategoryIndex < currentSmithingCategories.size()) {
+                SmithingCategoryEnum selectedCategory = currentSmithingCategories.get(selectedSmithingCategoryIndex);
+                smithingTask.setSelectedCategory(selectedCategory);
+                currentSmithingProducts = smithingTask.getProductsForCategory(selectedCategory);
+                selectedSmithingProductIndex = 0; // Reset product selection
+                if (!currentSmithingProducts.isEmpty()) {
+                    smithingTask.setSelectedProduct(currentSmithingProducts.get(0));
+                } else {
+                    smithingTask.setSelectedProduct(null);
+                }
+            }
+        }
+
+        if (!currentSmithingProducts.isEmpty()) {
+            String[] productNames = currentSmithingProducts.stream()
+                                                        .map(p -> (p != null && p.getName() != null) ? p.getName() : "Unnamed Product")
+                                                        .toArray(String[]::new);
+            // Ensure selectedSmithingProductIndex is valid
+            if (selectedSmithingProductIndex >= productNames.length) {
+                 selectedSmithingProductIndex = 0;
+            }
+
+            int newProductIndex = ImGui.Combo("Select Product", selectedSmithingProductIndex, productNames);
+            if (newProductIndex != selectedSmithingProductIndex && newProductIndex < currentSmithingProducts.size()) {
+                selectedSmithingProductIndex = newProductIndex;
+                smithingTask.setSelectedProduct(currentSmithingProducts.get(selectedSmithingProductIndex));
+            }
+        } else {
+            if (!currentSmithingCategories.isEmpty() && selectedSmithingCategoryIndex < currentSmithingCategories.size()) {
+                 ImGui.Text("No products available for category: " + currentSmithingCategories.get(selectedSmithingCategoryIndex).getDisplayName());
+            } else {
+                 ImGui.Text("No products available (select a category first).");
+            }
+           
+        }
+
+        if (ImGui.Button("Start Current Smithing Task")) {
+            if (smithingTask.getSelectedCategory() != null && smithingTask.getSelectedProduct() != null) {
+                coaezUtility.setBotState(CoaezUtility.BotState.SMITHING);
+            } else {
+                ScriptConsole.println("[GUI] Cannot start Smithing: No category or product selected.");
+            }
+        }
+
+        SmithingCategoryEnum currentCat = smithingTask.getSelectedCategory();
+        Product currentProd = smithingTask.getSelectedProduct();
+
+        if (currentCat != null) {
+            ImGui.Text("Selected Category: " + currentCat.getDisplayName());
+        }
+        if (currentProd != null) {
+            ImGui.Text("Selected Product: " + currentProd.getName());
+            ImGui.Text("Required Ingredients:");
+            List<Ingredient> ingredients = currentProd.getIngredients(); // Assumes Product has getIngredients()
+            if (ingredients != null && !ingredients.isEmpty()) {
+                for (Ingredient ingredient : ingredients) {
+                    if (ingredient != null) {
+                        ImGui.Text(String.format("- %d x %s", ingredient.getAmount(), ingredient.getDisplayName()));
+                    } else {
+                        ImGui.Text("- (null ingredient)");
+                    }
+                }
+            } else {
+                ImGui.Text("- (No ingredient data found for this product)");
+            }
+        }
+    } */
+
     private void updateActivePortableType() {
         
         if (coaezUtility.getPortableTask() == null) {
@@ -912,6 +1072,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 }
             }
         }
+        // TODO: Save SmithingTask selections (selectedCategoryEnum.name() and selectedProduct.getId())
 
         config.save();
     }
@@ -1101,7 +1262,8 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                selectedPortableTypeIndex = 0;
                updateActivePortableType();
           }
-        
+        // TODO: Load SmithingTask selections from config and update GUI state
+        // (selectedSmithingCategoryIndex, selectedSmithingProductIndex, and call smithingTask.setSelected...)
      }
 
     @Override

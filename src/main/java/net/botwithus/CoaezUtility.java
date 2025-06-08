@@ -44,10 +44,12 @@ public class CoaezUtility extends LoopingScript {
     private final DrinkPerfectPlusJujuTask drinkPerfectPlusJujuTask;
     private final FungalBowstrings fungalBowstringsTask;
     private final PortableTask portableTask;
+    private final SmithingTask smithingTask;
+    private final SheepShearingTask sheepShearingTask;
     // GUI reference
     private CoaezUtilityGUI gui;
 
-    enum BotState {
+    public enum BotState {
         IDLE,
         POWDER_OF_BURIALS,
         SIFT_SOIL,
@@ -60,6 +62,8 @@ public class CoaezUtility extends LoopingScript {
         ENCHANTING,
         FUNGAL_BOWSTRINGS,
         PORTABLES,
+        SMITHING,
+        SHEEP_SHEARING,
         STOPPED
     }
 
@@ -84,6 +88,8 @@ public class CoaezUtility extends LoopingScript {
         this.drinkPerfectPlusJujuTask = new DrinkPerfectPlusJujuTask(this);
         this.fungalBowstringsTask = new FungalBowstrings(this);
         this.portableTask = new PortableTask(this);
+        this.smithingTask = new SmithingTask(this);
+        this.sheepShearingTask = new SheepShearingTask(this);
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
 
@@ -204,12 +210,16 @@ public class CoaezUtility extends LoopingScript {
                     ScriptConsole.println("Executing portables task");
                     portableTask.execute();
                 }
+                case SHEEP_SHEARING -> {
+                    ScriptConsole.println("Executing sheep shearing task");
+                    sheepShearingTask.execute();
+                }
                 case STOPPED -> {
                     ScriptConsole.println("Stopping script");
                     stopScript();
                 }
             }
-            Execution.delay(random.nextInt(600, 1200));
+            Execution.delay(random.nextInt(400, 800));
         } catch (Exception e) {
             ScriptConsole.println("Error in main loop: " + e.getMessage());
             e.printStackTrace();
@@ -257,5 +267,9 @@ public class CoaezUtility extends LoopingScript {
 
     public PortableTask getPortableTask() {
         return portableTask;
+    }
+
+    public SmithingTask getSmithingTask() {
+        return smithingTask;
     }
 }
