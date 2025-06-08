@@ -15,8 +15,8 @@ import net.botwithus.tasks.SimplePortable;
 import net.botwithus.tasks.PortableCrafter;
 import net.botwithus.tasks.SawmillPlank;
 import net.botwithus.tasks.PortableSawmill;
-import net.botwithus.tasks.SmithingTask;
-import net.botwithus.tasks.SmithingTask.SmithingCategoryEnum;
+//import net.botwithus.tasks.SmithingTask;
+//import net.botwithus.tasks.SmithingTask.SmithingCategoryEnum;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -57,10 +57,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private final SawmillPlank[] sawmillPlanks = SawmillPlank.values();
 
     // Smithing specific state
-    private int selectedSmithingCategoryIndex = 0;
+    /*private int selectedSmithingCategoryIndex = 0;
     private int selectedSmithingProductIndex = 0;
     private List<SmithingCategoryEnum> currentSmithingCategories = new ArrayList<>();
-    private List<Product> currentSmithingProducts = new ArrayList<>();
+    private List<Product> currentSmithingProducts = new ArrayList<>();*/
 
     // Window dimensions
     private final int LISTBOX_HEIGHT = 150;
@@ -74,7 +74,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             loadConfig(); // This calls updateActivePortableType internally
 
             // Initialize Smithing Categories if SmithingTask is available
-            if (this.coaezUtility.getSmithingTask() != null) {
+            /*if (this.coaezUtility.getSmithingTask() != null) {
                 this.currentSmithingCategories = this.coaezUtility.getSmithingTask().getCategories();
                 // Initialize products for the first category or saved category (if implementing load for smithing)
                 if (!this.currentSmithingCategories.isEmpty()) {
@@ -109,7 +109,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                      this.selectedSmithingCategoryIndex = 0;
                      this.selectedSmithingProductIndex = 0;
                 }
-            }
+            }*/
 
             // Initialize GUI state based on current task state AFTER loadConfig
             // This section should align the GUI with whatever state was set by loadConfig
