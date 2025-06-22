@@ -15,8 +15,8 @@ import net.botwithus.tasks.SimplePortable;
 import net.botwithus.tasks.PortableCrafter;
 import net.botwithus.tasks.SawmillPlank;
 import net.botwithus.tasks.PortableSawmill;
-//import net.botwithus.tasks.SmithingTask;
-//import net.botwithus.tasks.SmithingTask.SmithingCategoryEnum;
+import net.botwithus.rs3.game.quest.Quest;
+import net.botwithus.tasks.QuestHelper;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -24,6 +24,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.Collections;
+import java.util.Optional;
 
 public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private final CoaezUtility coaezUtility;
@@ -56,11 +58,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private int selectedSawmillPlankIndex = 0;
     private final SawmillPlank[] sawmillPlanks = SawmillPlank.values();
 
-    // Smithing specific state
-    /*private int selectedSmithingCategoryIndex = 0;
-    private int selectedSmithingProductIndex = 0;
-    private List<SmithingCategoryEnum> currentSmithingCategories = new ArrayList<>();
-    private List<Product> currentSmithingProducts = new ArrayList<>();*/
+    // Quest specific state
+    private int selectedQuestIndex = 0;
+    private List<String> questDisplayNames = new ArrayList<>();
+    private boolean showCompletedQuests = true;
+    private boolean showInProgressQuests = true;
+    private boolean showNotStartedQuests = true;
 
     // Window dimensions
     private final int LISTBOX_HEIGHT = 150;
@@ -72,44 +75,6 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (this.coaezUtility != null) {
             lastBotState = this.coaezUtility.getBotState();
             loadConfig(); // This calls updateActivePortableType internally
-
-            // Initialize Smithing Categories if SmithingTask is available
-            /*if (this.coaezUtility.getSmithingTask() != null) {
-                this.currentSmithingCategories = this.coaezUtility.getSmithingTask().getCategories();
-                // Initialize products for the first category or saved category (if implementing load for smithing)
-                if (!this.currentSmithingCategories.isEmpty()) {
-                    SmithingTask.SmithingCategoryEnum initialCategory = this.coaezUtility.getSmithingTask().getSelectedCategory();
-                    if (initialCategory == null) { // if no category selected in task, default to first
-                        initialCategory = this.currentSmithingCategories.get(0);
-                        this.coaezUtility.getSmithingTask().setSelectedCategory(initialCategory);
-                    }
-                    // find index for initialCategory
-                    for(int i=0; i < this.currentSmithingCategories.size(); i++) {
-                        if (this.currentSmithingCategories.get(i) == initialCategory) {
-                            this.selectedSmithingCategoryIndex = i;
-                            break;
-                        }
-                    }
-                    this.currentSmithingProducts = this.coaezUtility.getSmithingTask().getProductsForCategory(initialCategory);
-                    Product initialProduct = this.coaezUtility.getSmithingTask().getSelectedProduct();
-                    if(initialProduct != null && !this.currentSmithingProducts.isEmpty()) {
-                        for(int i=0; i < this.currentSmithingProducts.size(); i++) {
-                            if (this.currentSmithingProducts.get(i).getId() == initialProduct.getId()) {
-                                this.selectedSmithingProductIndex = i;
-                                break;
-                            }
-                        }
-                    } else {
-                        this.selectedSmithingProductIndex = 0;
-                        if(!this.currentSmithingProducts.isEmpty()) {
-                            this.coaezUtility.getSmithingTask().setSelectedProduct(this.currentSmithingProducts.get(0));
-                        }
-                    }
-                } else {
-                     this.selectedSmithingCategoryIndex = 0;
-                     this.selectedSmithingProductIndex = 0;
-                }
-            }*/
 
             // Initialize GUI state based on current task state AFTER loadConfig
             // This section should align the GUI with whatever state was set by loadConfig
@@ -218,6 +183,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     renderPortablesTab();
                     ImGui.EndTabItem();
                 }
+                if (ImGui.BeginTabItem("Quests", 0)) {
+                    renderQuestsTab();
+                    ImGui.EndTabItem();
+                }
                 /* if (ImGui.BeginTabItem("Smithing", 0)) {
                     renderSmithingTab();
                     ImGui.EndTabItem();
@@ -291,6 +260,15 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         ImGui.SeparatorText("Enchanting bolts");
         if (ImGui.Button("Start enchanting")) {
             coaezUtility.setBotState(CoaezUtility.BotState.ENCHANTING);
+        }
+
+        ImGui.SeparatorText("Quest Helper");
+        if (ImGui.Button("Open Quest Helper")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.QUESTS);
+            // Initialize quest display names if needed
+            if (questDisplayNames.isEmpty() && coaezUtility.getQuestHelper() != null) {
+                updateQuestDisplayList(coaezUtility.getQuestHelper());
+            }
         }
     }
     
@@ -700,102 +678,108 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         }
     }
 
-    /* private void renderSmithingTab() {
-        if (coaezUtility.getSmithingTask() == null) {
-            ImGui.Text("Smithing Task not available.");
-            return;
-        }
-        SmithingTask smithingTask = coaezUtility.getSmithingTask();
-
-        ImGui.Text("Smithing Station");
+    private void renderQuestsTab() {
+        ImGui.Text("Quest Helper");
         ImGui.Separator();
-
-        // Reload categories in case they are dynamic (though ours is enum based now)
-        currentSmithingCategories = smithingTask.getCategories(); 
-        String[] categoryNames = currentSmithingCategories.stream()
-                                                        .map(SmithingCategoryEnum::getDisplayName)
-                                                        .toArray(String[]::new);
-
-        if (categoryNames.length == 0) {
-            ImGui.Text("No smithing categories defined in SmithingTask.");
+        
+        if (coaezUtility.getQuestHelper() == null) {
+            ImGui.Text("Quest Helper not available.");
             return;
         }
-
-        // Ensure selectedSmithingCategoryIndex is valid
-        if (selectedSmithingCategoryIndex >= categoryNames.length) {
-            selectedSmithingCategoryIndex = 0;
+        
+        QuestHelper questHelper = coaezUtility.getQuestHelper();
+        
+        // Initialize quest display names if needed
+        if (questDisplayNames.isEmpty()) {
+            updateQuestDisplayList(questHelper);
         }
-
-        int newCategoryIndex = ImGui.Combo("Select Category", selectedSmithingCategoryIndex, categoryNames);
-        if (newCategoryIndex != selectedSmithingCategoryIndex || currentSmithingProducts.isEmpty() && !currentSmithingCategories.isEmpty()) {
-            selectedSmithingCategoryIndex = newCategoryIndex;
-            if (!currentSmithingCategories.isEmpty() && selectedSmithingCategoryIndex < currentSmithingCategories.size()) {
-                SmithingCategoryEnum selectedCategory = currentSmithingCategories.get(selectedSmithingCategoryIndex);
-                smithingTask.setSelectedCategory(selectedCategory);
-                currentSmithingProducts = smithingTask.getProductsForCategory(selectedCategory);
-                selectedSmithingProductIndex = 0; // Reset product selection
-                if (!currentSmithingProducts.isEmpty()) {
-                    smithingTask.setSelectedProduct(currentSmithingProducts.get(0));
-                } else {
-                    smithingTask.setSelectedProduct(null);
-                }
-            }
+        
+        // Quest filtering options
+        ImGui.Text("Filter Quests:");
+        boolean filterChanged = false;
+        
+        boolean newShowCompleted = ImGui.Checkbox("Show Completed", showCompletedQuests);
+        if (newShowCompleted != showCompletedQuests) {
+            showCompletedQuests = newShowCompleted;
+            filterChanged = true;
         }
-
-        if (!currentSmithingProducts.isEmpty()) {
-            String[] productNames = currentSmithingProducts.stream()
-                                                        .map(p -> (p != null && p.getName() != null) ? p.getName() : "Unnamed Product")
-                                                        .toArray(String[]::new);
-            // Ensure selectedSmithingProductIndex is valid
-            if (selectedSmithingProductIndex >= productNames.length) {
-                 selectedSmithingProductIndex = 0;
-            }
-
-            int newProductIndex = ImGui.Combo("Select Product", selectedSmithingProductIndex, productNames);
-            if (newProductIndex != selectedSmithingProductIndex && newProductIndex < currentSmithingProducts.size()) {
-                selectedSmithingProductIndex = newProductIndex;
-                smithingTask.setSelectedProduct(currentSmithingProducts.get(selectedSmithingProductIndex));
-            }
-        } else {
-            if (!currentSmithingCategories.isEmpty() && selectedSmithingCategoryIndex < currentSmithingCategories.size()) {
-                 ImGui.Text("No products available for category: " + currentSmithingCategories.get(selectedSmithingCategoryIndex).getDisplayName());
-            } else {
-                 ImGui.Text("No products available (select a category first).");
-            }
-           
+        
+        ImGui.SameLine();
+        boolean newShowInProgress = ImGui.Checkbox("Show In Progress", showInProgressQuests);
+        if (newShowInProgress != showInProgressQuests) {
+            showInProgressQuests = newShowInProgress;
+            filterChanged = true;
         }
-
-        if (ImGui.Button("Start Current Smithing Task")) {
-            if (smithingTask.getSelectedCategory() != null && smithingTask.getSelectedProduct() != null) {
-                coaezUtility.setBotState(CoaezUtility.BotState.SMITHING);
-            } else {
-                ScriptConsole.println("[GUI] Cannot start Smithing: No category or product selected.");
+        
+        ImGui.SameLine();
+        boolean newShowNotStarted = ImGui.Checkbox("Show Not Started", showNotStartedQuests);
+        if (newShowNotStarted != showNotStartedQuests) {
+            showNotStartedQuests = newShowNotStarted;
+            filterChanged = true;
+        }
+        
+        // Apply filters if changed
+        if (filterChanged) {
+            updateQuestDisplayList(questHelper);
+        }
+        
+        ImGui.Separator();
+        
+        if (!questDisplayNames.isEmpty()) {
+            String[] questNames = questDisplayNames.toArray(new String[0]);
+            
+            if (selectedQuestIndex >= questNames.length) {
+                selectedQuestIndex = 0;
             }
-        }
-
-        SmithingCategoryEnum currentCat = smithingTask.getSelectedCategory();
-        Product currentProd = smithingTask.getSelectedProduct();
-
-        if (currentCat != null) {
-            ImGui.Text("Selected Category: " + currentCat.getDisplayName());
-        }
-        if (currentProd != null) {
-            ImGui.Text("Selected Product: " + currentProd.getName());
-            ImGui.Text("Required Ingredients:");
-            List<Ingredient> ingredients = currentProd.getIngredients(); // Assumes Product has getIngredients()
-            if (ingredients != null && !ingredients.isEmpty()) {
-                for (Ingredient ingredient : ingredients) {
-                    if (ingredient != null) {
-                        ImGui.Text(String.format("- %d x %s", ingredient.getAmount(), ingredient.getDisplayName()));
-                    } else {
-                        ImGui.Text("- (null ingredient)");
+            
+            int newSelectedQuestIndex = ImGui.Combo("Select Quest", selectedQuestIndex, questNames);
+            if (newSelectedQuestIndex != selectedQuestIndex) {
+                selectedQuestIndex = newSelectedQuestIndex;
+                                String selectedDisplayName = questDisplayNames.get(selectedQuestIndex);
+                int questId = extractQuestId(selectedDisplayName);
+                
+                if (questId != -1) {
+                    Quest selectedQuest = questHelper.getQuestById(questId);
+                    if (selectedQuest != null) {
+                        questHelper.setSelectedQuest(selectedQuest);
                     }
                 }
-            } else {
-                ImGui.Text("- (No ingredient data found for this product)");
+            }
+        } else {
+            ImGui.Text("No quests available with current filters.");
+        }
+        
+        Quest selectedQuest = questHelper.getSelectedQuest();
+        if (selectedQuest != null) {
+            ImGui.SameLine();
+            if (ImGui.Button("Show Quest ID Lookup")) {
+                ScriptConsole.println("=== QUEST ID LOOKUP DEBUG ===");
+                ScriptConsole.println("Selected quest: " + selectedQuest.name());
+                questHelper.setSelectedQuest(selectedQuest);
+                ScriptConsole.println("=== END QUEST ID LOOKUP DEBUG ===");
+            }
+            
+            ImGui.SameLine();
+            if (ImGui.Button("Fetch Dialog Options")) {
+                questHelper.fetchAndPrintQuestDialogs();
             }
         }
-    } */
+        
+        ImGui.Separator();
+        
+        // Quest information display
+        Quest selectedQuestInfo = questHelper.getSelectedQuest();
+        if (selectedQuestInfo != null) {
+            // Use comprehensive quest information that handles missing data gracefully
+            String comprehensiveInfo = questHelper.getComprehensiveQuestInfo();
+            String[] lines = comprehensiveInfo.split("\n");
+            for (String line : lines) {
+                ImGui.Text(line);
+            }
+        } else {
+            ImGui.Text("No quest selected.");
+        }
+    }
 
     private void updateActivePortableType() {
         
@@ -1073,6 +1057,20 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         }
         // TODO: Save SmithingTask selections (selectedCategoryEnum.name() and selectedProduct.getId())
 
+        // Save Quest filter settings
+        config.addProperty("showCompletedQuests", String.valueOf(showCompletedQuests));
+        config.addProperty("showInProgressQuests", String.valueOf(showInProgressQuests));
+        config.addProperty("showNotStartedQuests", String.valueOf(showNotStartedQuests));
+        
+        // Save selected quest
+        if (coaezUtility.getQuestHelper() != null && coaezUtility.getQuestHelper().getSelectedQuest() != null) {
+            Quest selectedQuest = coaezUtility.getQuestHelper().getSelectedQuest();
+            int questId = getQuestId(selectedQuest);
+            if (questId != -1) {
+                config.addProperty("selectedQuestId", String.valueOf(questId));
+            }
+        }
+
         config.save();
     }
 
@@ -1268,5 +1266,72 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     @Override
     public void drawOverlay() {
         super.drawOverlay();
+    }
+
+    /**
+     * Updates the quest display list based on the current filter settings.
+     */
+    private void updateQuestDisplayList(QuestHelper questHelper) {
+        questDisplayNames.clear();
+        
+        // Use a Set to ensure uniqueness
+        Set<String> uniqueQuestNames = new HashSet<>();
+        
+        if (showCompletedQuests) {
+            uniqueQuestNames.addAll(questHelper.getCompletedQuests().stream()
+                .map(q -> q.name() + " [" + getQuestId(q) + "]")
+                .collect(Collectors.toSet()));
+        }
+        
+        if (showInProgressQuests) {
+            uniqueQuestNames.addAll(questHelper.getInProgressQuests().stream()
+                .map(q -> q.name() + " [" + getQuestId(q) + "]")
+                .collect(Collectors.toSet()));
+        }
+        
+        if (showNotStartedQuests) {
+            uniqueQuestNames.addAll(questHelper.getNotStartedQuests().stream()
+                .map(q -> q.name() + " [" + getQuestId(q) + "]")
+                .collect(Collectors.toSet()));
+        }
+        
+        // Convert Set back to List and sort by quest ID (lowest to highest)
+        questDisplayNames.addAll(uniqueQuestNames);
+        Collections.sort(questDisplayNames, (a, b) -> {
+            int idA = extractQuestId(a);
+            int idB = extractQuestId(b);
+            return Integer.compare(idA, idB);
+        });
+    }
+    
+    /**
+     * Extracts the quest ID from a display name with format "Quest Name [ID]".
+     */
+    private int extractQuestId(String displayName) {
+        try {
+            int startIndex = displayName.lastIndexOf('[');
+            int endIndex = displayName.lastIndexOf(']');
+            if (startIndex != -1 && endIndex != -1 && startIndex < endIndex) {
+                String idStr = displayName.substring(startIndex + 1, endIndex);
+                return Integer.parseInt(idStr);
+            }
+        } catch (NumberFormatException | IndexOutOfBoundsException e) {
+            ScriptConsole.println("[GUI] Error parsing quest ID from: " + displayName);
+        }
+        return -1;
+    }
+    
+    /**
+     * Helper method to get a quest ID.
+     * This is inefficient but necessary since Quest doesn't expose ID directly.
+     */
+    private int getQuestId(Quest quest) {
+        for (int i = 0; i < 509; i++) {
+            Optional<Quest> testQuest = Quest.byId(i);
+            if (testQuest.isPresent() && testQuest.get().name().equals(quest.name())) {
+                return i;
+            }
+        }
+        return -1;
     }
 }

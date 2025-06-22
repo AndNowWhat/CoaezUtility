@@ -30,6 +30,7 @@ public class CoaezUtility extends LoopingScript {
     private final Alchemy alchemy;
     private final Disassembly disassembly;
     private final POSD posd;
+    private final QuestHelper questHelper;
     
     // Task instances
     private final PowderOfBurialsTask powderOfBurialsTask;
@@ -64,6 +65,7 @@ public class CoaezUtility extends LoopingScript {
         PORTABLES,
         //SMITHING,
         SHEEP_SHEARING,
+        QUESTS,
         STOPPED
     }
 
@@ -74,6 +76,7 @@ public class CoaezUtility extends LoopingScript {
         this.alchemy = new Alchemy(this);
         this.disassembly = new Disassembly(this);
         this.posd = new POSD(this);
+        this.questHelper = new QuestHelper(this);
         
         // Initialize tasks
         this.powderOfBurialsTask = new PowderOfBurialsTask(this);
@@ -214,6 +217,9 @@ public class CoaezUtility extends LoopingScript {
                     ScriptConsole.println("Executing sheep shearing task");
                     sheepShearingTask.execute();
                 }
+                case QUESTS -> {
+                    ScriptConsole.println("Quest helper active - viewing only");
+                }
                 case STOPPED -> {
                     ScriptConsole.println("Stopping script");
                     stopScript();
@@ -251,6 +257,10 @@ public class CoaezUtility extends LoopingScript {
     
     public POSD getPOSD() {
         return posd;
+    }
+    
+    public QuestHelper getQuestHelper() {
+        return questHelper;
     }
 
     public AlchemyTask getAlchemyTask() {
