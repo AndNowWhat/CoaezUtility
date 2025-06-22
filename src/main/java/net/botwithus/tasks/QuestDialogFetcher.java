@@ -211,11 +211,14 @@ public class QuestDialogFetcher {
                 // Clean up HTML entities and split by bullet points if they exist
                 part = cleanOptionText(part);
                 
+                // Skip empty parts after cleaning
+                if (part.isEmpty()) continue;
+                
                 // If the part contains bullet points, split it further
                 if (part.contains("•")) {
                     String[] subParts = part.split("•");
                     for (String subPart : subParts) {
-                        String cleanSubPart = subPart.trim();
+                        String cleanSubPart = subPart.trim().replace("?", "").trim();
                         if (!cleanSubPart.isEmpty()) {
                             sequenceParts.add(cleanSubPart);
                         }
@@ -252,6 +255,17 @@ public class QuestDialogFetcher {
                         // Clean up HTML entities
                         optionNum = cleanOptionText(optionNum);
                         optionText = cleanOptionText(optionText);
+                        
+                        if (optionNum.equals("?") || optionNum.isEmpty()) {
+                            ScriptConsole.println("[QuestDialogFetcher] Skipping continuation dialog: " + optionNum + " = " + optionText);
+                            continue;
+                        }
+                        
+                        // Only keep entries with actual numbered options
+                        if (!optionNum.matches("\\d+")) {
+                            ScriptConsole.println("[QuestDialogFetcher] Skipping non-numbered option: " + optionNum + " = " + optionText);
+                            continue;
+                        }
                         
                         dialogSeq.addOption(new DialogOption(optionNum, optionText));
                         ScriptConsole.println("[QuestDialogFetcher] Found dialog option: " + optionNum + " = " + optionText);
@@ -300,10 +314,11 @@ public class QuestDialogFetcher {
                 // Parse dialog options from tooltip data
                 Matcher optionMatcher = dialogOptionPattern.matcher(tooltipData);
                 while (optionMatcher.find()) {
-                    String optionNum = optionMatcher.group(1);
+                    String optionNum = optionMatcher.group(1).trim();
                     String optionText = optionMatcher.group(2).trim();
                     
                     optionText = cleanOptionText(optionText);
+                    if (optionNum.isEmpty()) optionNum = "1"; // Default if empty
                     
                     dialogSeq.addOption(new DialogOption(optionNum, optionText));
                     ScriptConsole.println("[QuestDialogFetcher] Found old-style option: " + optionNum + " = " + optionText);
@@ -312,10 +327,11 @@ public class QuestDialogFetcher {
                 // Also look for special options
                 Matcher specialMatcher = specialOptionPattern.matcher(tooltipData);
                 while (specialMatcher.find()) {
-                    String optionNum = specialMatcher.group(1);
+                    String optionNum = specialMatcher.group(1).trim();
                     String optionText = specialMatcher.group(2).trim();
                     
                     optionText = cleanOptionText(optionText);
+                    if (optionNum.isEmpty()) optionNum = "✓"; // Keep checkmark or default
                     
                     dialogSeq.addOption(new DialogOption(optionNum, optionText));
                     ScriptConsole.println("[QuestDialogFetcher] Found old-style special option: " + optionNum + " = " + optionText);

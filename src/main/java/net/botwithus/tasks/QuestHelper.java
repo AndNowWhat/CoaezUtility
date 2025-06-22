@@ -41,6 +41,8 @@ public class QuestHelper implements Task {
     private String currentRecommendedOption = null;
     private int currentRecommendedOptionIndex = -1;
     private boolean isDialogAssistanceActive = false;
+    private String currentDialogText = null;
+    private List<String> previousDialogOptions = null;
     
     // GUI state management fields
     private List<String> questDisplayNames = new ArrayList<>();
@@ -766,17 +768,41 @@ public class QuestHelper implements Task {
     }
     
     /**
-     * Processes open dialog to find matching dialog options and provide recommendations.
+     * Process the open dialog and find recommendations
      */
-    private void processOpenDialog() {
+    public void processOpenDialog() {
         if (fetchedDialogs == null || fetchedDialogs.isEmpty()) {
+            clearCurrentRecommendation();
             return;
         }
         
         try {
-            // Since we don't have direct access to dialog text, we'll work with the fetched sequences
-            // and provide guidance based on the available dialog options
-            findDialogRecommendation();
+            // Get the actual dialog options currently displayed on screen
+            List<String> currentDialogOptions = Dialog.getOptions();
+            if (currentDialogOptions == null || currentDialogOptions.isEmpty()) {
+                clearCurrentRecommendation();
+                currentDialogText = null;
+                previousDialogOptions = null;
+                return;
+            }
+            
+            // Check if dialog options have changed since last check
+            boolean optionsChanged = !currentDialogOptions.equals(previousDialogOptions);
+            
+            if (optionsChanged) {
+                // Clear previous recommendation when options change
+                clearCurrentRecommendation();
+                ScriptConsole.println("[QuestHelper] Dialog options changed, clearing previous recommendation");
+                
+                // Store the options as text for display purposes
+                currentDialogText = String.join(" | ", currentDialogOptions);
+                
+                // Find matching dialog options based on the current dialog options
+                findDialogRecommendation(currentDialogOptions);
+                
+                // Update previous options for next comparison
+                previousDialogOptions = new ArrayList<>(currentDialogOptions);
+            }
             
         } catch (Exception e) {
             ScriptConsole.println("[QuestHelper] Error processing dialog: " + e.getMessage());
@@ -784,49 +810,191 @@ public class QuestHelper implements Task {
     }
     
     /**
-     * Finds and sets the recommended dialog option based on fetched dialog sequences.
+     * Finds and sets the recommended dialog option based on current dialog options and fetched dialog sequences.
+     * Only recommends options that are actually present in the current dialog.
+     * @param currentDialogOptions The options currently displayed in the dialog
      */
-    private void findDialogRecommendation() {
-        // For now, we'll recommend the first available dialog option from the first sequence
-        // This can be enhanced later with more sophisticated matching logic
+    private void findDialogRecommendation(List<String> currentDialogOptions) {
+        if (currentDialogOptions == null || currentDialogOptions.isEmpty()) {
+            clearCurrentRecommendation();
+            return;
+        }
         
+        ScriptConsole.println("[QuestHelper] Looking for matches in current dialog options:");
+        for (int i = 0; i < currentDialogOptions.size(); i++) {
+            ScriptConsole.println("[QuestHelper]   Option " + (i + 1) + ": '" + currentDialogOptions.get(i) + "'");
+        }
+        
+        // Keep track of all potential matches to find the best one
+        List<MatchCandidate> candidates = new ArrayList<>();
+        
+        // Search through all fetched dialog sequences to find matching options
         for (Map.Entry<String, List<QuestDialogFetcher.DialogSequence>> entry : fetchedDialogs.entrySet()) {
+            String sectionName = entry.getKey();
             List<QuestDialogFetcher.DialogSequence> sequences = entry.getValue();
             
-            if (!sequences.isEmpty()) {
-                QuestDialogFetcher.DialogSequence firstSequence = sequences.get(0);
-                List<QuestDialogFetcher.DialogOption> options = firstSequence.getOptions();
+            ScriptConsole.println("[QuestHelper] Checking section: " + sectionName);
+            
+            for (int seqIndex = 0; seqIndex < sequences.size(); seqIndex++) {
+                QuestDialogFetcher.DialogSequence sequence = sequences.get(seqIndex);
+                List<QuestDialogFetcher.DialogOption> options = sequence.getOptions();
                 
-                if (!options.isEmpty()) {
-                    QuestDialogFetcher.DialogOption firstOption = options.get(0);
+                ScriptConsole.println("[QuestHelper]   Sequence " + seqIndex + " has " + options.size() + " options");
+                
+                for (int optIndex = 0; optIndex < options.size(); optIndex++) {
+                    QuestDialogFetcher.DialogOption option = options.get(optIndex);
+                    String optionText = option.getOptionText();
+                    if (optionText == null || optionText.trim().isEmpty()) {
+                        continue;
+                    }
                     
-                    // Try to parse the option number to get the index
-                    try {
-                        String optionNumber = firstOption.getOptionNumber();
-                        if (optionNumber.matches("\\d+")) {
-                            int optionIndex = Integer.parseInt(optionNumber) - 1; // Convert to 0-based index
-                            setCurrentRecommendation(firstOption.getOptionText(), optionIndex);
-                            return;
-                        } else if ("✓".equals(optionNumber)) {
-                            // Special case for checkmark options (usually continue/accept)
-                            setCurrentRecommendation(firstOption.getOptionText(), 0);
-                            return;
-                        }
-                    } catch (NumberFormatException e) {
-                        // If parsing fails, default to first option
-                        setCurrentRecommendation(firstOption.getOptionText(), 0);
-                        return;
+                    ScriptConsole.println("[QuestHelper]     Checking fetched option: '" + optionText + "'");
+                    
+                    // Check if this fetched option matches any of the current dialog options
+                    int matchingIndex = findMatchingOptionIndex(currentDialogOptions, optionText);
+                    if (matchingIndex != -1) {
+                        ScriptConsole.println("[QuestHelper]     ✓ MATCH FOUND at current dialog index " + matchingIndex);
+                        candidates.add(new MatchCandidate(optionText, matchingIndex, sectionName, seqIndex, optIndex));
+                    } else {
+                        ScriptConsole.println("[QuestHelper]     ✗ No match");
                     }
                 }
             }
         }
         
-        if (!fetchedDialogs.isEmpty() && Dialog.isOpen()) {
-            setCurrentRecommendation("Continue with quest dialog", 0);
-            ScriptConsole.println("[QuestHelper] Using fallback recommendation for quest with limited dialog data");
+        if (!candidates.isEmpty()) {
+            // For now, use the first candidate found
+            // In the future, we could implement more sophisticated logic to choose the best match
+            MatchCandidate bestMatch = candidates.get(0);
+            setCurrentRecommendation(bestMatch.optionText, bestMatch.dialogIndex);
+            ScriptConsole.println("[QuestHelper] Selected match: '" + bestMatch.optionText + "' at dialog index " + bestMatch.dialogIndex + 
+                                 " (from section: " + bestMatch.sectionName + ", sequence: " + bestMatch.sequenceIndex + ")");
         } else {
+            // No matching options found
             clearCurrentRecommendation();
+            ScriptConsole.println("[QuestHelper] No matching dialog options found in current dialog");
         }
+    }
+    
+    // Helper class to store match candidates
+    private static class MatchCandidate {
+        final String optionText;
+        final int dialogIndex;
+        final String sectionName;
+        final int sequenceIndex;
+        final int optionIndex;
+        
+        MatchCandidate(String optionText, int dialogIndex, String sectionName, int sequenceIndex, int optionIndex) {
+            this.optionText = optionText;
+            this.dialogIndex = dialogIndex;
+            this.sectionName = sectionName;
+            this.sequenceIndex = sequenceIndex;
+            this.optionIndex = optionIndex;
+        }
+    }
+    
+    /**
+     * Finds the index of a fetched option text within the current dialog options.
+     * Uses strict matching strategies for accurate comparison.
+     * @param currentOptions The current dialog options array
+     * @param fetchedOptionText The fetched option text to match
+     * @return The index of the matching option, or -1 if no match found
+     */
+    private int findMatchingOptionIndex(List<String> currentOptions, String fetchedOptionText) {
+        if (currentOptions == null || fetchedOptionText == null) {
+            return -1;
+        }
+        
+        String fetchedLower = fetchedOptionText.toLowerCase().trim();
+        
+        for (int i = 0; i < currentOptions.size(); i++) {
+            String currentOption = currentOptions.get(i);
+            if (currentOption == null) continue;
+            
+            String currentLower = currentOption.toLowerCase().trim();
+            
+            // Strategy 1: Exact match (case-insensitive)
+            if (currentLower.equals(fetchedLower)) {
+                ScriptConsole.println("[QuestHelper]       ✓ EXACT MATCH: '" + currentOption + "' == '" + fetchedOptionText + "'");
+                return i;
+            }
+            
+            // Strategy 2: Very high similarity (90%+ character overlap)
+            double similarity = calculateStringSimilarity(currentLower, fetchedLower);
+            if (similarity >= 0.9) {
+                ScriptConsole.println("[QuestHelper]       ✓ HIGH SIMILARITY MATCH (" + String.format("%.1f", similarity * 100) + "%): '" + currentOption + "' ~= '" + fetchedOptionText + "'");
+                return i;
+            }
+            
+            // Strategy 3: One contains the other, but only if the contained text is substantial (>70% of the shorter text)
+            if (currentLower.contains(fetchedLower)) {
+                double containmentRatio = (double) fetchedLower.length() / currentLower.length();
+                if (containmentRatio >= 0.7) {
+                    ScriptConsole.println("[QuestHelper]       ✓ CONTAINMENT MATCH (current contains fetched, " + String.format("%.1f", containmentRatio * 100) + "%): '" + currentOption + "' contains '" + fetchedOptionText + "'");
+                    return i;
+                }
+            }
+            
+            if (fetchedLower.contains(currentLower)) {
+                double containmentRatio = (double) currentLower.length() / fetchedLower.length();
+                if (containmentRatio >= 0.7) {
+                    ScriptConsole.println("[QuestHelper]       ✓ CONTAINMENT MATCH (fetched contains current, " + String.format("%.1f", containmentRatio * 100) + "%): '" + fetchedOptionText + "' contains '" + currentOption + "'");
+                    return i;
+                }
+            }
+            
+            // Log why this option didn't match
+            ScriptConsole.println("[QuestHelper]       ✗ NO MATCH: '" + currentOption + "' vs '" + fetchedOptionText + "' (similarity: " + String.format("%.1f", similarity * 100) + "%)");
+        }
+        
+        return -1; // No match found
+    }
+    
+    /**
+     * Calculates string similarity using Levenshtein distance.
+     * @param s1 First string
+     * @param s2 Second string
+     * @return Similarity ratio (0.0 to 1.0, where 1.0 is identical)
+     */
+    private double calculateStringSimilarity(String s1, String s2) {
+        if (s1.equals(s2)) {
+            return 1.0;
+        }
+        
+        int maxLength = Math.max(s1.length(), s2.length());
+        if (maxLength == 0) {
+            return 1.0;
+        }
+        
+        int editDistance = calculateLevenshteinDistance(s1, s2);
+        return 1.0 - (double) editDistance / maxLength;
+    }
+    
+    /**
+     * Calculates the Levenshtein distance between two strings.
+     * @param s1 First string
+     * @param s2 Second string
+     * @return The edit distance
+     */
+    private int calculateLevenshteinDistance(String s1, String s2) {
+        int[][] dp = new int[s1.length() + 1][s2.length() + 1];
+        
+        for (int i = 0; i <= s1.length(); i++) {
+            dp[i][0] = i;
+        }
+        
+        for (int j = 0; j <= s2.length(); j++) {
+            dp[0][j] = j;
+        }
+        
+        for (int i = 1; i <= s1.length(); i++) {
+            for (int j = 1; j <= s2.length(); j++) {
+                int cost = (s1.charAt(i - 1) == s2.charAt(j - 1)) ? 0 : 1;
+                dp[i][j] = Math.min(Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1), dp[i - 1][j - 1] + cost);
+            }
+        }
+        
+        return dp[s1.length()][s2.length()];
     }
     
     /**
@@ -1103,5 +1271,12 @@ public class QuestHelper implements Task {
         if (questDisplayNames.isEmpty()) {
             updateQuestDisplayList();
         }
+    }
+
+    /**
+     * Get the current dialog text for display in the overlay
+     */
+    public String getCurrentDialogText() {
+        return currentDialogText;
     }
 } 

@@ -11,6 +11,7 @@ import net.botwithus.tasks.PortableWorkbench;
 import net.botwithus.tasks.Product;
 import net.botwithus.tasks.Ingredient;
 import net.botwithus.tasks.Portable;
+import net.botwithus.GuiStyling.ImGuiCol;
 import net.botwithus.api.game.hud.Dialog;
 import net.botwithus.rs3.game.js5.types.configs.ConfigManager;
 import net.botwithus.tasks.SimplePortable;
@@ -64,6 +65,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
 
     // Window dimensions
     private final int LISTBOX_HEIGHT = 150;
+    
+    // GUI Styling
+    private final GuiStyling guiStyling = new GuiStyling();
+    
+    // Overlay transparency
+    private float overlayTransparency = 0.85f;
 
     public CoaezUtilityGUI(ScriptConsole scriptConsole, CoaezUtility coaezUtility) {
         super(scriptConsole);
@@ -155,53 +162,64 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             ImGui.Text("Error: CoaezUtility not available.");
             return;
         }
-        if (ImGui.Begin("Coaez Utility", ImGuiWindowFlag.None.getValue())) {
-            ImGui.Text("Current State: ");
-            ImGui.SameLine();
-            ImGui.PushStyleColor(0, 1.0f, 1.0f, 0.0f, 1.0f);
-            ImGui.Text(coaezUtility.getBotState().name());
-            ImGui.PopStyleColor();
-            ImGui.Separator();
-            
-            if (ImGui.BeginTabBar("MainTabBar", 0)) {
-                if (ImGui.BeginTabItem("Activities", 0)) {
-                    renderActivitiesTab();
-                    ImGui.EndTabItem();
+        
+        // Apply custom styling
+        guiStyling.applyCustomColors();
+        guiStyling.applyCustomStyles();
+        
+        try {
+            if (ImGui.Begin("Coaez Utility", ImGuiWindowFlag.None.getValue())) {
+                ImGui.Text("Current State: ");
+                ImGui.SameLine();
+                ImGui.PushStyleColor(0, 0.25f, 0.78f, 0.71f, 1.0f); // Teal accent color
+                ImGui.Text(coaezUtility.getBotState().name());
+                ImGui.PopStyleColor();
+                ImGui.Separator();
+                
+                if (ImGui.BeginTabBar("MainTabBar", 0)) {
+                    if (ImGui.BeginTabItem("Activities", 0)) {
+                        renderActivitiesTab();
+                        ImGui.EndTabItem();
+                    }
+                    if (ImGui.BeginTabItem("Alchemy", 0)) {
+                        renderAlchemyTab();
+                        ImGui.EndTabItem();
+                    }
+                    if (ImGui.BeginTabItem("Disassembly", 0)) {
+                        renderDisassemblyTab();
+                        ImGui.EndTabItem();
+                    }
+                    if (ImGui.BeginTabItem("Portables", 0)) {
+                        renderPortablesTab();
+                        ImGui.EndTabItem();
+                    }
+                    if (ImGui.BeginTabItem("Quests", 0)) {
+                        renderQuestsTab();
+                        ImGui.EndTabItem();
+                    }
+                    /* if (ImGui.BeginTabItem("Smithing", 0)) {
+                        renderSmithingTab();
+                        ImGui.EndTabItem();
+                    } */
+                    ImGui.EndTabBar();
                 }
-                if (ImGui.BeginTabItem("Alchemy", 0)) {
-                    renderAlchemyTab();
-                    ImGui.EndTabItem();
+                
+                ImGui.Separator();
+                
+                if (ImGui.Button("Stop All Activities")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.IDLE);
                 }
-                if (ImGui.BeginTabItem("Disassembly", 0)) {
-                    renderDisassemblyTab();
-                    ImGui.EndTabItem();
+                
+                if (hasStateChanged()) {
+                    saveConfig();
                 }
-                if (ImGui.BeginTabItem("Portables", 0)) {
-                    renderPortablesTab();
-                    ImGui.EndTabItem();
-                }
-                if (ImGui.BeginTabItem("Quests", 0)) {
-                    renderQuestsTab();
-                    ImGui.EndTabItem();
-                }
-                /* if (ImGui.BeginTabItem("Smithing", 0)) {
-                    renderSmithingTab();
-                    ImGui.EndTabItem();
-                } */
-                ImGui.EndTabBar();
+                 
+                ImGui.End();
             }
-            
-            ImGui.Separator();
-            
-            if (ImGui.Button("Stop All Activities")) {
-                coaezUtility.setBotState(CoaezUtility.BotState.IDLE);
-            }
-            
-            if (hasStateChanged()) {
-                saveConfig();
-            }
-             
-            ImGui.End();
+        } finally {
+            // Reset custom styling
+            guiStyling.resetCustomStyles();
+            guiStyling.resetCustomColors();
         }
     }
     
@@ -756,7 +774,6 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         
         Quest selectedQuest = questHelper.getSelectedQuest();
         if (selectedQuest != null) {
-            ImGui.SameLine();
             if (ImGui.Button("Show Quest ID Lookup")) {
                 ScriptConsole.println("=== QUEST ID LOOKUP DEBUG ===");
                 ScriptConsole.println("Selected quest: " + selectedQuest.name());
@@ -1366,64 +1383,109 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         // Show overlay if we have dialog assistance active, even without full dialog data
         if (questHelper.isDialogAssistanceActive()) {
             try {
-                // Set initial position and size (user can move and resize)
-                ImGui.SetNextWindowPos(200.0f, 400.0f);
-                ImGui.SetNextWindowSize(400.0f, 150.0f, 0);
+                // Apply the same styling as main GUI for consistency
+                guiStyling.applyCustomColors();
+                guiStyling.applyCustomStyles();
                 
-                // Set window background transparency using style colors (80% transparent = 0.2 alpha)
-                ImGui.PushStyleColor(14, 0.0f, 0.0f, 0.0f, 0.2f); // WindowBg with 80% transparency
-                
-                // Window flags: Allow moving and resizing, but keep other restrictions
-                int windowFlags = ImGuiWindowFlag.NoTitleBar.getValue() |
-                                 ImGuiWindowFlag.NoCollapse.getValue() |
+                // Apply window background transparency (override the styling)
+                ImGui.PushStyleColor(ImGuiCol.WindowBg, 0.0f, 0.0f, 0.0f, overlayTransparency);
+                                
+                // Window flags: Allow moving and resizing
+                int windowFlags = ImGuiWindowFlag.NoCollapse.getValue() |
                                  ImGuiWindowFlag.NoScrollbar.getValue() |
                                  ImGuiWindowFlag.NoScrollWithMouse.getValue() |
                                  ImGuiWindowFlag.NoFocusOnAppearing.getValue() |
                                  ImGuiWindowFlag.NoBringToFrontOnFocus.getValue();
                 
-                if (ImGui.Begin("QuestDialogOverlay", windowFlags)) {
-                    // Draw quest name at the top
-                    ImGui.PushStyleColor(0, 0.0f, 1.0f, 0.0f, 1.0f); // Green color
+                if (ImGui.Begin("Quest Dialog Assistant", windowFlags)) {
+                    // Transparency slider
+                    int transparencyPercent = (int)(overlayTransparency * 100);
+                    int newTransparencyPercent = ImGui.Slider("Transparency", transparencyPercent, 10, 100, 1);
+                    
+                    // Update transparency if slider changed
+                    if (newTransparencyPercent != transparencyPercent) {
+                        overlayTransparency = newTransparencyPercent / 100.0f;
+                        // Update the window background color immediately
+                        ImGui.PopStyleColor(); // Pop the old window background
+                        ImGui.PushStyleColor(ImGuiCol.WindowBg, 0.0f, 0.0f, 0.0f, overlayTransparency);
+                    }
+                    
+                    ImGui.Separator();
+                    
+                    // Draw quest name at the top with teal accent
+                    ImGui.PushStyleColor(0, 0.25f, 0.78f, 0.71f, 1.0f); // Teal accent
                     ImGui.Text("Quest: " + selectedQuest.name());
                     ImGui.PopStyleColor();
                     
                     ImGui.Separator();
                     
                     if (!dialogsFetched) {
-                        // Show loading state
-                        ImGui.PushStyleColor(0, 1.0f, 1.0f, 0.0f, 1.0f); // Yellow color
+                        // Show loading state with yellow accent
+                        ImGui.PushStyleColor(0, 1.0f, 0.8f, 0.2f, 1.0f); // Warm yellow
                         ImGui.Text("Loading dialog data...");
                         ImGui.PopStyleColor();
-                    } else if (recommendedOption != null && recommendedIndex >= 0) {
-                        // Draw recommended option with highlighting
-                        ImGui.PushStyleColor(0, 1.0f, 1.0f, 0.0f, 1.0f); // Yellow color
-                        ImGui.Text("Recommended: Option " + (recommendedIndex + 1));
-                        ImGui.PopStyleColor();
-                        
-                        // Draw the option text if available
-                        if (!recommendedOption.trim().isEmpty()) {
-                            ImGui.PushStyleColor(0, 0.8f, 0.8f, 0.8f, 1.0f); // Light gray color
-                            ImGui.Text("\"" + recommendedOption + "\"");
-                            ImGui.PopStyleColor();
-                        }
                     } else {
-                        // Show that dialog assistance is active but no recommendation available
-                        ImGui.PushStyleColor(0, 0.8f, 0.4f, 0.0f, 1.0f); // Orange color
-                        ImGui.Text("Dialog assistance active");
-                        ImGui.PopStyleColor();
+                        // Show current dialog text if available
+                        String currentDialogText = questHelper.getCurrentDialogText();
+                        if (currentDialogText != null && !currentDialogText.trim().isEmpty()) {
+                            ImGui.PushStyleColor(0, 0.7f, 0.85f, 1.0f, 1.0f); // Light blue
+                            ImGui.Text("Current Dialog Options:");
+                            ImGui.PopStyleColor();
+                            
+                            // Wrap long dialog text
+                            ImGui.PushStyleColor(0, 0.9f, 0.9f, 0.9f, 1.0f); // Light gray
+                            String wrappedText = currentDialogText.length() > 80 ? 
+                                currentDialogText.substring(0, 80) + "..." : currentDialogText;
+                            ImGui.Text("\"" + wrappedText + "\"");
+                            ImGui.PopStyleColor();
+                            
+                            ImGui.Separator();
+                        }
                         
-                        ImGui.Text("Waiting for dialog options...");
+                        if (recommendedOption != null && recommendedIndex >= 0) {
+                            // Draw recommended option with teal highlighting
+                            ImGui.PushStyleColor(0, 0.25f, 0.78f, 0.71f, 1.0f); // Teal accent
+                            ImGui.Text("RECOMMENDED: Option " + (recommendedIndex + 1));
+                            ImGui.PopStyleColor();
+                            
+                            // Draw the option text if available
+                            if (!recommendedOption.trim().isEmpty()) {
+                                ImGui.PushStyleColor(0, 0.4f, 0.9f, 0.7f, 1.0f); // Lighter teal
+                                ImGui.Text("\"" + recommendedOption + "\"");
+                                ImGui.PopStyleColor();
+                            }
+                            
+                            // Show matching status
+                            ImGui.PushStyleColor(0, 0.2f, 0.8f, 0.4f, 1.0f); // Green-teal
+                            ImGui.Text("Match found in dialog");
+                            ImGui.PopStyleColor();
+                        } else {
+                            // Show that dialog assistance is active but no recommendation available
+                            ImGui.PushStyleColor(0, 1.0f, 0.6f, 0.2f, 1.0f); // Orange
+                            ImGui.Text("Dialog assistance active");
+                            ImGui.PopStyleColor();
+                            
+                            if (currentDialogText != null && !currentDialogText.trim().isEmpty()) {
+                                ImGui.Text("No matching options found");
+                            } else {
+                                ImGui.Text("Waiting for dialog options...");
+                            }
+                        }
                     }
                     
                     ImGui.End();
                 }
                 
-                // Pop the window background style color
+                // Pop the window background color
                 ImGui.PopStyleColor();
                 
             } catch (Exception e) {
                 ScriptConsole.println("[CoaezUtilityGUI] Error drawing overlay: " + e.getMessage());
                 // Don't rethrow - just log and continue
+            } finally {
+                // Reset styling
+                guiStyling.resetCustomStyles();
+                guiStyling.resetCustomColors();
             }
         }
     }
