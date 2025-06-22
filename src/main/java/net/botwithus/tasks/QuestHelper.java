@@ -1,6 +1,7 @@
 package net.botwithus.tasks;
 
 import net.botwithus.CoaezUtility;
+import net.botwithus.api.game.hud.Dialog;
 import net.botwithus.rs3.game.quest.Quest;
 import net.botwithus.rs3.game.js5.types.QuestType;
 import net.botwithus.rs3.game.js5.types.configs.ConfigManager;
@@ -9,17 +10,22 @@ import net.botwithus.rs3.script.ScriptConsole;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * QuestHelper class for managing and tracking quests.
  * Provides functionality to list all quests, filter by completion status,
  * and get detailed information about quest requirements.
+ * Also provides main loop functionality for dialog assistance.
  */
-public class QuestHelper {
+public class QuestHelper implements Task {
 
     private final CoaezUtility script;
     private Quest selectedQuest;
@@ -28,6 +34,26 @@ public class QuestHelper {
     private final List<Quest> completedQuests;
     private final List<Quest> inProgressQuests;
     private final List<Quest> notStartedQuests;
+    
+    // Dialog assistance fields
+    private Map<String, List<QuestDialogFetcher.DialogSequence>> fetchedDialogs;
+    private boolean dialogsFetched = false;
+    private String currentRecommendedOption = null;
+    private int currentRecommendedOptionIndex = -1;
+    private boolean isDialogAssistanceActive = false;
+    
+    // GUI state management fields
+    private List<String> questDisplayNames = new ArrayList<>();
+    private boolean showCompletedQuests = true;
+    private boolean showInProgressQuests = true;
+    private boolean showNotStartedQuests = true;
+    private boolean showFreeToPlayQuests = true;
+    private boolean showMembersQuests = true;
+    private String questSearchText = "";
+    private int selectedQuestIndex = 0;
+
+    private String cachedComprehensiveInfo = null;
+    private Quest lastCachedQuest = null;
 
     /**
      * Constructs a new QuestHelper.
@@ -40,6 +66,7 @@ public class QuestHelper {
         this.completedQuests = new ArrayList<>();
         this.inProgressQuests = new ArrayList<>();
         this.notStartedQuests = new ArrayList<>();
+        this.fetchedDialogs = new HashMap<>();
         loadQuests();
     }
 
@@ -93,7 +120,7 @@ public class QuestHelper {
 
     /**
      * Validates if a quest has meaningful data and should be included in the quest lists.
-     * Filters out quests that have empty or minimal quest data.
+     * Now less restrictive to allow quests that can be used for dialog assistance.
      * 
      * @param quest The quest to validate
      * @param questId The quest ID
@@ -104,35 +131,57 @@ public class QuestHelper {
             return false;
         }
         
-        // Try to get QuestType data for additional validation
+        // Allow any quest with a valid name - dialog assistance can work even without QuestType data
+        // Only filter out quests with obviously invalid or placeholder names
+        String questName = quest.name().trim();
+        
+        // Filter out quests with placeholder or invalid names
+        if (questName.equalsIgnoreCase("null") || 
+            questName.equalsIgnoreCase("unknown") || 
+            questName.equalsIgnoreCase("test") ||
+            questName.length() < 2) {
+            return false;
+        }
+        
+        // Try to get QuestType data for additional validation, but don't require it
         QuestType questType = ConfigManager.getQuestType(questId);
-        if (questType == null) {
-            // If no QuestType data, check if the Quest object itself has meaningful data
-            return hasBasicQuestData(quest);
-        }
-        
-        // Check if QuestType has meaningful data
-        Map<Integer, Object> params = questType.params();
-        if (params == null || params.isEmpty()) {
-            // No parameters, check if other QuestType data is meaningful
-            return hasBasicQuestTypeData(questType) || hasBasicQuestData(quest);
-        }
-        
-        // Check if parameters contain meaningful data (not just empty strings)
-        boolean hasMeaningfulParams = false;
-        for (Map.Entry<Integer, Object> entry : params.entrySet()) {
-            Object value = entry.getValue();
-            if (value != null && !value.toString().trim().isEmpty()) {
-                // Skip the name parameter if it's the only non-empty one and matches quest name
-                if (entry.getKey() == 1 && value.toString().equals(quest.name())) {
-                    continue;
+        if (questType != null) {
+            // If we have QuestType data, do additional validation
+            Map<Integer, Object> params = questType.params();
+            if (params != null && !params.isEmpty()) {
+                // Check if parameters contain meaningful data (not just empty strings)
+                boolean hasMeaningfulParams = false;
+                for (Map.Entry<Integer, Object> entry : params.entrySet()) {
+                    Object value = entry.getValue();
+                    if (value != null && !value.toString().trim().isEmpty()) {
+                        // Skip the name parameter if it's the only non-empty one and matches quest name
+                        if (entry.getKey() == 1 && value.toString().equals(quest.name())) {
+                            continue;
+                        }
+                        hasMeaningfulParams = true;
+                        break;
+                    }
                 }
-                hasMeaningfulParams = true;
-                break;
+                
+                if (hasMeaningfulParams || hasBasicQuestTypeData(questType)) {
+                    return true;
+                }
+            }
+            
+            // Check if QuestType has other meaningful data
+            if (hasBasicQuestTypeData(questType)) {
+                return true;
             }
         }
         
-        return hasMeaningfulParams || hasBasicQuestTypeData(questType) || hasBasicQuestData(quest);
+        // Even without QuestType data, allow quests that have basic Quest data
+        if (hasBasicQuestData(quest)) {
+            return true;
+        }
+        
+        // For dialog assistance, allow any quest with a reasonable name
+        // This ensures quests like "The Blood Pact" work even if they lack detailed config data
+        return questName.length() >= 3 && !questName.matches(".*\\d{3,}.*"); // Exclude names with long numbers
     }
     
     /**
@@ -210,6 +259,10 @@ public class QuestHelper {
      */
     public void setSelectedQuest(Quest quest) {
         this.selectedQuest = quest;
+        
+        // Clear cache when quest changes
+        cachedComprehensiveInfo = null;
+        lastCachedQuest = null;
         
         if (quest != null) {
             int questId = getQuestId(quest);
@@ -305,7 +358,12 @@ public class QuestHelper {
         sb.append("\nDifficulty: ").append(selectedQuest.getDifficulty()).append("\n");
         sb.append("Members Only: ").append(selectedQuest.isMembers() ? "Yes" : "No").append("\n");
         sb.append("Quest Points Reward: ").append(selectedQuest.getQuestPoints()).append("\n");
-        sb.append("Player has all requirements: ").append(selectedQuest.hasRequirements() ? "Yes" : "No").append("\n");
+        
+        try {
+            sb.append("Player has all requirements: ").append(selectedQuest.hasRequirements() ? "Yes" : "No").append("\n");
+        } catch (Exception e) {
+            sb.append("Player has all requirements: Unable to determine (quest data incomplete)\n");
+        }
         
         return sb.toString();
     }
@@ -393,9 +451,7 @@ public class QuestHelper {
      * @return A list of strings in the format "Quest Name [ID]".
      */
     public List<String> getQuestDisplayNames() {
-        return allQuests.stream()
-            .map(q -> q.name() + " [" + getQuestId(q) + "]")
-            .collect(Collectors.toList());
+        return Collections.unmodifiableList(questDisplayNames);
     }
     
     /**
@@ -443,6 +499,7 @@ public class QuestHelper {
     /**
      * Gets comprehensive quest information combining Quest and QuestType data.
      * Shows what data is available and gracefully handles missing information.
+     * Uses caching to prevent expensive operations from running every frame.
      * @return A formatted string with all available quest information.
      */
     public String getComprehensiveQuestInfo() {
@@ -450,6 +507,12 @@ public class QuestHelper {
             return "No quest selected";
         }
         
+        // Check if we can use cached data
+        if (cachedComprehensiveInfo != null && selectedQuest.equals(lastCachedQuest)) {
+            return cachedComprehensiveInfo;
+        }
+        
+        // Generate new comprehensive info (expensive operations)
         StringBuilder sb = new StringBuilder();
         sb.append("Quest Information for ").append(selectedQuest.name()).append(":\n\n");
         
@@ -473,31 +536,43 @@ public class QuestHelper {
             sb.append("Quest Points Required: ").append(qpReq).append("\n");
         }
         
-        List<net.botwithus.rs3.game.skills.Skills> skillReqs = selectedQuest.getRequiredSkills();
-        if (!skillReqs.isEmpty()) {
-            sb.append("Skill Requirements:\n");
-            for (net.botwithus.rs3.game.skills.Skills skill : skillReqs) {
-                sb.append("- ").append(skill.toString()).append("\n");
-            }
-        }
-        
-        List<Quest> questReqs = selectedQuest.getRequiredQuests();
-        if (!questReqs.isEmpty()) {
-            sb.append("Quest Requirements:\n");
-            for (Quest quest : questReqs) {
-                sb.append("- ").append(quest.name());
-                if (quest.isComplete()) {
-                    sb.append(" (Completed)");
-                } else if (quest.isStarted()) {
-                    sb.append(" (In Progress)");
-                } else {
-                    sb.append(" (Not Started)");
+        try {
+            List<net.botwithus.rs3.game.skills.Skills> skillReqs = selectedQuest.getRequiredSkills();
+            if (skillReqs != null && !skillReqs.isEmpty()) {
+                sb.append("Skill Requirements:\n");
+                for (net.botwithus.rs3.game.skills.Skills skill : skillReqs) {
+                    sb.append("- ").append(skill.toString()).append("\n");
                 }
-                sb.append("\n");
             }
+        } catch (Exception e) {
+            sb.append("Skill Requirements: Unable to load (quest data incomplete)\n");
         }
         
-        sb.append("Player has all requirements: ").append(selectedQuest.hasRequirements() ? "Yes" : "No").append("\n");
+        try {
+            List<Quest> questReqs = selectedQuest.getRequiredQuests();
+            if (questReqs != null && !questReqs.isEmpty()) {
+                sb.append("Quest Requirements:\n");
+                for (Quest quest : questReqs) {
+                    sb.append("- ").append(quest.name());
+                    if (quest.isComplete()) {
+                        sb.append(" (Completed)");
+                    } else if (quest.isStarted()) {
+                        sb.append(" (In Progress)");
+                    } else {
+                        sb.append(" (Not Started)");
+                    }
+                    sb.append("\n");
+                }
+            }
+        } catch (Exception e) {
+            sb.append("Quest Requirements: Unable to load (quest data incomplete)\n");
+        }
+        
+        try {
+            sb.append("Player has all requirements: ").append(selectedQuest.hasRequirements() ? "Yes" : "No").append("\n");
+        } catch (Exception e) {
+            sb.append("Player has all requirements: Unable to determine (quest data incomplete)\n");
+        }
         
         if (selectedQuestType != null) {
             sb.append("\n=== Advanced Quest Data ===\n");
@@ -561,7 +636,10 @@ public class QuestHelper {
             }
         }
         
-        return sb.toString();
+        cachedComprehensiveInfo = sb.toString();
+        lastCachedQuest = selectedQuest;
+        
+        return cachedComprehensiveInfo;
     }
 
     /**
@@ -634,6 +712,396 @@ public class QuestHelper {
             
         } catch (Exception e) {
             return "Error fetching dialog options: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Main execution method for the Task interface.
+     * Implements the dialog assistance loop for the selected quest.
+     */
+    @Override
+    public void execute() {
+        if (selectedQuest == null) {
+            ScriptConsole.println("[QuestHelper] No quest selected for dialog assistance.");
+            return;
+        }
+        
+        // Fetch dialogs if not already fetched
+        if (!dialogsFetched) {
+            fetchDialogsForSelectedQuest();
+        }
+        
+        // Monitor for open dialogs
+        if (Dialog.isOpen()) {
+            processOpenDialog();
+        } else {
+            // Clear recommendations when no dialog is open
+            clearCurrentRecommendation();
+        }
+    }
+    
+    /**
+     * Fetches dialog options for the currently selected quest.
+     */
+    private void fetchDialogsForSelectedQuest() {
+        if (selectedQuest == null) {
+            return;
+        }
+        
+        try {
+            ScriptConsole.println("[QuestHelper] Fetching dialogs for: " + selectedQuest.name());
+            fetchedDialogs = QuestDialogFetcher.fetchQuestDialogs(selectedQuest.name());
+            dialogsFetched = true;
+            
+            if (fetchedDialogs.isEmpty()) {
+                ScriptConsole.println("[QuestHelper] No dialogs found for: " + selectedQuest.name());
+            } else {
+                ScriptConsole.println("[QuestHelper] Successfully fetched dialogs for: " + selectedQuest.name());
+                ScriptConsole.println("[QuestHelper] Found " + fetchedDialogs.size() + " dialog sections");
+            }
+        } catch (Exception e) {
+            ScriptConsole.println("[QuestHelper] Error fetching dialogs: " + e.getMessage());
+            dialogsFetched = false;
+        }
+    }
+    
+    /**
+     * Processes open dialog to find matching dialog options and provide recommendations.
+     */
+    private void processOpenDialog() {
+        if (fetchedDialogs == null || fetchedDialogs.isEmpty()) {
+            return;
+        }
+        
+        try {
+            // Since we don't have direct access to dialog text, we'll work with the fetched sequences
+            // and provide guidance based on the available dialog options
+            findDialogRecommendation();
+            
+        } catch (Exception e) {
+            ScriptConsole.println("[QuestHelper] Error processing dialog: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Finds and sets the recommended dialog option based on fetched dialog sequences.
+     */
+    private void findDialogRecommendation() {
+        // For now, we'll recommend the first available dialog option from the first sequence
+        // This can be enhanced later with more sophisticated matching logic
+        
+        for (Map.Entry<String, List<QuestDialogFetcher.DialogSequence>> entry : fetchedDialogs.entrySet()) {
+            List<QuestDialogFetcher.DialogSequence> sequences = entry.getValue();
+            
+            if (!sequences.isEmpty()) {
+                QuestDialogFetcher.DialogSequence firstSequence = sequences.get(0);
+                List<QuestDialogFetcher.DialogOption> options = firstSequence.getOptions();
+                
+                if (!options.isEmpty()) {
+                    QuestDialogFetcher.DialogOption firstOption = options.get(0);
+                    
+                    // Try to parse the option number to get the index
+                    try {
+                        String optionNumber = firstOption.getOptionNumber();
+                        if (optionNumber.matches("\\d+")) {
+                            int optionIndex = Integer.parseInt(optionNumber) - 1; // Convert to 0-based index
+                            setCurrentRecommendation(firstOption.getOptionText(), optionIndex);
+                            return;
+                        } else if ("✓".equals(optionNumber)) {
+                            // Special case for checkmark options (usually continue/accept)
+                            setCurrentRecommendation(firstOption.getOptionText(), 0);
+                            return;
+                        }
+                    } catch (NumberFormatException e) {
+                        // If parsing fails, default to first option
+                        setCurrentRecommendation(firstOption.getOptionText(), 0);
+                        return;
+                    }
+                }
+            }
+        }
+        
+        if (!fetchedDialogs.isEmpty() && Dialog.isOpen()) {
+            setCurrentRecommendation("Continue with quest dialog", 0);
+            ScriptConsole.println("[QuestHelper] Using fallback recommendation for quest with limited dialog data");
+        } else {
+            clearCurrentRecommendation();
+        }
+    }
+    
+    /**
+     * Sets the current dialog recommendation.
+     * @param optionText The text of the recommended option
+     * @param optionIndex The index of the recommended option (0-based)
+     */
+    private void setCurrentRecommendation(String optionText, int optionIndex) {
+        if (!optionText.equals(currentRecommendedOption) || optionIndex != currentRecommendedOptionIndex) {
+            currentRecommendedOption = optionText;
+            currentRecommendedOptionIndex = optionIndex;
+            ScriptConsole.println("[QuestHelper] Recommended dialog option: " + (optionIndex + 1) + " - " + optionText);
+        }
+    }
+    
+    /**
+     * Clears the current dialog recommendation.
+     */
+    private void clearCurrentRecommendation() {
+        if (currentRecommendedOption != null) {
+            currentRecommendedOption = null;
+            currentRecommendedOptionIndex = -1;
+        }
+    }
+    
+    /**
+     * Enables dialog assistance for the selected quest.
+     */
+    public void enableDialogAssistance() {
+        if (selectedQuest == null) {
+            ScriptConsole.println("[QuestHelper] No quest selected. Cannot enable dialog assistance.");
+            return;
+        }
+        
+        isDialogAssistanceActive = true;
+        dialogsFetched = false; // Force re-fetch of dialogs
+        ScriptConsole.println("[QuestHelper] Dialog assistance enabled for: " + selectedQuest.name());
+    }
+    
+    /**
+     * Disables dialog assistance.
+     */
+    public void disableDialogAssistance() {
+        isDialogAssistanceActive = false;
+        clearCurrentRecommendation();
+        ScriptConsole.println("[QuestHelper] Dialog assistance disabled.");
+    }
+    
+    /**
+     * Checks if dialog assistance is currently active.
+     * @return true if dialog assistance is active, false otherwise
+     */
+    public boolean isDialogAssistanceActive() {
+        return isDialogAssistanceActive;
+    }
+    
+    /**
+     * Gets the current recommended dialog option text.
+     * @return The recommended option text, or null if no recommendation
+     */
+    public String getCurrentRecommendedOption() {
+        return currentRecommendedOption;
+    }
+    
+    /**
+     * Gets the current recommended dialog option index.
+     * @return The recommended option index (0-based), or -1 if no recommendation
+     */
+    public int getCurrentRecommendedOptionIndex() {
+        return currentRecommendedOptionIndex;
+    }
+    
+    /**
+     * Checks if dialogs have been fetched for the current quest.
+     * @return true if dialogs are fetched, false otherwise
+     */
+    public boolean areDialogsFetched() {
+        return dialogsFetched;
+    }
+    
+    /**
+     * Gets the fetched dialogs for the current quest.
+     * @return Map of dialog sequences, or empty map if none fetched
+     */
+    public Map<String, List<QuestDialogFetcher.DialogSequence>> getFetchedDialogs() {
+        return fetchedDialogs != null ? new HashMap<>(fetchedDialogs) : new HashMap<>();
+    }
+    
+    // === GUI STATE MANAGEMENT METHODS ===
+    
+    /**
+     * Updates the quest display list based on current filter settings.
+     */
+    public void updateQuestDisplayList() {
+        questDisplayNames.clear();
+        
+        // Use a Set to ensure uniqueness
+        Set<String> uniqueQuestNames = new HashSet<>();
+        
+        if (showCompletedQuests) {
+            uniqueQuestNames.addAll(completedQuests.stream()
+                .filter(this::matchesQuestFilters)
+                .map(q -> q.name() + " [" + getQuestId(q) + "]")
+                .collect(Collectors.toSet()));
+        }
+        
+        if (showInProgressQuests) {
+            uniqueQuestNames.addAll(inProgressQuests.stream()
+                .filter(this::matchesQuestFilters)
+                .map(q -> q.name() + " [" + getQuestId(q) + "]")
+                .collect(Collectors.toSet()));
+        }
+        
+        if (showNotStartedQuests) {
+            uniqueQuestNames.addAll(notStartedQuests.stream()
+                .filter(this::matchesQuestFilters)
+                .map(q -> q.name() + " [" + getQuestId(q) + "]")
+                .collect(Collectors.toSet()));
+        }
+        
+        // Convert Set back to List and sort by quest ID (lowest to highest)
+        questDisplayNames.addAll(uniqueQuestNames);
+        Collections.sort(questDisplayNames, (a, b) -> {
+            int idA = extractQuestId(a);
+            int idB = extractQuestId(b);
+            return Integer.compare(idA, idB);
+        });
+    }
+    
+    /**
+     * Checks if a quest matches the current filter criteria.
+     * @param quest The quest to check
+     * @return true if the quest matches the filters
+     */
+    private boolean matchesQuestFilters(Quest quest) {
+        // Check membership status filter
+        boolean matchesMembershipFilter = false;
+        if (quest.isMembers() && showMembersQuests) {
+            matchesMembershipFilter = true;
+        } else if (!quest.isMembers() && showFreeToPlayQuests) {
+            matchesMembershipFilter = true;
+        }
+        
+        if (!matchesMembershipFilter) {
+            return false;
+        }
+        
+        // Check search text filter
+        if (questSearchText != null && !questSearchText.trim().isEmpty()) {
+            String searchLower = questSearchText.toLowerCase().trim();
+            String questNameLower = quest.name().toLowerCase();
+            return questNameLower.contains(searchLower);
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Extracts the quest ID from a display name with format "Quest Name [ID]".
+     * @param displayName The display name
+     * @return The quest ID, or -1 if not found
+     */
+    private int extractQuestId(String displayName) {
+        try {
+            int startIndex = displayName.lastIndexOf('[');
+            int endIndex = displayName.lastIndexOf(']');
+            if (startIndex != -1 && endIndex != -1 && startIndex < endIndex) {
+                String idStr = displayName.substring(startIndex + 1, endIndex);
+                return Integer.parseInt(idStr);
+            }
+        } catch (NumberFormatException | IndexOutOfBoundsException e) {
+            ScriptConsole.println("[QuestHelper] Error parsing quest ID from: " + displayName);
+        }
+        return -1;
+    }
+    
+    /**
+     * Selects a quest by its index in the display list.
+     * @param index The index in the display list
+     */
+    public void selectQuestByIndex(int index) {
+        if (index >= 0 && index < questDisplayNames.size()) {
+            selectedQuestIndex = index;
+            String selectedDisplayName = questDisplayNames.get(index);
+            int questId = extractQuestId(selectedDisplayName);
+            
+            if (questId != -1) {
+                Quest quest = getQuestById(questId);
+                if (quest != null) {
+                    setSelectedQuest(quest);
+                    enableDialogAssistance();
+                    ScriptConsole.println("[QuestHelper] Quest selected: " + quest.name() + " - Dialog assistance enabled");
+                }
+            }
+        }
+    }
+    
+    // === GUI FILTER GETTERS AND SETTERS ===
+    
+    public boolean isShowCompletedQuests() {
+        return showCompletedQuests;
+    }
+    
+    public void setShowCompletedQuests(boolean showCompletedQuests) {
+        if (this.showCompletedQuests != showCompletedQuests) {
+            this.showCompletedQuests = showCompletedQuests;
+            updateQuestDisplayList();
+        }
+    }
+    
+    public boolean isShowInProgressQuests() {
+        return showInProgressQuests;
+    }
+    
+    public void setShowInProgressQuests(boolean showInProgressQuests) {
+        if (this.showInProgressQuests != showInProgressQuests) {
+            this.showInProgressQuests = showInProgressQuests;
+            updateQuestDisplayList();
+        }
+    }
+    
+    public boolean isShowNotStartedQuests() {
+        return showNotStartedQuests;
+    }
+    
+    public void setShowNotStartedQuests(boolean showNotStartedQuests) {
+        if (this.showNotStartedQuests != showNotStartedQuests) {
+            this.showNotStartedQuests = showNotStartedQuests;
+            updateQuestDisplayList();
+        }
+    }
+    
+    public boolean isShowFreeToPlayQuests() {
+        return showFreeToPlayQuests;
+    }
+    
+    public void setShowFreeToPlayQuests(boolean showFreeToPlayQuests) {
+        if (this.showFreeToPlayQuests != showFreeToPlayQuests) {
+            this.showFreeToPlayQuests = showFreeToPlayQuests;
+            updateQuestDisplayList();
+        }
+    }
+    
+    public boolean isShowMembersQuests() {
+        return showMembersQuests;
+    }
+    
+    public void setShowMembersQuests(boolean showMembersQuests) {
+        if (this.showMembersQuests != showMembersQuests) {
+            this.showMembersQuests = showMembersQuests;
+            updateQuestDisplayList();
+        }
+    }
+    
+    public String getQuestSearchText() {
+        return questSearchText;
+    }
+    
+    public void setQuestSearchText(String questSearchText) {
+        if (!Objects.equals(this.questSearchText, questSearchText)) {
+            this.questSearchText = questSearchText;
+            updateQuestDisplayList();
+        }
+    }
+    
+    public int getSelectedQuestIndex() {
+        return selectedQuestIndex;
+    }
+    
+    /**
+     * Initializes the quest display list. Should be called when the GUI is first opened.
+     */
+    public void initializeQuestDisplay() {
+        if (questDisplayNames.isEmpty()) {
+            updateQuestDisplayList();
         }
     }
 } 

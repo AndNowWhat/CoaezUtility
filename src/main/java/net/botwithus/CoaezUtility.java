@@ -218,7 +218,8 @@ public class CoaezUtility extends LoopingScript {
                     sheepShearingTask.execute();
                 }
                 case QUESTS -> {
-                    ScriptConsole.println("Quest helper active - viewing only");
+                    ScriptConsole.println("Quest helper active");
+                    questHelper.execute();
                 }
                 case STOPPED -> {
                     ScriptConsole.println("Stopping script");

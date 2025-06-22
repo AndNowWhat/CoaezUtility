@@ -2,6 +2,7 @@ package net.botwithus;
 
 import net.botwithus.rs3.imgui.ImGui;
 import net.botwithus.rs3.imgui.ImGuiWindowFlag;
+import net.botwithus.rs3.imgui.BGList;
 import net.botwithus.rs3.script.ScriptConsole;
 import net.botwithus.rs3.script.ScriptGraphicsContext;
 import net.botwithus.rs3.script.config.ScriptConfig;
@@ -10,6 +11,7 @@ import net.botwithus.tasks.PortableWorkbench;
 import net.botwithus.tasks.Product;
 import net.botwithus.tasks.Ingredient;
 import net.botwithus.tasks.Portable;
+import net.botwithus.api.game.hud.Dialog;
 import net.botwithus.rs3.game.js5.types.configs.ConfigManager;
 import net.botwithus.tasks.SimplePortable;
 import net.botwithus.tasks.PortableCrafter;
@@ -17,6 +19,7 @@ import net.botwithus.tasks.SawmillPlank;
 import net.botwithus.tasks.PortableSawmill;
 import net.botwithus.rs3.game.quest.Quest;
 import net.botwithus.tasks.QuestHelper;
+import net.botwithus.tasks.QuestDialogFetcher;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -26,6 +29,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.Collections;
 import java.util.Optional;
+import java.util.Map;
 
 public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private final CoaezUtility coaezUtility;
@@ -57,13 +61,6 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     // Sawmill specific state
     private int selectedSawmillPlankIndex = 0;
     private final SawmillPlank[] sawmillPlanks = SawmillPlank.values();
-
-    // Quest specific state
-    private int selectedQuestIndex = 0;
-    private List<String> questDisplayNames = new ArrayList<>();
-    private boolean showCompletedQuests = true;
-    private boolean showInProgressQuests = true;
-    private boolean showNotStartedQuests = true;
 
     // Window dimensions
     private final int LISTBOX_HEIGHT = 150;
@@ -266,8 +263,8 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (ImGui.Button("Open Quest Helper")) {
             coaezUtility.setBotState(CoaezUtility.BotState.QUESTS);
             // Initialize quest display names if needed
-            if (questDisplayNames.isEmpty() && coaezUtility.getQuestHelper() != null) {
-                updateQuestDisplayList(coaezUtility.getQuestHelper());
+            if (coaezUtility.getQuestHelper() != null) {
+                coaezUtility.getQuestHelper().initializeQuestDisplay();
             }
         }
     }
@@ -690,60 +687,68 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         QuestHelper questHelper = coaezUtility.getQuestHelper();
         
         // Initialize quest display names if needed
-        if (questDisplayNames.isEmpty()) {
-            updateQuestDisplayList(questHelper);
-        }
+        questHelper.initializeQuestDisplay();
         
         // Quest filtering options
         ImGui.Text("Filter Quests:");
         boolean filterChanged = false;
         
-        boolean newShowCompleted = ImGui.Checkbox("Show Completed", showCompletedQuests);
-        if (newShowCompleted != showCompletedQuests) {
-            showCompletedQuests = newShowCompleted;
-            filterChanged = true;
+        boolean newShowCompleted = ImGui.Checkbox("Show Completed", questHelper.isShowCompletedQuests());
+        if (newShowCompleted != questHelper.isShowCompletedQuests()) {
+            questHelper.setShowCompletedQuests(newShowCompleted);
         }
         
         ImGui.SameLine();
-        boolean newShowInProgress = ImGui.Checkbox("Show In Progress", showInProgressQuests);
-        if (newShowInProgress != showInProgressQuests) {
-            showInProgressQuests = newShowInProgress;
-            filterChanged = true;
+        boolean newShowInProgress = ImGui.Checkbox("Show In Progress", questHelper.isShowInProgressQuests());
+        if (newShowInProgress != questHelper.isShowInProgressQuests()) {
+            questHelper.setShowInProgressQuests(newShowInProgress);
         }
         
         ImGui.SameLine();
-        boolean newShowNotStarted = ImGui.Checkbox("Show Not Started", showNotStartedQuests);
-        if (newShowNotStarted != showNotStartedQuests) {
-            showNotStartedQuests = newShowNotStarted;
-            filterChanged = true;
+        boolean newShowNotStarted = ImGui.Checkbox("Show Not Started", questHelper.isShowNotStartedQuests());
+        if (newShowNotStarted != questHelper.isShowNotStartedQuests()) {
+            questHelper.setShowNotStartedQuests(newShowNotStarted);
         }
         
-        // Apply filters if changed
-        if (filterChanged) {
-            updateQuestDisplayList(questHelper);
+        ImGui.SameLine();
+        boolean newShowFreeToPlay = ImGui.Checkbox("Show Free-to-Play", questHelper.isShowFreeToPlayQuests());
+        if (newShowFreeToPlay != questHelper.isShowFreeToPlayQuests()) {
+            questHelper.setShowFreeToPlayQuests(newShowFreeToPlay);
+        }
+        
+        ImGui.SameLine();
+        boolean newShowMembers = ImGui.Checkbox("Show Members", questHelper.isShowMembersQuests());
+        if (newShowMembers != questHelper.isShowMembersQuests()) {
+            questHelper.setShowMembersQuests(newShowMembers);
+        }
+        
+        // Quest search functionality
+        ImGui.Separator();
+        ImGui.Text("Search Quests:");
+        String newQuestSearchText = ImGui.InputText("##QuestSearch", questHelper.getQuestSearchText());
+        if (!newQuestSearchText.equals(questHelper.getQuestSearchText())) {
+            questHelper.setQuestSearchText(newQuestSearchText);
         }
         
         ImGui.Separator();
         
+        List<String> questDisplayNames = questHelper.getQuestDisplayNames();
         if (!questDisplayNames.isEmpty()) {
             String[] questNames = questDisplayNames.toArray(new String[0]);
             
+            int selectedQuestIndex = questHelper.getSelectedQuestIndex();
             if (selectedQuestIndex >= questNames.length) {
+                selectedQuestIndex = 0;
+            }
+            
+            if (questNames.length == 1 && questHelper.getSelectedQuest() == null) {
+                questHelper.selectQuestByIndex(0);
                 selectedQuestIndex = 0;
             }
             
             int newSelectedQuestIndex = ImGui.Combo("Select Quest", selectedQuestIndex, questNames);
             if (newSelectedQuestIndex != selectedQuestIndex) {
-                selectedQuestIndex = newSelectedQuestIndex;
-                                String selectedDisplayName = questDisplayNames.get(selectedQuestIndex);
-                int questId = extractQuestId(selectedDisplayName);
-                
-                if (questId != -1) {
-                    Quest selectedQuest = questHelper.getQuestById(questId);
-                    if (selectedQuest != null) {
-                        questHelper.setSelectedQuest(selectedQuest);
-                    }
-                }
+                questHelper.selectQuestByIndex(newSelectedQuestIndex);
             }
         } else {
             ImGui.Text("No quests available with current filters.");
@@ -763,6 +768,17 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             if (ImGui.Button("Fetch Dialog Options")) {
                 questHelper.fetchAndPrintQuestDialogs();
             }
+            
+            ImGui.SameLine();
+            if (questHelper.isDialogAssistanceActive()) {
+                if (ImGui.Button("Disable Dialog Assistance")) {
+                    questHelper.disableDialogAssistance();
+                }
+            } else {
+                if (ImGui.Button("Enable Dialog Assistance")) {
+                    questHelper.enableDialogAssistance();
+                }
+            }
         }
         
         ImGui.Separator();
@@ -770,6 +786,25 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         // Quest information display
         Quest selectedQuestInfo = questHelper.getSelectedQuest();
         if (selectedQuestInfo != null) {
+            // Dialog assistance status
+            if (questHelper.isDialogAssistanceActive()) {
+                ImGui.PushStyleColor(0, 0.0f, 1.0f, 0.0f, 1.0f); // Green color
+                ImGui.Text("Dialog Assistance: ACTIVE");
+                ImGui.PopStyleColor();
+                
+                if (questHelper.areDialogsFetched()) {
+                    ImGui.Text("Dialogs Status: Loaded");
+                    Map<String, List<QuestDialogFetcher.DialogSequence>> dialogs = questHelper.getFetchedDialogs();
+                    ImGui.Text("Dialog Sections: " + dialogs.size());
+                } else {
+                    ImGui.Text("Dialogs Status: Loading...");
+                }
+            } else {
+                ImGui.Text("Dialog Assistance: Inactive");
+            }
+            
+            ImGui.Separator();
+            
             // Use comprehensive quest information that handles missing data gracefully
             String comprehensiveInfo = questHelper.getComprehensiveQuestInfo();
             String[] lines = comprehensiveInfo.split("\n");
@@ -1057,11 +1092,16 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         }
         // TODO: Save SmithingTask selections (selectedCategoryEnum.name() and selectedProduct.getId())
 
-        // Save Quest filter settings
-        config.addProperty("showCompletedQuests", String.valueOf(showCompletedQuests));
-        config.addProperty("showInProgressQuests", String.valueOf(showInProgressQuests));
-        config.addProperty("showNotStartedQuests", String.valueOf(showNotStartedQuests));
-        
+        // Save Quest filter settings into QuestHelper
+        if (coaezUtility.getQuestHelper() != null) {
+            QuestHelper questHelper = coaezUtility.getQuestHelper();
+            config.addProperty("showCompletedQuests", String.valueOf(questHelper.isShowCompletedQuests()));
+            config.addProperty("showInProgressQuests", String.valueOf(questHelper.isShowInProgressQuests()));
+            config.addProperty("showNotStartedQuests", String.valueOf(questHelper.isShowNotStartedQuests()));
+            config.addProperty("showFreeToPlayQuests", String.valueOf(questHelper.isShowFreeToPlayQuests()));
+            config.addProperty("showMembersQuests", String.valueOf(questHelper.isShowMembersQuests()));
+        }
+
         // Save selected quest
         if (coaezUtility.getQuestHelper() != null && coaezUtility.getQuestHelper().getSelectedQuest() != null) {
             Quest selectedQuest = coaezUtility.getQuestHelper().getSelectedQuest();
@@ -1105,6 +1145,36 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             if (disassemblyItemsStr != null && !disassemblyItemsStr.isEmpty()) {
                 Arrays.stream(disassemblyItemsStr.split(","))
                         .forEach(item -> coaezUtility.getDisassembly().addDisassemblyItem(item));
+            }
+        }
+        
+        // Load Quest filter settings into QuestHelper
+        if (coaezUtility.getQuestHelper() != null) {
+            QuestHelper questHelper = coaezUtility.getQuestHelper();
+            
+            String showCompletedStr = config.getProperty("showCompletedQuests");
+            if (showCompletedStr != null) {
+                questHelper.setShowCompletedQuests(Boolean.parseBoolean(showCompletedStr));
+            }
+            
+            String showInProgressStr = config.getProperty("showInProgressQuests");
+            if (showInProgressStr != null) {
+                questHelper.setShowInProgressQuests(Boolean.parseBoolean(showInProgressStr));
+            }
+            
+            String showNotStartedStr = config.getProperty("showNotStartedQuests");
+            if (showNotStartedStr != null) {
+                questHelper.setShowNotStartedQuests(Boolean.parseBoolean(showNotStartedStr));
+            }
+            
+            String showFreeToPlayStr = config.getProperty("showFreeToPlayQuests");
+            if (showFreeToPlayStr != null) {
+                questHelper.setShowFreeToPlayQuests(Boolean.parseBoolean(showFreeToPlayStr));
+            }
+            
+            String showMembersStr = config.getProperty("showMembersQuests");
+            if (showMembersStr != null) {
+                questHelper.setShowMembersQuests(Boolean.parseBoolean(showMembersStr));
             }
         }
 
@@ -1266,59 +1336,96 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     @Override
     public void drawOverlay() {
         super.drawOverlay();
-    }
-
-    /**
-     * Updates the quest display list based on the current filter settings.
-     */
-    private void updateQuestDisplayList(QuestHelper questHelper) {
-        questDisplayNames.clear();
         
-        // Use a Set to ensure uniqueness
-        Set<String> uniqueQuestNames = new HashSet<>();
-        
-        if (showCompletedQuests) {
-            uniqueQuestNames.addAll(questHelper.getCompletedQuests().stream()
-                .map(q -> q.name() + " [" + getQuestId(q) + "]")
-                .collect(Collectors.toSet()));
+        // Draw quest dialog assistance overlay
+        if (coaezUtility != null && coaezUtility.getQuestHelper() != null) {
+            QuestHelper questHelper = coaezUtility.getQuestHelper();
+                        
+            if (questHelper.isDialogAssistanceActive()) {
+                drawDialogAssistanceOverlay(questHelper);
+            }
         }
-        
-        if (showInProgressQuests) {
-            uniqueQuestNames.addAll(questHelper.getInProgressQuests().stream()
-                .map(q -> q.name() + " [" + getQuestId(q) + "]")
-                .collect(Collectors.toSet()));
-        }
-        
-        if (showNotStartedQuests) {
-            uniqueQuestNames.addAll(questHelper.getNotStartedQuests().stream()
-                .map(q -> q.name() + " [" + getQuestId(q) + "]")
-                .collect(Collectors.toSet()));
-        }
-        
-        // Convert Set back to List and sort by quest ID (lowest to highest)
-        questDisplayNames.addAll(uniqueQuestNames);
-        Collections.sort(questDisplayNames, (a, b) -> {
-            int idA = extractQuestId(a);
-            int idB = extractQuestId(b);
-            return Integer.compare(idA, idB);
-        });
     }
     
     /**
-     * Extracts the quest ID from a display name with format "Quest Name [ID]".
+     * Draws the dialog assistance overlay when active.
      */
-    private int extractQuestId(String displayName) {
-        try {
-            int startIndex = displayName.lastIndexOf('[');
-            int endIndex = displayName.lastIndexOf(']');
-            if (startIndex != -1 && endIndex != -1 && startIndex < endIndex) {
-                String idStr = displayName.substring(startIndex + 1, endIndex);
-                return Integer.parseInt(idStr);
-            }
-        } catch (NumberFormatException | IndexOutOfBoundsException e) {
-            ScriptConsole.println("[GUI] Error parsing quest ID from: " + displayName);
+    private void drawDialogAssistanceOverlay(QuestHelper questHelper) {
+        // ScriptConsole.println("[CoaezUtilityGUI] drawDialogAssistanceOverlay called");
+        
+        Quest selectedQuest = questHelper.getSelectedQuest();
+        if (selectedQuest == null) {
+            return;
         }
-        return -1;
+        
+        // Show overlay if we have dialog assistance active, even without full dialog data
+        boolean dialogsFetched = questHelper.areDialogsFetched();
+        String recommendedOption = questHelper.getCurrentRecommendedOption();
+        int recommendedIndex = questHelper.getCurrentRecommendedOptionIndex();
+        
+        // Show overlay if we have dialog assistance active, even without full dialog data
+        if (questHelper.isDialogAssistanceActive()) {
+            try {
+                // Set initial position and size (user can move and resize)
+                ImGui.SetNextWindowPos(200.0f, 400.0f);
+                ImGui.SetNextWindowSize(400.0f, 150.0f, 0);
+                
+                // Set window background transparency using style colors (80% transparent = 0.2 alpha)
+                ImGui.PushStyleColor(14, 0.0f, 0.0f, 0.0f, 0.2f); // WindowBg with 80% transparency
+                
+                // Window flags: Allow moving and resizing, but keep other restrictions
+                int windowFlags = ImGuiWindowFlag.NoTitleBar.getValue() |
+                                 ImGuiWindowFlag.NoCollapse.getValue() |
+                                 ImGuiWindowFlag.NoScrollbar.getValue() |
+                                 ImGuiWindowFlag.NoScrollWithMouse.getValue() |
+                                 ImGuiWindowFlag.NoFocusOnAppearing.getValue() |
+                                 ImGuiWindowFlag.NoBringToFrontOnFocus.getValue();
+                
+                if (ImGui.Begin("QuestDialogOverlay", windowFlags)) {
+                    // Draw quest name at the top
+                    ImGui.PushStyleColor(0, 0.0f, 1.0f, 0.0f, 1.0f); // Green color
+                    ImGui.Text("Quest: " + selectedQuest.name());
+                    ImGui.PopStyleColor();
+                    
+                    ImGui.Separator();
+                    
+                    if (!dialogsFetched) {
+                        // Show loading state
+                        ImGui.PushStyleColor(0, 1.0f, 1.0f, 0.0f, 1.0f); // Yellow color
+                        ImGui.Text("Loading dialog data...");
+                        ImGui.PopStyleColor();
+                    } else if (recommendedOption != null && recommendedIndex >= 0) {
+                        // Draw recommended option with highlighting
+                        ImGui.PushStyleColor(0, 1.0f, 1.0f, 0.0f, 1.0f); // Yellow color
+                        ImGui.Text("Recommended: Option " + (recommendedIndex + 1));
+                        ImGui.PopStyleColor();
+                        
+                        // Draw the option text if available
+                        if (!recommendedOption.trim().isEmpty()) {
+                            ImGui.PushStyleColor(0, 0.8f, 0.8f, 0.8f, 1.0f); // Light gray color
+                            ImGui.Text("\"" + recommendedOption + "\"");
+                            ImGui.PopStyleColor();
+                        }
+                    } else {
+                        // Show that dialog assistance is active but no recommendation available
+                        ImGui.PushStyleColor(0, 0.8f, 0.4f, 0.0f, 1.0f); // Orange color
+                        ImGui.Text("Dialog assistance active");
+                        ImGui.PopStyleColor();
+                        
+                        ImGui.Text("Waiting for dialog options...");
+                    }
+                    
+                    ImGui.End();
+                }
+                
+                // Pop the window background style color
+                ImGui.PopStyleColor();
+                
+            } catch (Exception e) {
+                ScriptConsole.println("[CoaezUtilityGUI] Error drawing overlay: " + e.getMessage());
+                // Don't rethrow - just log and continue
+            }
+        }
     }
     
     /**

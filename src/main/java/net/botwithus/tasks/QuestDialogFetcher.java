@@ -75,7 +75,7 @@ public class QuestDialogFetcher {
         public String getSequenceString() {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < options.size(); i++) {
-                if (i > 0) sb.append("•");
+                if (i > 0) sb.append(" → ");
                 sb.append(options.get(i).getOptionNumber());
             }
             return sb.toString();
@@ -120,7 +120,6 @@ public class QuestDialogFetcher {
      * Builds the wiki URL for a quest's quick guide.
      */
     private static String buildWikiUrl(String questName) {
-        // Convert quest name to wiki format (replace spaces with underscores, etc.)
         String formattedName = questName.replace(" ", "_")
                                        .replace("'", "%27")
                                        .replace(":", "%3A");
@@ -209,12 +208,28 @@ public class QuestDialogFetcher {
             Matcher seqMatcher = sequenceDisplayPattern.matcher(chatOptionsContent);
             while (seqMatcher.find()) {
                 String part = seqMatcher.group(1).trim();
-                // Clean up HTML entities
+                // Clean up HTML entities and split by bullet points if they exist
                 part = cleanOptionText(part);
-                sequenceParts.add(part);
+                
+                // If the part contains bullet points, split it further
+                if (part.contains("•")) {
+                    String[] subParts = part.split("•");
+                    for (String subPart : subParts) {
+                        String cleanSubPart = subPart.trim();
+                        if (!cleanSubPart.isEmpty()) {
+                            sequenceParts.add(cleanSubPart);
+                        }
+                    }
+                } else {
+                    sequenceParts.add(part);
+                }
             }
             
-            String sequenceDisplay = String.join("•", sequenceParts);
+            // Create a clean sequence display with proper separators
+            String sequenceDisplay = "";
+            if (!sequenceParts.isEmpty()) {
+                sequenceDisplay = String.join(" → ", sequenceParts);
+            }
             ScriptConsole.println("[QuestDialogFetcher] Sequence display: " + sequenceDisplay);
             
             // Find the corresponding tooltip div
@@ -384,7 +399,23 @@ public class QuestDialogFetcher {
                   .replace("&gt;", ">")
                   .replace("&#39;", "'")
                   .replace("&nbsp;", " ")
-                  .replaceAll("\\s+", " ")
+                  .replace("&#x2713;", "✓")      // Checkmark
+                  .replace("&#8226;", "•")       // Bullet point
+                  .replace("&#8230;", "...")     // Ellipsis
+                  .replace("&#x27;", "'")        // Apostrophe
+                  .replace("&#x3A;", ":")        // Colon
+                  .replace("&#91;", "[")         // Left bracket
+                  .replace("&#93;", "]")         // Right bracket
+                  .replace("&lsquo;", "'")       // Left single quote
+                  .replace("&rsquo;", "'")       // Right single quote
+                  .replace("&ldquo;", "\"")      // Left double quote
+                  .replace("&rdquo;", "\"")      // Right double quote
+                  .replace("&hellip;", "...")    // Horizontal ellipsis
+                  .replace("&mdash;", "—")       // Em dash
+                  .replace("&ndash;", "–")       // En dash
+                  .replaceAll("&#x([0-9A-Fa-f]+);", "")  // Remove any remaining hex entities
+                  .replaceAll("&#([0-9]+);", "")         // Remove any remaining decimal entities
+                  .replaceAll("\\s+", " ")               // Normalize whitespace
                   .trim();
     }
     
