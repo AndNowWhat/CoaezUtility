@@ -291,38 +291,27 @@ public class QuestDialogFetcher {
      * Parses the HTML content to extract quest sections and steps.
      */
     private static void parseQuestGuide(String htmlContent, QuestGuide guide) {
-        // Pattern to match quest sections (h2 headers)
         Pattern sectionPattern = Pattern.compile(
             "<h2><span class=\"mw-headline\"[^>]*id=\"([^\"]+)\"[^>]*>([^<]+)</span>.*?</h2>",
             Pattern.DOTALL | Pattern.CASE_INSENSITIVE
         );
         
-        // Pattern to match checklist content after sections
         Pattern checklistPattern = Pattern.compile(
             "<div class=\"lighttable checklist\"[^>]*>.*?<ul>(.*?)</ul>.*?</div>",
-            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
-        );
-        
-        // Pattern to match individual list items (steps)
-        Pattern stepPattern = Pattern.compile(
-            "<li>(.*?)</li>",
             Pattern.DOTALL | Pattern.CASE_INSENSITIVE
         );
         
         ScriptConsole.println("[QuestDialogFetcher] Starting to parse quest guide...");
         
         Matcher sectionMatcher = sectionPattern.matcher(htmlContent);
-        int lastSectionEnd = 0;
         
         while (sectionMatcher.find()) {
             String sectionId = sectionMatcher.group(1);
             String sectionName = cleanOptionText(sectionMatcher.group(2));
-            int sectionStart = sectionMatcher.start();
             int sectionEnd = sectionMatcher.end();
             
             ScriptConsole.println("[QuestDialogFetcher] Found section: " + sectionName + " (ID: " + sectionId + ")");
             
-            // Find the next section or end of content
             String sectionContent;
             Matcher nextSectionMatcher = sectionPattern.matcher(htmlContent);
             nextSectionMatcher.region(sectionEnd, htmlContent.length());
@@ -335,32 +324,139 @@ public class QuestDialogFetcher {
             
             QuestSection section = new QuestSection(sectionName);
             
-            // Find checklist in this section
             Matcher checklistMatcher = checklistPattern.matcher(sectionContent);
             if (checklistMatcher.find()) {
                 String checklistContent = checklistMatcher.group(1);
                 ScriptConsole.println("[QuestDialogFetcher] Found checklist for section: " + sectionName);
                 
-                // Parse individual steps
-                Matcher stepMatcher = stepPattern.matcher(checklistContent);
-                while (stepMatcher.find()) {
-                    String stepContent = stepMatcher.group(1);
-                    QuestStep step = new QuestStep(stepContent);
-                    
-                    // Parse dialogs within this step
-                    parseDialogsInStep(stepContent, step);
-                    
-                    section.addStep(step);
-                    ScriptConsole.println("[QuestDialogFetcher] Added step: " + step.getStepText().substring(0, Math.min(50, step.getStepText().length())) + "..." + (step.hasDialogs() ? " [Has Dialogs]" : ""));
-                }
+                parseStepsFromChecklist(checklistContent, section);
             }
             
             if (section.getTotalSteps() > 0) {
                 guide.addSection(section);
             }
-            
-            lastSectionEnd = sectionEnd;
         }
+    }
+    
+    /**
+     * Parses steps from checklist content, handling nested lists properly.
+     */
+    private static void parseStepsFromChecklist(String checklistContent, QuestSection section) {
+        ScriptConsole.println("[QuestDialogFetcher] Original checklist length: " + checklistContent.length());
+        
+        // MANUAL PARSING: Handle nested li elements properly
+        List<String> steps = extractAllLiElements(checklistContent);
+        
+        int stepCount = 0;
+        for (String stepContent : steps) {
+            stepCount++;
+            
+            if (!stepContent.trim().isEmpty()) {
+                QuestStep step = new QuestStep(stepContent);
+                parseDialogsInStep(stepContent, step);
+                section.addStep(step);
+                
+                String stepPreview = step.getStepText().length() > 50 ? 
+                    step.getStepText().substring(0, 50) + "..." : 
+                    step.getStepText();
+                ScriptConsole.println("[QuestDialogFetcher] Added step " + stepCount + ": " + stepPreview + 
+                    (step.hasDialogs() ? " [Has Dialogs]" : ""));
+            }
+        }
+        
+        ScriptConsole.println("[QuestDialogFetcher] Total steps found in section '" + section.getSectionName() + "': " + stepCount);
+    }
+    
+    /**
+     * Extracts all li elements using manual parsing to handle nested structures.
+     */
+    private static List<String> extractAllLiElements(String content) {
+        List<String> elements = new ArrayList<>();
+        
+        int index = 0;
+        int depth = 0; // Track if we're inside nested structures
+        
+        while (index < content.length()) {
+            // Look for next <li> or <ul> or </ul>
+            int nextLi = content.indexOf("<li>", index);
+            int nextUl = content.indexOf("<ul>", index);
+            int nextUlEnd = content.indexOf("</ul>", index);
+            
+            // Find which comes first
+            int nextTag = Integer.MAX_VALUE;
+            String tagType = "";
+            
+            if (nextLi != -1 && nextLi < nextTag) {
+                nextTag = nextLi;
+                tagType = "li";
+            }
+            if (nextUl != -1 && nextUl < nextTag) {
+                nextTag = nextUl;
+                tagType = "ul";
+            }
+            if (nextUlEnd != -1 && nextUlEnd < nextTag) {
+                nextTag = nextUlEnd;
+                tagType = "/ul";
+            }
+            
+            if (nextTag == Integer.MAX_VALUE) break; // No more tags
+            
+            if (tagType.equals("ul")) {
+                depth++;
+                index = nextTag + 4;
+            } else if (tagType.equals("/ul")) {
+                depth--;
+                index = nextTag + 5;
+            } else if (tagType.equals("li")) {
+                if (depth == 0) {
+                    // This is a top-level <li>, extract it
+                    int liEnd = findMatchingLiEnd(content, nextTag);
+                    if (liEnd != -1) {
+                        String liContent = content.substring(nextTag + 4, liEnd);
+                        elements.add(liContent);
+                        index = liEnd + 5;
+                    } else {
+                        index = nextTag + 4;
+                    }
+                } else {
+                    // This is a nested <li>, skip it
+                    index = nextTag + 4;
+                }
+            }
+        }
+        
+        ScriptConsole.println("[DEBUG] Extracted " + elements.size() + " TOP-LEVEL li elements");
+        return elements;
+    }
+    
+    /**
+     * Finds the matching </li> for a <li> tag by counting depth.
+     */
+    private static int findMatchingLiEnd(String content, int liStart) {
+        int depth = 1;
+        int index = liStart + 4; // Skip opening <li>
+        
+        while (index < content.length() && depth > 0) {
+            int nextLi = content.indexOf("<li>", index);
+            int nextLiEnd = content.indexOf("</li>", index);
+            
+            if (nextLiEnd == -1) break; // No closing tag found
+            
+            if (nextLi != -1 && nextLi < nextLiEnd) {
+                // Found nested <li>
+                depth++;
+                index = nextLi + 4;
+            } else {
+                // Found </li>
+                depth--;
+                if (depth == 0) {
+                    return nextLiEnd;
+                }
+                index = nextLiEnd + 5;
+            }
+        }
+        
+        return -1; // No matching end found
     }
     
     /**
@@ -565,6 +661,28 @@ public class QuestDialogFetcher {
         QuestGuide guide = fetchQuestGuide(questName);
         String formatted = formatQuestGuide(guide);
         ScriptConsole.println(formatted);
+    }
+    
+    /**
+     * Debug method to test parsing of a specific section.
+     */
+    public static void debugDescentSection(String questName) {
+        ScriptConsole.println("[QuestDialogFetcher] Debug testing Descent section for: " + questName);
+        QuestGuide guide = fetchQuestGuide(questName);
+        
+        for (QuestSection section : guide.getSections()) {
+            if (section.getSectionName().toLowerCase().contains("descent")) {
+                ScriptConsole.println("[DEBUG] Found Descent section with " + section.getTotalSteps() + " steps:");
+                for (int i = 0; i < section.getSteps().size(); i++) {
+                    QuestStep step = section.getSteps().get(i);
+                    ScriptConsole.println("[DEBUG] Step " + (i+1) + ": " + step.getStepText());
+                    if (step.hasDialogs()) {
+                        ScriptConsole.println("[DEBUG]   Has " + step.getDialogs().size() + " dialog sequences");
+                    }
+                }
+                break;
+            }
+        }
     }
 
     /**

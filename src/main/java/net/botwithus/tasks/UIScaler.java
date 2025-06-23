@@ -51,7 +51,7 @@ public class UIScaler {
      */
     public boolean initialize() {
         try {
-            // Get canvas information
+            // Get canvas information using script 14244
             ScriptBuilder getCanvas = ScriptBuilder
                     .of(14244)
                     .returns(Layout.INT, Layout.INT, Layout.INT, Layout.INT);
@@ -70,8 +70,8 @@ public class UIScaler {
             
             initialized = true;
             
-            ScriptConsole.println(String.format("[UIScaler] Initialized - Window: %dx%d, Canvas: %dx%d, Scale: %.3fx%.3f", 
-                                               windowWidth, windowHeight, rawCanvasWidth, rawCanvasHeight, scaleX, scaleY));
+            ScriptConsole.println("Window Size = " + windowWidth + " x " + windowHeight);
+            ScriptConsole.println("UI Scale = " + scaleX + " x " + scaleY);
             
             return true;
             
@@ -90,27 +90,44 @@ public class UIScaler {
      */
     public InterfaceRect getInterfaceRect(int interfaceId, int childId) {
         if (!initialized && !initialize()) {
+            ScriptConsole.println("[UIScaler] Not initialized and failed to initialize");
             return null;
         }
         
         try {
-            ScriptBuilder interfaceScript = ScriptBuilder
+            // Use script 12613 to get interface coordinates
+            ScriptBuilder inv = ScriptBuilder
                     .of(12613)
                     .args(Layout.INT, Layout.INT)
                     .returns(Layout.INT, Layout.INT, Layout.INT, Layout.INT);
             
-            // Pack the interface ID and child ID into a single value
-            int packed = (interfaceId << 16) | (childId & 0xFFFF);
+            // For dialog options, we need to handle the child ID properly
+            int packed;
+            int childIdx;
             
-            // For the second parameter, use 0 if childId is -1, otherwise use childId
-            int secondParam = (childId == -1) ? 0 : childId;
+            if (childId == -1) {
+                // No child component, use the interface ID directly
+                packed = interfaceId << 16;
+                childIdx = -1;
+            } else {
+                // For dialog options, try different packing approaches
+                packed = (interfaceId << 16) | (childId & 0xFFFF);
+                childIdx = childId;
+            }
             
-            List<ReturnValue> raw = interfaceScript.invokeExact(packed, secondParam);
+            List<ReturnValue> raw = inv.invokeExact(packed, childIdx);
             
             int rawX = raw.get(0).asInt();
             int rawY = raw.get(1).asInt();
             int rawWidth = raw.get(2).asInt();
             int rawHeight = raw.get(3).asInt();
+            
+            // Check if we got valid coordinates
+            if (rawX < 0 || rawY < 0 || rawWidth <= 0 || rawHeight <= 0) {
+                ScriptConsole.println(String.format("[UIScaler] Interface %d:%d returned invalid coordinates: x=%d, y=%d, w=%d, h=%d", 
+                                                   interfaceId, childId, rawX, rawY, rawWidth, rawHeight));
+                return null;
+            }
             
             // Apply scaling
             int scaledX = (int) Math.round(rawX * scaleX);
@@ -120,8 +137,9 @@ public class UIScaler {
             
             InterfaceRect result = new InterfaceRect(scaledX, scaledY, scaledWidth, scaledHeight);
             
-            ScriptConsole.println(String.format("[UIScaler] Interface %d:%d - Raw: (%d,%d,%d,%d) -> Scaled: %s", 
-                                               interfaceId, childId, rawX, rawY, rawWidth, rawHeight, result));
+            ScriptConsole.println(String.format("[UIScaler] Interface %d:%d - Raw: x=%d, y=%d, w=%d, h=%d | Scaled: x=%d, y=%d, w=%d, h=%d", 
+                                               interfaceId, childId, rawX, rawY, rawWidth, rawHeight, 
+                                               scaledX, scaledY, scaledWidth, scaledHeight));
             
             return result;
             
@@ -143,28 +161,6 @@ public class UIScaler {
     }
     
     /**
-     * Gets the current window dimensions.
-     * @return InterfaceRect with window width and height (x and y will be 0)
-     */
-    public InterfaceRect getWindowSize() {
-        if (!initialized && !initialize()) {
-            return null;
-        }
-        return new InterfaceRect(0, 0, windowWidth, windowHeight);
-    }
-    
-    /**
-     * Gets the current UI scale factors.
-     * @return double array with [scaleX, scaleY], or null if not initialized
-     */
-    public double[] getScaleFactors() {
-        if (!initialized) {
-            return null;
-        }
-        return new double[]{scaleX, scaleY};
-    }
-    
-    /**
      * Checks if the UIScaler has been initialized.
      * @return true if initialized, false otherwise
      */
@@ -183,93 +179,24 @@ public class UIScaler {
     }
     
     /**
-     * Prints debug information about the current UI scaling state.
+     * Gets the current UI scale factors.
+     * @return double array with [scaleX, scaleY], or null if not initialized
      */
-    public void printDebugInfo() {
+    public double[] getScaleFactors() {
         if (!initialized) {
-            ScriptConsole.println("[UIScaler] Not initialized");
-            return;
+            return null;
         }
-        
-        ScriptConsole.println("[UIScaler] === Debug Info ===");
-        ScriptConsole.println("Window Size: " + windowWidth + " x " + windowHeight);
-        ScriptConsole.println("Canvas Size: " + rawCanvasWidth + " x " + rawCanvasHeight);
-        ScriptConsole.println("Scale Factors: " + String.format("%.3f x %.3f", scaleX, scaleY));
-        ScriptConsole.println("[UIScaler] =================");
+        return new double[]{scaleX, scaleY};
     }
     
     /**
-     * Alternative method to get interface coordinates using a different approach.
-     * This might be more accurate for certain types of interfaces like dialogs.
-     * @param interfaceId The interface ID
-     * @param childId The child component ID
-     * @return InterfaceRect containing coordinates and dimensions, or null if failed
+     * Gets the current window dimensions.
+     * @return InterfaceRect with window width and height (x and y will be 0)
      */
-    public InterfaceRect getInterfaceRectAlternative(int interfaceId, int childId) {
+    public InterfaceRect getWindowSize() {
         if (!initialized && !initialize()) {
             return null;
         }
-        
-        try {
-            // Try using script 12610 which might handle dialog components better
-            ScriptBuilder altScript = ScriptBuilder
-                    .of(12610)
-                    .args(Layout.INT)
-                    .returns(Layout.INT, Layout.INT, Layout.INT, Layout.INT);
-            
-            int packed = (interfaceId << 16) | (childId & 0xFFFF);
-            List<ReturnValue> raw = altScript.invokeExact(packed);
-            
-            int rawX = raw.get(0).asInt();
-            int rawY = raw.get(1).asInt();
-            int rawWidth = raw.get(2).asInt();
-            int rawHeight = raw.get(3).asInt();
-            
-            // Apply scaling
-            int scaledX = (int) Math.round(rawX * scaleX);
-            int scaledY = (int) Math.round(rawY * scaleY);
-            int scaledWidth = (int) Math.round(rawWidth * scaleX);
-            int scaledHeight = (int) Math.round(rawHeight * scaleY);
-            
-            InterfaceRect result = new InterfaceRect(scaledX, scaledY, scaledWidth, scaledHeight);
-            
-            ScriptConsole.println(String.format("[UIScaler] Alternative Interface %d:%d - Raw: (%d,%d,%d,%d) -> Scaled: %s", 
-                                               interfaceId, childId, rawX, rawY, rawWidth, rawHeight, result));
-            
-            return result;
-            
-        } catch (Exception e) {
-            ScriptConsole.println(String.format("[UIScaler] Alternative method failed for %d:%d - %s", 
-                                               interfaceId, childId, e.getMessage()));
-            return null;
-        }
-    }
-    
-    /**
-     * Gets interface coordinates with fallback methods for better accuracy.
-     * Tries the primary method first, then falls back to alternative if needed.
-     * @param interfaceId The interface ID
-     * @param childId The child component ID
-     * @return InterfaceRect containing coordinates and dimensions, or null if all methods failed
-     */
-    public InterfaceRect getInterfaceRectWithFallback(int interfaceId, int childId) {
-        // Try primary method first
-        InterfaceRect result = getInterfaceRect(interfaceId, childId);
-        
-        if (result != null) {
-            return result;
-        }
-        
-        ScriptConsole.println(String.format("[UIScaler] Primary method failed for %d:%d, trying alternative", interfaceId, childId));
-        
-        // Try alternative method
-        result = getInterfaceRectAlternative(interfaceId, childId);
-        
-        if (result != null) {
-            return result;
-        }
-        
-        ScriptConsole.println(String.format("[UIScaler] All methods failed for %d:%d", interfaceId, childId));
-        return null;
+        return new InterfaceRect(0, 0, windowWidth, windowHeight);
     }
 } 
