@@ -1443,6 +1443,35 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     ImGui.Text("Quest: " + selectedQuest.name());
                     ImGui.PopStyleColor();
                     
+                    try {
+                        int questProgress = selectedQuest.progress();
+                        ImGui.PushStyleColor(0, 0.4f, 0.9f, 0.7f, 1.0f); // Lighter teal
+                        ImGui.Text("Progress: " + questProgress);
+                        ImGui.PopStyleColor();
+                        
+                        String status;
+                        float[] statusColor;
+                        if (selectedQuest.isComplete()) {
+                            status = "Completed";
+                            statusColor = new float[]{0.2f, 0.8f, 0.4f, 1.0f}; // Green
+                        } else if (selectedQuest.isStarted()) {
+                            status = "In Progress";
+                            statusColor = new float[]{1.0f, 0.8f, 0.2f, 1.0f}; // Yellow
+                        } else {
+                            status = "Not Started";
+                            statusColor = new float[]{0.8f, 0.4f, 0.2f, 1.0f}; // Orange
+                        }
+                        
+                        ImGui.PushStyleColor(0, statusColor[0], statusColor[1], statusColor[2], statusColor[3]);
+                        ImGui.Text("Status: " + status);
+                        ImGui.PopStyleColor();
+                        
+                    } catch (Exception e) {
+                        ImGui.PushStyleColor(0, 0.8f, 0.4f, 0.4f, 1.0f); // Red
+                        ImGui.Text("Progress: Unable to determine");
+                        ImGui.PopStyleColor();
+                    }
+                    
                     ImGui.Separator();
                     
                     if (!dialogsFetched) {

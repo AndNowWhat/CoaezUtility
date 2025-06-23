@@ -98,7 +98,6 @@ public class QuestHelper implements Task {
         ScriptConsole.println("[QuestHelper] Loading quests...");
         int filteredCount = 0;
         
-        // Use a map to track quests by name and prefer the one with more data
         Map<String, QuestCandidate> questCandidates = new HashMap<>();
         
         for (int i = 0; i < 509; i++) {
@@ -106,7 +105,6 @@ public class QuestHelper implements Task {
             if (questOpt.isPresent()) {
                 Quest quest = questOpt.get();
                 
-                // Only process quests that have meaningful data
                 if (isValidQuest(quest, i)) {
                     String questName = quest.name();
                     QuestType questType = ConfigManager.getQuestType(i);
@@ -114,7 +112,6 @@ public class QuestHelper implements Task {
                     
                     QuestCandidate candidate = new QuestCandidate(quest, questType, i, dataRichness);
                     
-                    // Check if we already have a quest with this name
                     QuestCandidate existingCandidate = questCandidates.get(questName);
                     if (existingCandidate == null || candidate.dataRichness > existingCandidate.dataRichness) {
                         if (existingCandidate != null) {
@@ -137,12 +134,10 @@ public class QuestHelper implements Task {
             }
         }
         
-        // Convert candidates to final quest lists
         for (QuestCandidate candidate : questCandidates.values()) {
             Quest quest = candidate.quest;
             allQuests.add(quest);
             
-            // Only check completion status for valid quests with proper QuestType data
             try {
                 if (quest.isComplete()) {
                     completedQuests.add(quest);
@@ -152,12 +147,10 @@ public class QuestHelper implements Task {
                     notStartedQuests.add(quest);
                 }
             } catch (NullPointerException e) {
-                // If we can't determine status due to missing QuestType, assume not started
                 ScriptConsole.println("[QuestHelper] Warning: Could not determine status for quest " + quest.name() + " (ID: " + candidate.questId + "), assuming not started");
                 notStartedQuests.add(quest);
             }
             
-            // Populate questToIdMap
             questToIdMap.put(quest, candidate.questId);
         }
         
@@ -199,19 +192,16 @@ public class QuestHelper implements Task {
     private int calculateQuestDataRichness(Quest quest, QuestType questType, int questId) {
         int score = 0;
         
-        // Basic Quest object data
         try {
             if (quest.getQuestPoints() > 0) score += 10;
             if (quest.getQuestPointReq() > 0) score += 5;
             if (!quest.getRequiredSkills().isEmpty()) score += 15;
             if (!quest.getRequiredQuests().isEmpty()) score += 15;
         } catch (Exception e) {
-            // Ignore errors when accessing quest data
         }
         
-        // QuestType data (more valuable)
         if (questType != null) {
-            score += 20; // Base score for having QuestType
+            score += 20;
             
             if (questType.questPoints() > 0) score += 10;
             if (questType.questPointReq() > 0) score += 5;
@@ -222,24 +212,21 @@ public class QuestHelper implements Task {
             if (questType.difficulty() > 0) score += 5;
             if (questType.questItemSprite() > 0) score += 5;
             
-            // Parameters are very valuable
             Map<Integer, Object> params = questType.params();
             if (params != null && !params.isEmpty()) {
-                score += 30; // Base score for having params
+                score += 30;
                 
-                // Count meaningful parameters
                 int meaningfulParams = 0;
                 for (Map.Entry<Integer, Object> entry : params.entrySet()) {
                     Object value = entry.getValue();
                     if (value != null && !value.toString().trim().isEmpty()) {
-                        // Skip the name parameter if it just matches quest name
                         if (entry.getKey() == 1 && value.toString().equals(quest.name())) {
                             continue;
                         }
                         meaningfulParams++;
                     }
                 }
-                score += meaningfulParams * 3; // 3 points per meaningful parameter
+                score += meaningfulParams * 3;
             }
         }
         
@@ -259,11 +246,8 @@ public class QuestHelper implements Task {
             return false;
         }
         
-        // Allow any quest with a valid name - dialog assistance can work even without QuestType data
-        // Only filter out quests with obviously invalid or placeholder names
         String questName = quest.name().trim();
         
-        // Filter out quests with placeholder or invalid names
         if (questName.equalsIgnoreCase("null") || 
             questName.equalsIgnoreCase("unknown") || 
             questName.equalsIgnoreCase("test") ||
@@ -271,18 +255,14 @@ public class QuestHelper implements Task {
             return false;
         }
         
-        // Try to get QuestType data for additional validation, but don't require it
         QuestType questType = ConfigManager.getQuestType(questId);
         if (questType != null) {
-            // If we have QuestType data, do additional validation
             Map<Integer, Object> params = questType.params();
             if (params != null && !params.isEmpty()) {
-                // Check if parameters contain meaningful data (not just empty strings)
                 boolean hasMeaningfulParams = false;
                 for (Map.Entry<Integer, Object> entry : params.entrySet()) {
                     Object value = entry.getValue();
                     if (value != null && !value.toString().trim().isEmpty()) {
-                        // Skip the name parameter if it's the only non-empty one and matches quest name
                         if (entry.getKey() == 1 && value.toString().equals(quest.name())) {
                             continue;
                         }
@@ -296,19 +276,15 @@ public class QuestHelper implements Task {
                 }
             }
             
-            // Check if QuestType has other meaningful data
             if (hasBasicQuestTypeData(questType)) {
                 return true;
             }
         }
         
-        // Even without QuestType data, allow quests that have basic Quest data
         if (hasBasicQuestData(quest)) {
             return true;
         }
         
-        // For dialog assistance, allow any quest with a reasonable name
-        // This ensures quests like "The Blood Pact" work even if they lack detailed config data
         return questName.length() >= 3 && !questName.matches(".*\\d{3,}.*"); // Exclude names with long numbers
     }
     
@@ -321,13 +297,11 @@ public class QuestHelper implements Task {
      */
     private boolean hasBasicQuestData(Quest quest) {
         try {
-            // Check if quest has any meaningful properties
             return quest.getQuestPoints() > 0 || 
                    quest.getQuestPointReq() > 0 || 
                    !quest.getRequiredSkills().isEmpty() || 
                    !quest.getRequiredQuests().isEmpty();
         } catch (NullPointerException e) {
-            // If we can't access quest data due to missing QuestType, consider it invalid
             return false;
         }
     }
@@ -388,7 +362,6 @@ public class QuestHelper implements Task {
     public void setSelectedQuest(Quest quest) {
         this.selectedQuest = quest;
         
-        // Clear cache when quest changes
         cachedComprehensiveInfo = null;
         lastCachedQuest = null;
         
@@ -594,13 +567,11 @@ public class QuestHelper implements Task {
             return -1;
         }
         
-        // First try the efficient lookup
         Integer questId = questToIdMap.get(quest);
         if (questId != null) {
             return questId;
         }
         
-        // Fallback to the old method if not found in map (shouldn't happen normally)
         String questName = quest.name();
         int bestQuestId = -1;
         int bestDataRichness = -1;
@@ -1529,7 +1500,6 @@ public class QuestHelper implements Task {
         
         Map<String, List<Integer>> questNameToIds = new HashMap<>();
         
-        // Collect all quest IDs by name
         for (int i = 0; i < 509; i++) {
             Optional<Quest> questOpt = Quest.byId(i);
             if (questOpt.isPresent()) {
@@ -1540,7 +1510,6 @@ public class QuestHelper implements Task {
             }
         }
         
-        // Find and report duplicates
         for (Map.Entry<String, List<Integer>> entry : questNameToIds.entrySet()) {
             if (entry.getValue().size() > 1) {
                 String questName = entry.getKey();
@@ -1564,7 +1533,6 @@ public class QuestHelper implements Task {
                     }
                 }
                 
-                // Show which one we selected
                 Quest selectedForName = getQuestByName(questName);
                 if (selectedForName != null) {
                     int selectedId = getQuestId(selectedForName);
