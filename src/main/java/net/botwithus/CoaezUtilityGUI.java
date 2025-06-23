@@ -823,8 +823,8 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 
                 if (questHelper.areDialogsFetched()) {
                     ImGui.Text("Dialogs Status: Loaded");
-                    Map<String, List<QuestDialogFetcher.DialogSequence>> dialogs = questHelper.getFetchedDialogs();
-                    ImGui.Text("Dialog Sections: " + dialogs.size());
+                    List<String> dialogs = questHelper.getFetchedDialogs();
+                    ImGui.Text("Dialog Options: " + dialogs.size());
                 } else {
                     ImGui.Text("Dialogs Status: Loading...");
                 }
@@ -1378,14 +1378,15 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
 
     @Override
     public void drawOverlay() {
-        super.drawOverlay();
-        
-        // Draw quest dialog assistance overlay
-        if (coaezUtility != null && coaezUtility.getQuestHelper() != null) {
+        if (coaezUtility.getBotState() == CoaezUtility.BotState.QUESTS) {
             QuestHelper questHelper = coaezUtility.getQuestHelper();
-                        
-            if (questHelper.isDialogAssistanceActive()) {
+            if (questHelper != null) {
                 drawDialogAssistanceOverlay(questHelper);
+                
+                // Draw dialog option highlight overlay if coordinates are available
+                if (questHelper.hasValidOverlayCoordinates()) {
+                    drawDialogOptionHighlight(questHelper);
+                }
             }
         }
     }
@@ -1401,12 +1402,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             return;
         }
         
-        // Show overlay if we have dialog assistance active, even without full dialog data
-        boolean dialogsFetched = questHelper.areDialogsFetched();
-        String recommendedOption = questHelper.getCurrentRecommendedOption();
-        int recommendedIndex = questHelper.getCurrentRecommendedOptionIndex();
+        // Get the current quest guide
+        QuestDialogFetcher.QuestGuide currentGuide = questHelper.getCurrentQuestGuide();
         
-        // Show overlay if we have dialog assistance active, even without full dialog data
+        // Show overlay if we have dialog assistance active
         if (questHelper.isDialogAssistanceActive()) {
             try {
                 // Apply the same styling as main GUI for consistency
@@ -1474,58 +1473,106 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     
                     ImGui.Separator();
                     
-                    if (!dialogsFetched) {
-                        // Show loading state with yellow accent
-                        ImGui.PushStyleColor(0, 1.0f, 0.8f, 0.2f, 1.0f); // Warm yellow
-                        ImGui.Text("Loading dialog data...");
+                    // Display quest guide sections and steps
+                    if (currentGuide != null && !currentGuide.getSections().isEmpty()) {
+                        // Show overall progress
+                        ImGui.PushStyleColor(0, 0.25f, 0.78f, 0.71f, 1.0f); // Teal accent
+                        ImGui.Text("Quest Guide Progress: " + currentGuide.getCompletedSteps() + "/" + currentGuide.getTotalSteps() + " steps");
                         ImGui.PopStyleColor();
-                    } else {
-                        // Show current dialog text if available
-                        String currentDialogText = questHelper.getCurrentDialogText();
-                        if (currentDialogText != null && !currentDialogText.trim().isEmpty()) {
-                            ImGui.PushStyleColor(0, 0.7f, 0.85f, 1.0f, 1.0f); // Light blue
-                            ImGui.Text("Current Dialog Options:");
-                            ImGui.PopStyleColor();
-                            
-                            // Wrap long dialog text
-                            ImGui.PushStyleColor(0, 0.9f, 0.9f, 0.9f, 1.0f); // Light gray
-                            String wrappedText = currentDialogText.length() > 80 ? 
-                                currentDialogText.substring(0, 80) + "..." : currentDialogText;
-                            ImGui.Text("\"" + wrappedText + "\"");
-                            ImGui.PopStyleColor();
-                            
-                            ImGui.Separator();
+                        
+                        // Add control buttons
+                        if (ImGui.Button("Reset All Steps")) {
+                            questHelper.resetAllSteps();
                         }
                         
-                        if (recommendedOption != null && recommendedIndex >= 0) {
-                            // Draw recommended option with teal highlighting
-                            ImGui.PushStyleColor(0, 0.25f, 0.78f, 0.71f, 1.0f); // Teal accent
-                            ImGui.Text("RECOMMENDED: Option " + (recommendedIndex + 1));
-                            ImGui.PopStyleColor();
-                            
-                            // Draw the option text if available
-                            if (!recommendedOption.trim().isEmpty()) {
-                                ImGui.PushStyleColor(0, 0.4f, 0.9f, 0.7f, 1.0f); // Lighter teal
-                                ImGui.Text("\"" + recommendedOption + "\"");
-                                ImGui.PopStyleColor();
-                            }
-                            
-                            // Show matching status
-                            ImGui.PushStyleColor(0, 0.2f, 0.8f, 0.4f, 1.0f); // Green-teal
-                            ImGui.Text("Match found in dialog");
-                            ImGui.PopStyleColor();
-                        } else {
-                            // Show that dialog assistance is active but no recommendation available
-                            ImGui.PushStyleColor(0, 1.0f, 0.6f, 0.2f, 1.0f); // Orange
-                            ImGui.Text("Dialog assistance active");
-                            ImGui.PopStyleColor();
-                            
-                            if (currentDialogText != null && !currentDialogText.trim().isEmpty()) {
-                                ImGui.Text("No matching options found");
-                            } else {
-                                ImGui.Text("Waiting for dialog options...");
+                        ImGui.SameLine();
+                        if (ImGui.Button("Mark All Complete")) {
+                            // Mark all steps as completed
+                            for (int sIdx = 0; sIdx < currentGuide.getSections().size(); sIdx++) {
+                                QuestDialogFetcher.QuestSection section = currentGuide.getSections().get(sIdx);
+                                for (int stIdx = 0; stIdx < section.getSteps().size(); stIdx++) {
+                                    questHelper.setStepCompleted(sIdx, stIdx, true);
+                                }
                             }
                         }
+                        
+                        ImGui.Separator();
+                        
+                        // Create a list box for quest steps that fills remaining space
+                        // Calculate available height more dynamically - use a larger base size
+                        float baseWindowHeight = 800.0f; // Increased base window size assumption
+                        float headerHeight = 140.0f; // Space for quest info, buttons, and progress
+                        float windowPadding = 30.0f; // Account for window padding and margins
+                        float recommendationHeight = 80.0f; // Space reserved for recommendation text below
+                        float availableHeight = Math.max(300.0f, baseWindowHeight - headerHeight - windowPadding - recommendationHeight);
+                        
+                        if (ImGui.ListBoxHeader("Quest Steps", 0, (int)availableHeight)) {
+                            // Display sections and steps inside the list
+                            for (int sectionIndex = 0; sectionIndex < currentGuide.getSections().size(); sectionIndex++) {
+                                QuestDialogFetcher.QuestSection section = currentGuide.getSections().get(sectionIndex);
+                                
+                                // Section header with progress
+                                ImGui.PushStyleColor(0, 0.4f, 0.9f, 0.7f, 1.0f); // Lighter teal
+                                ImGui.Text("=== " + section.getSectionName() + " (" + section.getCompletedSteps() + "/" + section.getTotalSteps() + ") ===");
+                                ImGui.PopStyleColor();
+                                
+                                // Display steps in this section
+                                for (int stepIndex = 0; stepIndex < section.getSteps().size(); stepIndex++) {
+                                    QuestDialogFetcher.QuestStep step = section.getSteps().get(stepIndex);
+                                    
+                                    // Step checkbox and text
+                                    String stepId = sectionIndex + ":" + stepIndex;
+                                    boolean isCompleted = questHelper.isStepCompleted(sectionIndex, stepIndex);
+                                    
+                                    // Create a clickable checkbox for the step
+                                    ImGui.PushID(stepId);
+                                    boolean newCompletionStatus = ImGui.Checkbox("", isCompleted);
+                                    if (newCompletionStatus != isCompleted) {
+                                        questHelper.setStepCompleted(sectionIndex, stepIndex, newCompletionStatus);
+                                    }
+                                    ImGui.PopID();
+                                    
+                                    ImGui.SameLine();
+                                    
+                                    if (isCompleted) {
+                                        ImGui.PushStyleColor(0, 0.2f, 0.8f, 0.4f, 1.0f); // Green-teal for completed
+                                        ImGui.Text(step.getStepText());
+                                        ImGui.PopStyleColor();
+                                    } else {
+                                        ImGui.PushStyleColor(0, 1.0f, 0.8f, 0.2f, 1.0f); // Yellow for incomplete
+                                        ImGui.Text(step.getStepText());
+                                        ImGui.PopStyleColor();
+                                    }
+                                    
+                                    // Show dialog options for incomplete steps
+                                    if (!isCompleted && step.hasDialogs()) {
+                                        for (QuestDialogFetcher.DialogSequence sequence : step.getDialogs()) {
+                                            ImGui.PushStyleColor(0, 0.7f, 0.7f, 0.7f, 1.0f); // Light gray
+                                            ImGui.Text("    Dialog: " + sequence.getContext());
+                                            ImGui.PopStyleColor();
+                                            
+                                            for (QuestDialogFetcher.DialogOption option : sequence.getOptions()) {
+                                                ImGui.PushStyleColor(0, 0.8f, 0.9f, 1.0f, 1.0f); // Light blue
+                                                ImGui.Text("      " + option.getOptionNumber() + ": " + option.getOptionText());
+                                                ImGui.PopStyleColor();
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                if (sectionIndex < currentGuide.getSections().size() - 1) {
+                                    ImGui.Separator();
+                                }
+                            }
+                            
+                            ImGui.ListBoxFooter();
+                        }
+                        
+                    } else {
+                        // Show loading state
+                        ImGui.PushStyleColor(0, 1.0f, 0.8f, 0.2f, 1.0f); // Warm yellow
+                        ImGui.Text("Loading quest guide...");
+                        ImGui.PopStyleColor();
                     }
                     
                     ImGui.End();
@@ -1542,6 +1589,47 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 guiStyling.resetCustomStyles();
                 guiStyling.resetCustomColors();
             }
+        }
+    }
+    
+    /**
+     * Draws a visual highlight overlay for the recommended dialog option.
+     * @param questHelper The QuestHelper instance providing coordinates and option data
+     */
+    private void drawDialogOptionHighlight(QuestHelper questHelper) {
+        try {
+            int[] coordinates = questHelper.getDialogOverlayCoordinates();
+            if (coordinates == null || coordinates.length != 4) {
+                return;
+            }
+            
+            int x = coordinates[0];
+            int y = coordinates[1];
+            int width = coordinates[2];
+            int height = coordinates[3];
+            String optionText = questHelper.getRecommendedOptionText();
+            
+            if (optionText == null) {
+                return;
+            }
+            
+            // Use default dimensions if width/height are 0
+            if (width <= 0) width = 300;
+            if (height <= 0) height = 30;
+            
+            // Draw highlight rectangle using BGList.DrawRect
+            // Teal color with some transparency: ARGB format
+            int highlightColor = 0xCC40C8B5; // Teal with ~80% opacity
+            int borderColor = 0xFF40C8B5;    // Solid teal border
+            
+            // Draw filled background rectangle
+            BGList.DrawRect(x, y, x + width, y + height, highlightColor, 4.0f, 0, 0.0f);
+            
+            // Draw border rectangle
+            BGList.DrawRect(x, y, x + width, y + height, borderColor, 4.0f, 0, 2.0f);
+            
+        } catch (Exception e) {
+            ScriptConsole.println("[CoaezUtilityGUI] Error processing dialog option highlight: " + e.getMessage());
         }
     }
     

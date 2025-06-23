@@ -2,6 +2,8 @@ package net.botwithus.tasks;
 
 import net.botwithus.CoaezUtility;
 import net.botwithus.api.game.hud.Dialog;
+import net.botwithus.rs3.game.Area;
+import net.botwithus.rs3.game.Coordinate;
 import net.botwithus.rs3.game.quest.Quest;
 import net.botwithus.rs3.game.js5.types.QuestType;
 import net.botwithus.rs3.game.js5.types.configs.ConfigManager;
@@ -15,6 +17,7 @@ import net.botwithus.rs3.game.movement.NavPath;
 import net.botwithus.rs3.game.scene.entities.characters.player.LocalPlayer;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -30,7 +33,8 @@ import java.util.stream.Collectors;
  * QuestHelper class for managing and tracking quests.
  * Provides functionality to list all quests, filter by completion status,
  * and get detailed information about quest requirements.
- * Also provides main loop functionality for dialog assistance.
+ * Also provides main loop functionality for dialog assistance with step tracking.
+ * Now includes UIScaler integration for coordinate calculation (rendering handled by GUI).
  */
 public class QuestHelper implements Task {
 
@@ -45,14 +49,29 @@ public class QuestHelper implements Task {
     // Quest ID mapping for efficient lookup
     private final Map<Quest, Integer> questToIdMap;
     
-    // Dialog assistance fields
-    private Map<String, List<QuestDialogFetcher.DialogSequence>> fetchedDialogs;
+    // UI Scaler for dialog coordinate calculation
+    private final UIScaler uiScaler;
+    private boolean overlayInitialized = false;
+    
+    // Enhanced dialog assistance fields with quest guide support
+    private QuestDialogFetcher.QuestGuide currentQuestGuide;
+    private List<String> fetchedDialogs; // Changed from Map to List<String> for legacy compatibility
     private boolean dialogsFetched = false;
+    private boolean questGuideFetched = false;
     private String currentRecommendedOption = null;
     private int currentRecommendedOptionIndex = -1;
+    private String currentRecommendation = null;
+    private int recommendedOptionIndex = -1;
     private boolean isDialogAssistanceActive = false;
     private String currentDialogText = null;
     private List<String> previousDialogOptions = null;
+    
+    // Dialog overlay coordinates for GUI rendering
+    private int dialogOverlayX = -1;
+    private int dialogOverlayY = -1;
+    private int dialogOverlayWidth = -1;
+    private int dialogOverlayHeight = -1;
+    private boolean hasValidOverlayCoordinates = false;
     
     // GUI state management fields
     private List<String> questDisplayNames = new ArrayList<>();
@@ -71,6 +90,16 @@ public class QuestHelper implements Task {
     private boolean isNavigatingToQuestStart = false;
     private Area questStartArea = null;
     private Coordinate questStartCoordinate = null;
+    
+    // Step tracking fields
+    private boolean showStepTracker = false;
+    private int selectedSectionIndex = 0;
+    private boolean autoScrollToIncompleteSteps = true;
+    
+    // Additional fields for dialog assistance
+    private boolean showRandomMessage = true;
+    private boolean debugMode = false;
+    private Set<String> completedSteps = new HashSet<>();
 
     /**
      * Constructs a new QuestHelper.
@@ -83,8 +112,9 @@ public class QuestHelper implements Task {
         this.completedQuests = new ArrayList<>();
         this.inProgressQuests = new ArrayList<>();
         this.notStartedQuests = new ArrayList<>();
-        this.fetchedDialogs = new HashMap<>();
+        this.fetchedDialogs = new ArrayList<>();
         this.questToIdMap = new HashMap<>();
+        this.uiScaler = new UIScaler();
         loadQuests();
     }
 
@@ -364,6 +394,13 @@ public class QuestHelper implements Task {
         
         cachedComprehensiveInfo = null;
         lastCachedQuest = null;
+        
+        // Reset quest guide state
+        currentQuestGuide = null;
+        questGuideFetched = false;
+        dialogsFetched = false;
+        clearCurrentRecommendation();
+        selectedSectionIndex = 0;
         
         if (quest != null) {
             int questId = getQuestId(quest);
@@ -772,7 +809,7 @@ public class QuestHelper implements Task {
         ScriptConsole.println("[QuestHelper] Fetching dialog options for quest: " + questName);
         
         try {
-            Map<String, List<QuestDialogFetcher.DialogSequence>> dialogs = 
+            List<String> dialogs = 
                 QuestDialogFetcher.fetchQuestDialogs(questName);
             
             if (dialogs.isEmpty()) {
@@ -782,21 +819,8 @@ public class QuestHelper implements Task {
             
             ScriptConsole.println("[QuestHelper] === DIALOG OPTIONS FOR: " + questName + " ===");
             
-            for (Map.Entry<String, List<QuestDialogFetcher.DialogSequence>> entry : dialogs.entrySet()) {
-                ScriptConsole.println("[QuestHelper] " + entry.getKey() + ":");
-                
-                for (QuestDialogFetcher.DialogSequence sequence : entry.getValue()) {
-                    ScriptConsole.println("[QuestHelper]   " + sequence.getContext());
-                    
-                    for (QuestDialogFetcher.DialogOption option : sequence.getOptions()) {
-                        ScriptConsole.println("[QuestHelper]     " + option.getOptionNumber() + ": " + option.getOptionText());
-                    }
-                    
-                    if (!sequence.getOptions().isEmpty()) {
-                        ScriptConsole.println("[QuestHelper]   Sequence: " + sequence.getSequenceString());
-                    }
-                    ScriptConsole.println("[QuestHelper]   ---");
-                }
+            for (String dialog : dialogs) {
+                ScriptConsole.println("[QuestHelper] " + dialog);
             }
             
             ScriptConsole.println("[QuestHelper] === END DIALOG OPTIONS ===");
@@ -817,14 +841,14 @@ public class QuestHelper implements Task {
         }
         
         try {
-            Map<String, List<QuestDialogFetcher.DialogSequence>> dialogs = 
+            List<String> dialogs = 
                 QuestDialogFetcher.fetchQuestDialogs(selectedQuest.name());
             
             if (dialogs.isEmpty()) {
                 return "No dialog options found for: " + selectedQuest.name();
             }
             
-            return QuestDialogFetcher.formatDialogInfo(dialogs);
+            return String.join("\n", dialogs);
             
         } catch (Exception e) {
             return "Error fetching dialog options: " + e.getMessage();
@@ -832,33 +856,638 @@ public class QuestHelper implements Task {
     }
 
     /**
-     * Main execution method for the Task interface.
-     * Implements the dialog assistance loop for the selected quest.
+     * Fetches quest guide for the currently selected quest.
      */
-    @Override
-    public void execute() {
+    private void fetchQuestGuideForSelectedQuest() {
         if (selectedQuest == null) {
-            ScriptConsole.println("[QuestHelper] No quest selected for dialog assistance.");
             return;
         }
         
-        if (isNavigatingToQuestStart) {
-            processQuestStartNavigation();
+        try {
+            ScriptConsole.println("[QuestHelper] Fetching quest guide for: " + selectedQuest.name());
+            currentQuestGuide = QuestDialogFetcher.fetchQuestGuide(selectedQuest.name());
+            questGuideFetched = true;
+            
+            if (currentQuestGuide.getSections().isEmpty()) {
+                ScriptConsole.println("[QuestHelper] No quest guide found for: " + selectedQuest.name());
+            } else {
+                ScriptConsole.println("[QuestHelper] Successfully fetched quest guide for: " + selectedQuest.name());
+                ScriptConsole.println("[QuestHelper] Found " + currentQuestGuide.getSections().size() + " sections with " + currentQuestGuide.getTotalSteps() + " total steps");
+            }
+        } catch (Exception e) {
+            ScriptConsole.println("[QuestHelper] Error fetching quest guide: " + e.getMessage());
+            questGuideFetched = false;
+        }
+    }
+
+    /**
+     * Gets the current quest guide.
+     * @return The current quest guide, or null if none loaded
+     */
+    public QuestDialogFetcher.QuestGuide getCurrentQuestGuide() {
+        return currentQuestGuide;
+    }
+    
+    /**
+     * Gets dialog options for incomplete steps only.
+     * @return List of dialog sequences for incomplete steps
+     */
+    public List<QuestDialogFetcher.DialogSequence> getDialogsForIncompleteSteps() {
+        if (currentQuestGuide == null) {
+            return new ArrayList<>();
+        }
+        return currentQuestGuide.getDialogsForIncompleteSteps();
+    }
+    
+    /**
+     * Marks a quest step as completed or incomplete.
+     * @param sectionIndex The index of the section containing the step
+     * @param stepIndex The index of the step within the section
+     * @param completed Whether the step should be marked as completed
+     */
+    public void setStepCompleted(int sectionIndex, int stepIndex, boolean completed) {
+        if (currentQuestGuide == null || sectionIndex < 0 || sectionIndex >= currentQuestGuide.getSections().size()) {
+            return;
         }
         
-        if (!dialogsFetched) {
-            fetchDialogsForSelectedQuest();
+        QuestDialogFetcher.QuestSection section = currentQuestGuide.getSections().get(sectionIndex);
+        if (stepIndex < 0 || stepIndex >= section.getSteps().size()) {
+            return;
         }
         
-        if (Dialog.isOpen()) {
-            processOpenDialog();
-        } else {
-            clearCurrentRecommendation();
+        QuestDialogFetcher.QuestStep step = section.getSteps().get(stepIndex);
+        step.setCompleted(completed);
+        
+        ScriptConsole.println("[QuestHelper] Step " + (stepIndex + 1) + " in section '" + section.getSectionName() + "' marked as " + (completed ? "completed" : "incomplete"));
+        
+        // Clear cached dialog recommendations as they may have changed
+        clearCurrentRecommendation();
+    }
+    
+    /**
+     * Gets the completion status of a quest step.
+     * @param sectionIndex The index of the section containing the step
+     * @param stepIndex The index of the step within the section
+     * @return true if the step is completed, false otherwise
+     */
+    public boolean isStepCompleted(int sectionIndex, int stepIndex) {
+        if (currentQuestGuide == null || sectionIndex < 0 || sectionIndex >= currentQuestGuide.getSections().size()) {
+            return false;
+        }
+        
+        QuestDialogFetcher.QuestSection section = currentQuestGuide.getSections().get(sectionIndex);
+        if (stepIndex < 0 || stepIndex >= section.getSteps().size()) {
+            return false;
+        }
+        
+        return section.getSteps().get(stepIndex).isCompleted();
+    }
+    
+    /**
+     * Toggles the completion status of a quest step.
+     * @param sectionIndex The index of the section containing the step
+     * @param stepIndex The index of the step within the section
+     */
+    public void toggleStepCompleted(int sectionIndex, int stepIndex) {
+        boolean currentStatus = isStepCompleted(sectionIndex, stepIndex);
+        setStepCompleted(sectionIndex, stepIndex, !currentStatus);
+    }
+    
+    /**
+     * Marks all steps in a section as completed or incomplete.
+     * @param sectionIndex The index of the section
+     * @param completed Whether all steps should be marked as completed
+     */
+    public void setSectionCompleted(int sectionIndex, boolean completed) {
+        if (currentQuestGuide == null || sectionIndex < 0 || sectionIndex >= currentQuestGuide.getSections().size()) {
+            return;
+        }
+        
+        QuestDialogFetcher.QuestSection section = currentQuestGuide.getSections().get(sectionIndex);
+        for (int i = 0; i < section.getSteps().size(); i++) {
+            section.getSteps().get(i).setCompleted(completed);
+        }
+        
+        ScriptConsole.println("[QuestHelper] All steps in section '" + section.getSectionName() + "' marked as " + (completed ? "completed" : "incomplete"));
+        clearCurrentRecommendation();
+    }
+    
+    /**
+     * Gets the index of the first incomplete step in the quest guide.
+     * Used for auto-scrolling to the current task.
+     * @return Array of [sectionIndex, stepIndex] for the first incomplete step, or null if all steps are completed
+     */
+    public int[] getFirstIncompleteStepIndex() {
+        if (currentQuestGuide == null) {
+            return null;
+        }
+        
+        for (int sectionIndex = 0; sectionIndex < currentQuestGuide.getSections().size(); sectionIndex++) {
+            QuestDialogFetcher.QuestSection section = currentQuestGuide.getSections().get(sectionIndex);
+            for (int stepIndex = 0; stepIndex < section.getSteps().size(); stepIndex++) {
+                if (!section.getSteps().get(stepIndex).isCompleted()) {
+                    return new int[]{sectionIndex, stepIndex};
+                }
+            }
+        }
+        
+        return null; // All steps completed
+    }
+    
+    /**
+     * Resets all step completion status for the current quest guide.
+     */
+    public void resetAllSteps() {
+        if (currentQuestGuide == null) {
+            return;
+        }
+        
+        for (QuestDialogFetcher.QuestSection section : currentQuestGuide.getSections()) {
+            for (QuestDialogFetcher.QuestStep step : section.getSteps()) {
+                step.setCompleted(false);
+            }
+        }
+        
+        ScriptConsole.println("[QuestHelper] Reset all step completion status for: " + selectedQuest.name());
+        clearCurrentRecommendation();
+    }
+    
+    /**
+     * Gets a formatted string representation of the quest progress.
+     * @return A string showing completion progress
+     */
+    public String getQuestProgress() {
+        if (currentQuestGuide == null) {
+            return "No quest guide loaded";
+        }
+        
+        StringBuilder sb = new StringBuilder();
+        sb.append("Quest Progress for ").append(currentQuestGuide.getQuestName()).append(":\n");
+        sb.append("Overall: ").append(currentQuestGuide.getCompletedSteps()).append("/").append(currentQuestGuide.getTotalSteps()).append(" steps completed\n\n");
+        
+        for (QuestDialogFetcher.QuestSection section : currentQuestGuide.getSections()) {
+            sb.append("• ").append(section.getSectionName()).append(": ");
+            sb.append(section.getCompletedSteps()).append("/").append(section.getTotalSteps()).append(" completed\n");
+        }
+        
+        return sb.toString();
+    }
+
+    /**
+     * Enhanced execute method with step tracking and dialog assistance
+     */
+    @Override
+    public void execute() {
+        if (selectedQuest == null && showRandomMessage) {
+            ScriptConsole.println("[QuestHelper] Select a quest to get started!");
+            showRandomMessage = false;
+        }
+        
+        if (selectedQuest == null) return;
+        
+        // Initialize UI scaler if needed
+        if (!overlayInitialized) {
+            initializeOverlay();
+        }
+        
+        // Fetch quest guide if needed and step tracker is enabled
+        if (showStepTracker && !questGuideFetched) {
+            fetchQuestGuideForSelectedQuest();
+        }
+        
+        // Handle dialog assistance with step tracking
+        if (isDialogAssistanceActive) {
+            processOpenDialogs();
+            
+            // Calculate overlay coordinates if dialog is open and we have a recommendation
+            if (Dialog.isOpen() && recommendedOptionIndex != -1) {
+                calculateDialogOverlayCoordinates();
+            } else {
+                clearOverlayCoordinates();
+            }
+        }
+        
+        // Handle debug mode
+        if (debugMode) {
+            debugCurrentDialogs();
         }
     }
     
     /**
-     * Fetches dialog options for the currently selected quest.
+     * Initializes the UI overlay system.
+     */
+    private void initializeOverlay() {
+        if (uiScaler.initialize()) {
+            overlayInitialized = true;
+            ScriptConsole.println("[QuestHelper] Dialog overlay system initialized successfully");
+        } else {
+            ScriptConsole.println("[QuestHelper] Failed to initialize dialog overlay system");
+        }
+    }
+    
+    /**
+     * Draws a visual overlay highlighting the recommended dialog option.
+     */
+    private void drawDialogOptionOverlay() {
+        try {
+            // Get the dialog interface coordinates
+            // Common dialog interface IDs - may need adjustment based on actual game interface
+            UIScaler.InterfaceRect dialogRect = uiScaler.getInterfaceRect(1188, -1); // Main dialog interface
+            if (dialogRect == null) {
+                // Try alternative dialog interface IDs
+                dialogRect = uiScaler.getInterfaceRect(162, -1);
+                if (dialogRect == null) {
+                    dialogRect = uiScaler.getInterfaceRect(217, -1);
+                }
+            }
+            
+            if (dialogRect == null) {
+                return; // Cannot locate dialog interface
+            }
+            
+            // Calculate option position based on recommended index
+            List<String> currentOptions = Dialog.getOptions();
+            if (currentOptions == null || recommendedOptionIndex >= currentOptions.size()) {
+                return;
+            }
+            
+            // Estimate option height and spacing (this may need fine-tuning)
+            int optionHeight = 25;
+            int optionSpacing = 5;
+            int startY = dialogRect.y + 50; // Offset from dialog top
+            
+            int optionY = startY + (recommendedOptionIndex * (optionHeight + optionSpacing));
+            int optionX = dialogRect.x + 10; // Small offset from dialog left
+            int optionWidth = dialogRect.width - 20; // Leave margins
+            
+            // Draw the overlay using ImGui
+            drawOptionHighlight(optionX, optionY, optionWidth, optionHeight, currentOptions.get(recommendedOptionIndex));
+            
+        } catch (Exception e) {
+            ScriptConsole.println("[QuestHelper] Error drawing dialog overlay: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Draws a highlight overlay for a specific dialog option using ImGui.
+     * @param x The x coordinate of the option
+     * @param y The y coordinate of the option
+     * @param width The width of the option
+     * @param height The height of the option
+     * @param optionText The text of the option
+     */
+    private void drawOptionHighlight(int x, int y, int width, int height, String optionText) {
+        // This method has been moved to CoaezUtilityGUI for proper separation of concerns
+        // The rendering is now handled by the GUI layer using coordinates from this class
+    }
+    
+    /**
+     * Draws an alternative overlay using coordinate-based positioning.
+     * This method provides a fallback when interface-based positioning fails.
+     */
+    private void drawCoordinateBasedOverlay() {
+        // This method has been moved to CoaezUtilityGUI for proper separation of concerns
+        // The rendering is now handled by the GUI layer using coordinates from this class
+    }
+
+    /**
+     * Processes open dialogs with step tracking support.
+     */
+    private void processOpenDialogs() {
+        if (Dialog.isOpen()) {
+            if (showStepTracker && currentQuestGuide != null) {
+                processOpenDialogWithStepTracking();
+            } else {
+                // Fallback to legacy dialog processing
+                if (!dialogsFetched) {
+                    fetchDialogsForSelectedQuest();
+                }
+                processLegacyDialog();
+            }
+        } else {
+            clearCurrentRecommendation();
+        }
+    }
+
+    /**
+     * Processes open dialogs with step tracking support and coordinate calculation.
+     */
+    private void processOpenDialogWithStepTracking() {
+        List<String> currentOptions = Dialog.getOptions();
+        if (currentOptions == null || currentOptions.isEmpty()) {
+            clearCurrentRecommendation();
+            return;
+        }
+        
+        ScriptConsole.println("[QuestHelper] === DIALOG MATCHING DEBUG ===");
+        ScriptConsole.println("[QuestHelper] Current dialog options available:");
+        for (int i = 0; i < currentOptions.size(); i++) {
+            ScriptConsole.println("[QuestHelper]   " + (i + 1) + ": '" + currentOptions.get(i) + "'");
+        }
+        
+        // First, try to find dialog options from the current step (first incomplete step)
+        int[] currentStepIndex = getFirstIncompleteStepIndex();
+        if (currentStepIndex != null) {
+            ScriptConsole.println("[QuestHelper] Current incomplete step: Section " + currentStepIndex[0] + ", Step " + currentStepIndex[1]);
+            List<String> currentStepDialogs = getDialogOptionsForSpecificStep(currentStepIndex[0], currentStepIndex[1]);
+            
+            ScriptConsole.println("[QuestHelper] Dialog options from current step:");
+            for (int i = 0; i < currentStepDialogs.size(); i++) {
+                ScriptConsole.println("[QuestHelper]   " + (i + 1) + ": '" + currentStepDialogs.get(i) + "'");
+            }
+            
+            if (!currentStepDialogs.isEmpty()) {
+                ScriptConsole.println("[QuestHelper] Prioritizing " + currentStepDialogs.size() + " dialog options from current step");
+                
+                for (String currentStepDialog : currentStepDialogs) {
+                    int matchIndex = findMatchingOptionIndex(currentOptions, currentStepDialog);
+                    if (matchIndex != -1) {
+                        currentRecommendation = "Select: " + currentOptions.get(matchIndex);
+                        recommendedOptionIndex = matchIndex;
+                        currentRecommendedOption = currentOptions.get(matchIndex);
+                        currentRecommendedOptionIndex = matchIndex;
+                        
+                        ScriptConsole.println("[QuestHelper] ✓ Current step recommendation - option " + (matchIndex + 1) + ": " + currentOptions.get(matchIndex));
+                        ScriptConsole.println("[QuestHelper] === END DIALOG MATCHING DEBUG ===");
+                        return;
+                    }
+                }
+                ScriptConsole.println("[QuestHelper] No matches found in current step dialog options");
+            } else {
+                ScriptConsole.println("[QuestHelper] Current step has no dialog options");
+            }
+        } else {
+            ScriptConsole.println("[QuestHelper] No incomplete step found");
+        }
+        
+        // If no match found in current step, fall back to checking all incomplete steps
+        List<String> relevantDialogs = getDialogOptionsForIncompleteSteps();
+        
+        if (relevantDialogs.isEmpty()) {
+            currentRecommendation = "All steps completed! No dialog assistance needed.";
+            recommendedOptionIndex = -1;
+            ScriptConsole.println("[QuestHelper] === END DIALOG MATCHING DEBUG ===");
+            return;
+        }
+        
+        ScriptConsole.println("[QuestHelper] No matches in current step, checking " + relevantDialogs.size() + " options from all incomplete steps");
+        ScriptConsole.println("[QuestHelper] All incomplete step dialog options:");
+        for (int i = 0; i < relevantDialogs.size(); i++) {
+            ScriptConsole.println("[QuestHelper]   " + (i + 1) + ": '" + relevantDialogs.get(i) + "'");
+        }
+        
+        // Find the best matching dialog option from all incomplete steps
+        for (String relevantDialog : relevantDialogs) {
+            int matchIndex = findMatchingOptionIndex(currentOptions, relevantDialog);
+            if (matchIndex != -1) {
+                currentRecommendation = "Select: " + currentOptions.get(matchIndex);
+                recommendedOptionIndex = matchIndex;
+                currentRecommendedOption = currentOptions.get(matchIndex);
+                currentRecommendedOptionIndex = matchIndex;
+                
+                ScriptConsole.println("[QuestHelper] ✓ Fallback recommendation - option " + (matchIndex + 1) + ": " + currentOptions.get(matchIndex));
+                ScriptConsole.println("[QuestHelper] === END DIALOG MATCHING DEBUG ===");
+                return;
+            }
+        }
+        
+        // Final fallback: If no matches found, try to avoid "Goodbye" and similar options
+        ScriptConsole.println("[QuestHelper] No dialog guide matches found, applying smart fallback logic");
+        int smartFallbackIndex = findSmartFallbackOption(currentOptions);
+        if (smartFallbackIndex != -1) {
+            currentRecommendation = "Smart fallback: " + currentOptions.get(smartFallbackIndex);
+            recommendedOptionIndex = smartFallbackIndex;
+            currentRecommendedOption = currentOptions.get(smartFallbackIndex);
+            currentRecommendedOptionIndex = smartFallbackIndex;
+            
+            ScriptConsole.println("[QuestHelper] ✓ Smart fallback recommendation - option " + (smartFallbackIndex + 1) + ": " + currentOptions.get(smartFallbackIndex));
+            ScriptConsole.println("[QuestHelper] === END DIALOG MATCHING DEBUG ===");
+            return;
+        }
+        
+        currentRecommendation = "No matching dialog option for current step";
+        recommendedOptionIndex = -1;
+        currentRecommendedOption = null;
+        currentRecommendedOptionIndex = -1;
+        ScriptConsole.println("[QuestHelper] No matching dialog options found");
+        ScriptConsole.println("[QuestHelper] === END DIALOG MATCHING DEBUG ===");
+    }
+    
+    /**
+     * Finds a smart fallback option that avoids common "ending" dialog options like "Goodbye".
+     * This method prioritizes question-like options or options that seem to advance the conversation.
+     * @param currentOptions The list of current dialog options
+     * @return The index of the best fallback option, or -1 if none found
+     */
+    private int findSmartFallbackOption(List<String> currentOptions) {
+        if (currentOptions == null || currentOptions.isEmpty()) {
+            return -1;
+        }
+        
+        // Words/phrases that typically indicate conversation-ending options (to avoid)
+        String[] avoidPatterns = {
+            "goodbye", "bye", "farewell", "see you", "later", "leave", "exit", "nothing", "never mind", "nevermind"
+        };
+        
+        // Words/phrases that typically indicate conversation-advancing options (to prefer)
+        String[] preferPatterns = {
+            "?", "how", "what", "where", "when", "why", "who", "can", "could", "would", "should", "tell me", "explain", "help"
+        };
+        
+        int bestScore = -1;
+        int bestIndex = -1;
+        
+        for (int i = 0; i < currentOptions.size(); i++) {
+            String option = currentOptions.get(i).toLowerCase().trim();
+            int score = 0;
+            
+            // Check for avoid patterns (negative score)
+            for (String avoidPattern : avoidPatterns) {
+                if (option.contains(avoidPattern)) {
+                    score -= 10;
+                    ScriptConsole.println("[QuestHelper] Smart fallback: Option " + (i + 1) + " contains avoid pattern '" + avoidPattern + "', score: " + score);
+                    break; // Only apply one avoid penalty
+                }
+            }
+            
+            // Check for prefer patterns (positive score)
+            for (String preferPattern : preferPatterns) {
+                if (option.contains(preferPattern)) {
+                    score += 5;
+                    ScriptConsole.println("[QuestHelper] Smart fallback: Option " + (i + 1) + " contains prefer pattern '" + preferPattern + "', score: " + score);
+                    break; // Only apply one prefer bonus
+                }
+            }
+            
+            // Prefer shorter options if they're not avoid patterns (concise questions are often better)
+            if (score >= 0 && option.length() < 50) {
+                score += 2;
+            }
+            
+            ScriptConsole.println("[QuestHelper] Smart fallback: Option " + (i + 1) + " '" + currentOptions.get(i) + "' final score: " + score);
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestIndex = i;
+            }
+        }
+        
+        if (bestIndex != -1) {
+            ScriptConsole.println("[QuestHelper] Smart fallback selected option " + (bestIndex + 1) + " with score " + bestScore);
+        } else {
+            ScriptConsole.println("[QuestHelper] Smart fallback found no suitable options");
+        }
+        
+        return bestIndex;
+    }
+    
+    /**
+     * Processes legacy dialogs without step tracking but with coordinate calculation.
+     */
+    private void processLegacyDialog() {
+        if (fetchedDialogs.isEmpty()) {
+            clearCurrentRecommendation();
+            return;
+        }
+        
+        List<String> currentOptions = Dialog.getOptions();
+        if (currentOptions == null || currentOptions.isEmpty()) {
+            clearCurrentRecommendation();
+            return;
+        }
+        
+        // Find the best matching dialog option
+        for (String fetchedOption : fetchedDialogs) {
+            int matchIndex = findMatchingOptionIndex(currentOptions, fetchedOption);
+            if (matchIndex != -1) {
+                currentRecommendation = "Select: " + currentOptions.get(matchIndex);
+                recommendedOptionIndex = matchIndex;
+                currentRecommendedOption = currentOptions.get(matchIndex);
+                currentRecommendedOptionIndex = matchIndex;
+                
+                ScriptConsole.println("[QuestHelper] Recommending option " + (matchIndex + 1) + ": " + currentOptions.get(matchIndex));
+                return;
+            }
+        }
+        
+        currentRecommendation = "No matching dialog option found";
+        recommendedOptionIndex = -1;
+        currentRecommendedOption = null;
+        currentRecommendedOptionIndex = -1;
+    }
+    
+    /**
+     * Clears the current dialog recommendation and overlay coordinates.
+     */
+    private void clearCurrentRecommendation() {
+        if (currentRecommendation != null) {
+            currentRecommendation = null;
+            recommendedOptionIndex = -1;
+            currentRecommendedOption = null;
+            currentRecommendedOptionIndex = -1;
+            clearOverlayCoordinates();
+        }
+    }
+    
+    /**
+     * Gets the UIScaler instance for external access.
+     * @return The UIScaler instance
+     */
+    public UIScaler getUIScaler() {
+        return uiScaler;
+    }
+    
+    /**
+     * Checks if dialog overlay is enabled.
+     * @return true if dialog overlay is enabled
+     */
+    public boolean isShowDialogOverlay() {
+        return true; // Always enabled for coordinate calculation
+    }
+    
+    /**
+     * Enables or disables dialog overlay visualization.
+     * @param showDialogOverlay true to show dialog overlays, false to hide
+     */
+    public void setShowDialogOverlay(boolean showDialogOverlay) {
+        // Method kept for compatibility but rendering is handled by GUI
+        ScriptConsole.println("[QuestHelper] Dialog overlay " + (showDialogOverlay ? "enabled" : "disabled"));
+    }
+    
+    /**
+     * Updates the overlay colors for dialog highlighting.
+     * @param highlightColor The fill color for the highlight
+     * @param borderColor The border color for the highlight
+     * @param textColor The text color for the recommendation
+     */
+    public void setOverlayColors(Object highlightColor, Object borderColor, Object textColor) {
+        // Method kept for compatibility but colors are handled by GUI
+        ScriptConsole.println("[QuestHelper] Dialog overlay colors updated");
+    }
+    
+    /**
+     * Forces a refresh of the UI scaler (useful when game window is resized).
+     */
+    public void refreshUIScaler() {
+        if (uiScaler.refresh()) {
+            ScriptConsole.println("[QuestHelper] UI scaler refreshed successfully");
+        } else {
+            ScriptConsole.println("[QuestHelper] Failed to refresh UI scaler");
+            overlayInitialized = false;
+        }
+    }
+    
+    /**
+     * Gets debug information about the current UI scaling state.
+     * @return A string containing UI scaling debug information
+     */
+    public String getUIScalerDebugInfo() {
+        if (!uiScaler.isInitialized()) {
+            return "UI Scaler not initialized";
+        }
+        
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== UI Scaler Debug Info ===\n");
+        
+        UIScaler.InterfaceRect windowSize = uiScaler.getWindowSize();
+        if (windowSize != null) {
+            sb.append("Window Size: ").append(windowSize.width).append(" x ").append(windowSize.height).append("\n");
+        }
+        
+        double[] scaleFactors = uiScaler.getScaleFactors();
+        if (scaleFactors != null) {
+            sb.append("Scale Factors: ").append(String.format("%.3f x %.3f", scaleFactors[0], scaleFactors[1])).append("\n");
+        }
+        
+        sb.append("Overlay Initialized: ").append(overlayInitialized).append("\n");
+        sb.append("Current Recommendation Index: ").append(recommendedOptionIndex).append("\n");
+        sb.append("Has Valid Overlay Coordinates: ").append(hasValidOverlayCoordinates).append("\n");
+        
+        if (hasValidOverlayCoordinates) {
+            sb.append("Overlay Coordinates: (").append(dialogOverlayX).append(", ").append(dialogOverlayY).append(", ")
+              .append(dialogOverlayWidth).append(", ").append(dialogOverlayHeight).append(")\n");
+        }
+        
+        return sb.toString();
+    }
+
+    /**
+     * Debug method to log current dialog information.
+     */
+    private void debugCurrentDialogs() {
+        if (Dialog.isOpen()) {
+            List<String> options = Dialog.getOptions();
+            if (options != null && !options.isEmpty()) {
+                ScriptConsole.println("[QuestHelper] DEBUG - Current dialog options:");
+                for (int i = 0; i < options.size(); i++) {
+                    ScriptConsole.println("[QuestHelper]   " + (i + 1) + ": " + options.get(i));
+                }
+            }
+        }
+    }
+    
+    /**
+     * Fetches dialogs for the selected quest (legacy method).
      */
     private void fetchDialogsForSelectedQuest() {
         if (selectedQuest == null) {
@@ -866,321 +1495,15 @@ public class QuestHelper implements Task {
         }
         
         try {
-            ScriptConsole.println("[QuestHelper] Fetching dialogs for: " + selectedQuest.name());
             fetchedDialogs = QuestDialogFetcher.fetchQuestDialogs(selectedQuest.name());
             dialogsFetched = true;
-            
-            if (fetchedDialogs.isEmpty()) {
-                ScriptConsole.println("[QuestHelper] No dialogs found for: " + selectedQuest.name());
-            } else {
-                ScriptConsole.println("[QuestHelper] Successfully fetched dialogs for: " + selectedQuest.name());
-                ScriptConsole.println("[QuestHelper] Found " + fetchedDialogs.size() + " dialog sections");
-            }
+            ScriptConsole.println("[QuestHelper] Fetched " + fetchedDialogs.size() + " dialog options for " + selectedQuest.name());
         } catch (Exception e) {
-            ScriptConsole.println("[QuestHelper] Error fetching dialogs: " + e.getMessage());
-            dialogsFetched = false;
+            ScriptConsole.println("[QuestHelper] Failed to fetch dialogs: " + e.getMessage());
+            dialogsFetched = true; // Mark as fetched to avoid retry loops
         }
     }
-    
-    /**
-     * Process the open dialog and find recommendations
-     */
-    public void processOpenDialog() {
-        if (fetchedDialogs == null || fetchedDialogs.isEmpty()) {
-            clearCurrentRecommendation();
-            return;
-        }
-        
-        try {
-            List<String> currentDialogOptions = Dialog.getOptions();
-            if (currentDialogOptions == null || currentDialogOptions.isEmpty()) {
-                clearCurrentRecommendation();
-                currentDialogText = null;
-                previousDialogOptions = null;
-                return;
-            }
-            
-            boolean optionsChanged = !currentDialogOptions.equals(previousDialogOptions);
-            
-            if (optionsChanged) {
-                clearCurrentRecommendation();
-                ScriptConsole.println("[QuestHelper] Dialog options changed, clearing previous recommendation");
-                
-                currentDialogText = String.join(" | ", currentDialogOptions);
-                
-                findDialogRecommendation(currentDialogOptions);
-                
-                previousDialogOptions = new ArrayList<>(currentDialogOptions);
-            }
-            
-        } catch (Exception e) {
-            ScriptConsole.println("[QuestHelper] Error processing dialog: " + e.getMessage());
-        }
-    }
-    
-    /**
-     * Finds and sets the recommended dialog option based on current dialog options and fetched dialog sequences.
-     * Only recommends options that are actually present in the current dialog.
-     * @param currentDialogOptions The options currently displayed in the dialog
-     */
-    private void findDialogRecommendation(List<String> currentDialogOptions) {
-        if (currentDialogOptions == null || currentDialogOptions.isEmpty()) {
-            clearCurrentRecommendation();
-            return;
-        }
-        
-        ScriptConsole.println("[QuestHelper] Looking for matches in current dialog options:");
-        for (int i = 0; i < currentDialogOptions.size(); i++) {
-            ScriptConsole.println("[QuestHelper]   Option " + (i + 1) + ": '" + currentDialogOptions.get(i) + "'");
-        }
-        
-        List<MatchCandidate> candidates = new ArrayList<>();
-        
-        for (Map.Entry<String, List<QuestDialogFetcher.DialogSequence>> entry : fetchedDialogs.entrySet()) {
-            String sectionName = entry.getKey();
-            List<QuestDialogFetcher.DialogSequence> sequences = entry.getValue();
-            
-            ScriptConsole.println("[QuestHelper] Checking section: " + sectionName);
-            
-            for (int seqIndex = 0; seqIndex < sequences.size(); seqIndex++) {
-                QuestDialogFetcher.DialogSequence sequence = sequences.get(seqIndex);
-                List<QuestDialogFetcher.DialogOption> options = sequence.getOptions();
-                
-                ScriptConsole.println("[QuestHelper]   Sequence " + seqIndex + " has " + options.size() + " options");
-                
-                for (int optIndex = 0; optIndex < options.size(); optIndex++) {
-                    QuestDialogFetcher.DialogOption option = options.get(optIndex);
-                    String optionText = option.getOptionText();
-                    if (optionText == null || optionText.trim().isEmpty()) {
-                        continue;
-                    }
-                    
-                    ScriptConsole.println("[QuestHelper]     Checking fetched option: '" + optionText + "'");
-                    
-                    int matchingIndex = findMatchingOptionIndex(currentDialogOptions, optionText);
-                    if (matchingIndex != -1) {
-                        ScriptConsole.println("[QuestHelper]     ✓ MATCH FOUND at current dialog index " + matchingIndex);
-                        candidates.add(new MatchCandidate(optionText, matchingIndex, sectionName, seqIndex, optIndex));
-                    } else {
-                        ScriptConsole.println("[QuestHelper]     ✗ No match");
-                    }
-                }
-            }
-        }
-        
-        if (!candidates.isEmpty()) {
-            MatchCandidate bestMatch = candidates.get(0);
-            setCurrentRecommendation(bestMatch.optionText, bestMatch.dialogIndex);
-            ScriptConsole.println("[QuestHelper] Selected match: '" + bestMatch.optionText + "' at dialog index " + bestMatch.dialogIndex + 
-                                 " (from section: " + bestMatch.sectionName + ", sequence: " + bestMatch.sequenceIndex + ")");
-        } else {
-            clearCurrentRecommendation();
-            ScriptConsole.println("[QuestHelper] No matching dialog options found in current dialog");
-        }
-    }
-    
-    private static class MatchCandidate {
-        final String optionText;
-        final int dialogIndex;
-        final String sectionName;
-        final int sequenceIndex;
-        final int optionIndex;
-        
-        MatchCandidate(String optionText, int dialogIndex, String sectionName, int sequenceIndex, int optionIndex) {
-            this.optionText = optionText;
-            this.dialogIndex = dialogIndex;
-            this.sectionName = sectionName;
-            this.sequenceIndex = sequenceIndex;
-            this.optionIndex = optionIndex;
-        }
-    }
-    
-    /**
-     * Finds the index of a fetched option text within the current dialog options.
-     * Uses strict matching strategies for accurate comparison.
-     * @param currentOptions The current dialog options array
-     * @param fetchedOptionText The fetched option text to match
-     * @return The index of the matching option, or -1 if no match found
-     */
-    private int findMatchingOptionIndex(List<String> currentOptions, String fetchedOptionText) {
-        if (currentOptions == null || fetchedOptionText == null) {
-            return -1;
-        }
-        
-        String fetchedLower = fetchedOptionText.toLowerCase().trim();
-        
-        for (int i = 0; i < currentOptions.size(); i++) {
-            String currentOption = currentOptions.get(i);
-            if (currentOption == null) continue;
-            
-            String currentLower = currentOption.toLowerCase().trim();
-            
-            if (currentLower.equals(fetchedLower)) {
-                ScriptConsole.println("[QuestHelper]       ✓ EXACT MATCH: '" + currentOption + "' == '" + fetchedOptionText + "'");
-                return i;
-            }
-            
-            double similarity = calculateStringSimilarity(currentLower, fetchedLower);
-            if (similarity >= 0.9) {
-                ScriptConsole.println("[QuestHelper]       ✓ HIGH SIMILARITY MATCH (" + String.format("%.1f", similarity * 100) + "%): '" + currentOption + "' ~= '" + fetchedOptionText + "'");
-                return i;
-            }
-            
-            if (currentLower.contains(fetchedLower)) {
-                double containmentRatio = (double) fetchedLower.length() / currentLower.length();
-                if (containmentRatio >= 0.7) {
-                    ScriptConsole.println("[QuestHelper]       ✓ CONTAINMENT MATCH (current contains fetched, " + String.format("%.1f", containmentRatio * 100) + "%): '" + currentOption + "' contains '" + fetchedOptionText + "'");
-                    return i;
-                }
-            }
-            
-            if (fetchedLower.contains(currentLower)) {
-                double containmentRatio = (double) currentLower.length() / fetchedLower.length();
-                if (containmentRatio >= 0.7) {
-                    ScriptConsole.println("[QuestHelper]       ✓ CONTAINMENT MATCH (fetched contains current, " + String.format("%.1f", containmentRatio * 100) + "%): '" + fetchedOptionText + "' contains '" + currentOption + "'");
-                    return i;
-                }
-            }
-            
-            ScriptConsole.println("[QuestHelper]       ✗ NO MATCH: '" + currentOption + "' vs '" + fetchedOptionText + "' (similarity: " + String.format("%.1f", similarity * 100) + "%)");
-        }
-        
-        return -1;
-    }
-    
-    /**
-     * Calculates string similarity using Levenshtein distance.
-     * @param s1 First string
-     * @param s2 Second string
-     * @return Similarity ratio (0.0 to 1.0, where 1.0 is identical)
-     */
-    private double calculateStringSimilarity(String s1, String s2) {
-        if (s1.equals(s2)) {
-            return 1.0;
-        }
-        
-        int maxLength = Math.max(s1.length(), s2.length());
-        if (maxLength == 0) {
-            return 1.0;
-        }
-        
-        int editDistance = calculateLevenshteinDistance(s1, s2);
-        return 1.0 - (double) editDistance / maxLength;
-    }
-    
-    /**
-     * Calculates the Levenshtein distance between two strings.
-     * @param s1 First string
-     * @param s2 Second string
-     * @return The edit distance
-     */
-    private int calculateLevenshteinDistance(String s1, String s2) {
-        int[][] dp = new int[s1.length() + 1][s2.length() + 1];
-        
-        for (int i = 0; i <= s1.length(); i++) {
-            dp[i][0] = i;
-        }
-        
-        for (int j = 0; j <= s2.length(); j++) {
-            dp[0][j] = j;
-        }
-        
-        for (int i = 1; i <= s1.length(); i++) {
-            for (int j = 1; j <= s2.length(); j++) {
-                int cost = (s1.charAt(i - 1) == s2.charAt(j - 1)) ? 0 : 1;
-                dp[i][j] = Math.min(Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1), dp[i - 1][j - 1] + cost);
-            }
-        }
-        
-        return dp[s1.length()][s2.length()];
-    }
-    
-    /**
-     * Sets the current dialog recommendation.
-     * @param optionText The text of the recommended option
-     * @param optionIndex The index of the recommended option (0-based)
-     */
-    private void setCurrentRecommendation(String optionText, int optionIndex) {
-        if (!optionText.equals(currentRecommendedOption) || optionIndex != currentRecommendedOptionIndex) {
-            currentRecommendedOption = optionText;
-            currentRecommendedOptionIndex = optionIndex;
-            ScriptConsole.println("[QuestHelper] Recommended dialog option: " + (optionIndex + 1) + " - " + optionText);
-        }
-    }
-    
-    /**
-     * Clears the current dialog recommendation.
-     */
-    private void clearCurrentRecommendation() {
-        if (currentRecommendedOption != null) {
-            currentRecommendedOption = null;
-            currentRecommendedOptionIndex = -1;
-        }
-    }
-    
-    /**
-     * Enables dialog assistance for the selected quest.
-     */
-    public void enableDialogAssistance() {
-        if (selectedQuest == null) {
-            ScriptConsole.println("[QuestHelper] No quest selected. Cannot enable dialog assistance.");
-            return;
-        }
-        
-        isDialogAssistanceActive = true;
-        dialogsFetched = false;
-        ScriptConsole.println("[QuestHelper] Dialog assistance enabled for: " + selectedQuest.name());
-    }
-    
-    /**
-     * Disables dialog assistance.
-     */
-    public void disableDialogAssistance() {
-        isDialogAssistanceActive = false;
-        clearCurrentRecommendation();
-        ScriptConsole.println("[QuestHelper] Dialog assistance disabled.");
-    }
-    
-    /**
-     * Checks if dialog assistance is currently active.
-     * @return true if dialog assistance is active, false otherwise
-     */
-    public boolean isDialogAssistanceActive() {
-        return isDialogAssistanceActive;
-    }
-    
-    /**
-     * Gets the current recommended dialog option text.
-     * @return The recommended option text, or null if no recommendation
-     */
-    public String getCurrentRecommendedOption() {
-        return currentRecommendedOption;
-    }
-    
-    /**
-     * Gets the current recommended dialog option index.
-     * @return The recommended option index (0-based), or -1 if no recommendation
-     */
-    public int getCurrentRecommendedOptionIndex() {
-        return currentRecommendedOptionIndex;
-    }
-    
-    /**
-     * Checks if dialogs have been fetched for the current quest.
-     * @return true if dialogs are fetched, false otherwise
-     */
-    public boolean areDialogsFetched() {
-        return dialogsFetched;
-    }
-    
-    /**
-     * Gets the fetched dialogs for the current quest.
-     * @return Map of dialog sequences, or empty map if none fetched
-     */
-    public Map<String, List<QuestDialogFetcher.DialogSequence>> getFetchedDialogs() {
-        return fetchedDialogs != null ? new HashMap<>(fetchedDialogs) : new HashMap<>();
-    }
-    
+
     /**
      * Updates the quest display list based on current filter settings.
      */
@@ -1371,6 +1694,134 @@ public class QuestHelper implements Task {
     }
     
     /**
+     * Check if dialog assistance is currently active.
+     */
+    public boolean isDialogAssistanceActive() {
+        return isDialogAssistanceActive;
+    }
+    
+    /**
+     * Enable dialog assistance for the selected quest.
+     */
+    public void enableDialogAssistance() {
+        if (selectedQuest == null) {
+            ScriptConsole.println("[QuestHelper] Cannot enable dialog assistance: No quest selected.");
+            return;
+        }
+        
+        isDialogAssistanceActive = true;
+        ScriptConsole.println("[QuestHelper] Dialog assistance enabled for: " + selectedQuest.name());
+        
+        // Fetch quest guide and dialogs
+        fetchQuestGuideForSelectedQuest();
+        fetchDialogsForSelectedQuest();
+    }
+    
+    /**
+     * Disable dialog assistance.
+     */
+    public void disableDialogAssistance() {
+        isDialogAssistanceActive = false;
+        clearCurrentRecommendation();
+        ScriptConsole.println("[QuestHelper] Dialog assistance disabled.");
+    }
+    
+    /**
+     * Check if dialogs have been fetched for the selected quest.
+     */
+    public boolean areDialogsFetched() {
+        return dialogsFetched;
+    }
+    
+    /**
+     * Get the list of fetched dialog options.
+     */
+    public List<String> getFetchedDialogs() {
+        return new ArrayList<>(fetchedDialogs);
+    }
+    
+    /**
+     * Get the current recommended dialog option text.
+     */
+    public String getCurrentRecommendedOption() {
+        return currentRecommendedOption;
+    }
+    
+    /**
+     * Get the index of the current recommended dialog option.
+     */
+    public int getCurrentRecommendedOptionIndex() {
+        return currentRecommendedOptionIndex;
+    }
+    
+    /**
+     * Get dialog options for incomplete steps only.
+     */
+    public List<String> getDialogOptionsForIncompleteSteps() {
+        List<String> incompleteDialogs = new ArrayList<>();
+        
+        if (currentQuestGuide == null) {
+            return incompleteDialogs;
+        }
+        
+        for (int sectionIndex = 0; sectionIndex < currentQuestGuide.getSections().size(); sectionIndex++) {
+            QuestDialogFetcher.QuestSection section = currentQuestGuide.getSections().get(sectionIndex);
+            
+            for (int stepIndex = 0; stepIndex < section.getSteps().size(); stepIndex++) {
+                if (!isStepCompleted(sectionIndex, stepIndex)) {
+                    QuestDialogFetcher.QuestStep step = section.getSteps().get(stepIndex);
+                    
+                    if (step.hasDialogs()) {
+                        for (QuestDialogFetcher.DialogSequence sequence : step.getDialogs()) {
+                            for (QuestDialogFetcher.DialogOption option : sequence.getOptions()) {
+                                incompleteDialogs.add(option.getOptionText());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        return incompleteDialogs;
+    }
+
+    /**
+     * Get dialog options for a specific step.
+     * @param sectionIndex The section index
+     * @param stepIndex The step index
+     * @return List of dialog options for the specified step
+     */
+    public List<String> getDialogOptionsForSpecificStep(int sectionIndex, int stepIndex) {
+        List<String> stepDialogs = new ArrayList<>();
+        
+        if (currentQuestGuide == null) {
+            return stepDialogs;
+        }
+        
+        if (sectionIndex < 0 || sectionIndex >= currentQuestGuide.getSections().size()) {
+            return stepDialogs;
+        }
+        
+        QuestDialogFetcher.QuestSection section = currentQuestGuide.getSections().get(sectionIndex);
+        
+        if (stepIndex < 0 || stepIndex >= section.getSteps().size()) {
+            return stepDialogs;
+        }
+        
+        QuestDialogFetcher.QuestStep step = section.getSteps().get(stepIndex);
+        
+        if (step.hasDialogs()) {
+            for (QuestDialogFetcher.DialogSequence sequence : step.getDialogs()) {
+                for (QuestDialogFetcher.DialogOption option : sequence.getOptions()) {
+                    stepDialogs.add(option.getOptionText());
+                }
+            }
+        }
+        
+        return stepDialogs;
+    }
+
+    /**
      * Starts navigation to the quest start location for the currently selected quest.
      * Converts the packed location coordinates and creates a circular area for navigation.
      */
@@ -1544,5 +1995,264 @@ public class QuestHelper implements Task {
         }
         
         ScriptConsole.println("[QuestHelper] === END QUEST DUPLICATE DEBUG ===");
+    }
+
+    private static class MatchCandidate {
+        final String optionText;
+        final int dialogIndex;
+        final String sectionName;
+        final int sequenceIndex;
+        final int optionIndex;
+        
+        MatchCandidate(String optionText, int dialogIndex, String sectionName, int sequenceIndex, int optionIndex) {
+            this.optionText = optionText;
+            this.dialogIndex = dialogIndex;
+            this.sectionName = sectionName;
+            this.sequenceIndex = sequenceIndex;
+            this.optionIndex = optionIndex;
+        }
+    }
+    
+    /**
+     * Finds the index of a fetched option text within the current dialog options.
+     * Uses strict matching strategies for accurate comparison.
+     * @param currentOptions The current dialog options array
+     * @param fetchedOptionText The fetched option text to match
+     * @return The index of the matching option, or -1 if no match found
+     */
+    private int findMatchingOptionIndex(List<String> currentOptions, String fetchedOptionText) {
+        if (currentOptions == null || fetchedOptionText == null) {
+            return -1;
+        }
+        
+        String fetchedLower = fetchedOptionText.toLowerCase().trim();
+        
+        for (int i = 0; i < currentOptions.size(); i++) {
+            String currentOption = currentOptions.get(i);
+            if (currentOption == null) continue;
+            
+            String currentLower = currentOption.toLowerCase().trim();
+            
+            // 1. Exact match (highest priority)
+            if (currentLower.equals(fetchedLower)) {
+                ScriptConsole.println("[QuestHelper]       ✓ EXACT MATCH: '" + currentOption + "' == '" + fetchedOptionText + "'");
+                return i;
+            }
+            
+            // 2. High similarity match (second priority)
+            double similarity = calculateStringSimilarity(currentLower, fetchedLower);
+            if (similarity >= 0.85) { // Lowered from 0.9 to be more flexible
+                ScriptConsole.println("[QuestHelper]       ✓ HIGH SIMILARITY MATCH (" + String.format("%.1f", similarity * 100) + "%): '" + currentOption + "' ~= '" + fetchedOptionText + "'");
+                return i;
+            }
+            
+            // 3. Keyword-based matching (new - third priority)
+            if (hasSignificantKeywordOverlap(currentLower, fetchedLower)) {
+                ScriptConsole.println("[QuestHelper]       ✓ KEYWORD MATCH: '" + currentOption + "' shares keywords with '" + fetchedOptionText + "'");
+                return i;
+            }
+            
+            // 4. Containment match (fourth priority)
+            if (currentLower.contains(fetchedLower)) {
+                double containmentRatio = (double) fetchedLower.length() / currentLower.length();
+                if (containmentRatio >= 0.6) { // Lowered from 0.7 to be more flexible
+                    ScriptConsole.println("[QuestHelper]       ✓ CONTAINMENT MATCH (current contains fetched, " + String.format("%.1f", containmentRatio * 100) + "%): '" + currentOption + "' contains '" + fetchedOptionText + "'");
+                    return i;
+                }
+            }
+            
+            if (fetchedLower.contains(currentLower)) {
+                double containmentRatio = (double) currentLower.length() / fetchedLower.length();
+                if (containmentRatio >= 0.6) { // Lowered from 0.7 to be more flexible
+                    ScriptConsole.println("[QuestHelper]       ✓ CONTAINMENT MATCH (fetched contains current, " + String.format("%.1f", containmentRatio * 100) + "%): '" + fetchedOptionText + "' contains '" + currentOption + "'");
+                    return i;
+                }
+            }
+            
+            ScriptConsole.println("[QuestHelper]       ✗ NO MATCH: '" + currentOption + "' vs '" + fetchedOptionText + "' (similarity: " + String.format("%.1f", similarity * 100) + "%)");
+        }
+        
+        return -1;
+    }
+    
+    /**
+     * Calculates string similarity using Levenshtein distance.
+     * @param s1 First string
+     * @param s2 Second string
+     * @return Similarity ratio (0.0 to 1.0, where 1.0 is identical)
+     */
+    private double calculateStringSimilarity(String s1, String s2) {
+        if (s1.equals(s2)) {
+            return 1.0;
+        }
+        
+        int maxLength = Math.max(s1.length(), s2.length());
+        if (maxLength == 0) {
+            return 1.0;
+        }
+        
+        int editDistance = calculateLevenshteinDistance(s1, s2);
+        return 1.0 - (double) editDistance / maxLength;
+    }
+    
+    /**
+     * Calculates the Levenshtein distance between two strings.
+     * @param s1 First string
+     * @param s2 Second string
+     * @return The edit distance
+     */
+    private int calculateLevenshteinDistance(String s1, String s2) {
+        int[][] dp = new int[s1.length() + 1][s2.length() + 1];
+        
+        for (int i = 0; i <= s1.length(); i++) {
+            dp[i][0] = i;
+        }
+        
+        for (int j = 0; j <= s2.length(); j++) {
+            dp[0][j] = j;
+        }
+        
+        for (int i = 1; i <= s1.length(); i++) {
+            for (int j = 1; j <= s2.length(); j++) {
+                int cost = (s1.charAt(i - 1) == s2.charAt(j - 1)) ? 0 : 1;
+                dp[i][j] = Math.min(Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1), dp[i - 1][j - 1] + cost);
+            }
+        }
+        
+        return dp[s1.length()][s2.length()];
+    }
+
+    /**
+     * Calculates the overlay coordinates for the current dialog option
+     */
+    private void calculateDialogOverlayCoordinates() {
+        if (uiScaler == null || !uiScaler.isInitialized()) {
+            return;
+        }
+        
+        try {
+            // Try to get dialog interface coordinates
+            UIScaler.InterfaceRect dialogRect = uiScaler.getInterfaceRect(1188, recommendedOptionIndex);
+            if (dialogRect != null) {
+                dialogOverlayX = dialogRect.x;
+                dialogOverlayY = dialogRect.y;
+                dialogOverlayWidth = dialogRect.width;
+                dialogOverlayHeight = dialogRect.height;
+                hasValidOverlayCoordinates = true;
+                ScriptConsole.println(String.format("[QuestHelper] Calculated overlay coordinates: x=%d, y=%d, w=%d, h=%d", 
+                    dialogOverlayX, dialogOverlayY, dialogOverlayWidth, dialogOverlayHeight));
+            } else {
+                clearOverlayCoordinates();
+            }
+        } catch (Exception e) {
+            ScriptConsole.println("[QuestHelper] Failed to calculate overlay coordinates: " + e.getMessage());
+            clearOverlayCoordinates();
+        }
+    }
+    
+    /**
+     * Clears the overlay coordinates
+     */
+    private void clearOverlayCoordinates() {
+        dialogOverlayX = -1;
+        dialogOverlayY = -1;
+        dialogOverlayWidth = -1;
+        dialogOverlayHeight = -1;
+        hasValidOverlayCoordinates = false;
+    }
+    
+    /**
+     * Gets the dialog overlay coordinates
+     * @return int array with [x, y, width, height] or null if not valid
+     */
+    public int[] getDialogOverlayCoordinates() {
+        if (hasValidOverlayCoordinates) {
+            return new int[]{dialogOverlayX, dialogOverlayY, dialogOverlayWidth, dialogOverlayHeight};
+        }
+        return null;
+    }
+    
+    /**
+     * Checks if valid overlay coordinates are available
+     * @return true if coordinates are valid, false otherwise
+     */
+    public boolean hasValidOverlayCoordinates() {
+        return hasValidOverlayCoordinates;
+    }
+    
+    /**
+     * Gets the recommended option text for display
+     * @return the recommended option text or null if not available
+     */
+    public String getRecommendedOptionText() {
+        return currentRecommendedOption;
+    }
+    
+    /**
+     * Checks if two strings have significant keyword overlap.
+     * This helps match dialog options that have the same meaning but different wording.
+     * @param str1 First string (lowercase)
+     * @param str2 Second string (lowercase)
+     * @return true if there's significant keyword overlap
+     */
+    private boolean hasSignificantKeywordOverlap(String str1, String str2) {
+        // Skip very short strings
+        if (str1.length() < 10 || str2.length() < 10) {
+            return false;
+        }
+        
+        // Extract meaningful keywords (skip common words)
+        String[] commonWords = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by", "you", "i", "me", "my", "your", "is", "are", "was", "were", "be", "been", "have", "has", "had", "do", "does", "did", "will", "would", "could", "should", "can", "may", "might"};
+        Set<String> commonWordsSet = new HashSet<>(Arrays.asList(commonWords));
+        
+        // Extract keywords from both strings
+        Set<String> keywords1 = extractKeywords(str1, commonWordsSet);
+        Set<String> keywords2 = extractKeywords(str2, commonWordsSet);
+        
+        if (keywords1.isEmpty() || keywords2.isEmpty()) {
+            return false;
+        }
+        
+        // Calculate overlap
+        Set<String> intersection = new HashSet<>(keywords1);
+        intersection.retainAll(keywords2);
+        
+        double overlapRatio1 = (double) intersection.size() / keywords1.size();
+        double overlapRatio2 = (double) intersection.size() / keywords2.size();
+        
+        // Require at least 40% overlap in keywords
+        boolean hasOverlap = overlapRatio1 >= 0.4 || overlapRatio2 >= 0.4;
+        
+        if (hasOverlap) {
+            ScriptConsole.println("[QuestHelper]       Keyword analysis: '" + str1 + "' vs '" + str2 + "'");
+            ScriptConsole.println("[QuestHelper]       Keywords1: " + keywords1);
+            ScriptConsole.println("[QuestHelper]       Keywords2: " + keywords2);
+            ScriptConsole.println("[QuestHelper]       Intersection: " + intersection);
+            ScriptConsole.println("[QuestHelper]       Overlap ratios: " + String.format("%.1f%%, %.1f%%", overlapRatio1 * 100, overlapRatio2 * 100));
+        }
+        
+        return hasOverlap;
+    }
+    
+    /**
+     * Extracts meaningful keywords from a string, excluding common words.
+     * @param text The text to extract keywords from
+     * @param commonWords Set of common words to exclude
+     * @return Set of keywords
+     */
+    private Set<String> extractKeywords(String text, Set<String> commonWords) {
+        Set<String> keywords = new HashSet<>();
+        
+        // Split by word boundaries and clean up
+        String[] words = text.replaceAll("[^a-zA-Z0-9\\s]", " ").split("\\s+");
+        
+        for (String word : words) {
+            word = word.toLowerCase().trim();
+            if (word.length() >= 3 && !commonWords.contains(word)) {
+                keywords.add(word);
+            }
+        }
+        
+        return keywords;
     }
 } 

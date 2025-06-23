@@ -14,8 +14,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * QuestDialogFetcher class for retrieving quest dialog options from RuneScape Wiki.
- * Parses quick guide pages to extract dialog choices and their sequences.
+ * QuestDialogFetcher class for retrieving quest steps and dialog options from RuneScape Wiki.
+ * Parses quick guide pages to extract structured quest steps with associated dialog choices.
  */
 public class QuestDialogFetcher {
     
@@ -88,34 +88,361 @@ public class QuestDialogFetcher {
     }
     
     /**
-     * Fetches quest dialog options from the RuneScape Wiki quick guide.
+     * Represents a single quest step with its text and associated dialog options.
+     */
+    public static class QuestStep {
+        private final String stepText;
+        private final List<DialogSequence> dialogs;
+        private boolean completed;
+        
+        public QuestStep(String stepText) {
+            this.stepText = cleanStepText(stepText);
+            this.dialogs = new ArrayList<>();
+            this.completed = false;
+        }
+        
+        public void addDialog(DialogSequence dialog) {
+            dialogs.add(dialog);
+        }
+        
+        public String getStepText() {
+            return stepText;
+        }
+        
+        public List<DialogSequence> getDialogs() {
+            return new ArrayList<>(dialogs);
+        }
+        
+        public boolean isCompleted() {
+            return completed;
+        }
+        
+        public void setCompleted(boolean completed) {
+            this.completed = completed;
+        }
+        
+        public boolean hasDialogs() {
+            return !dialogs.isEmpty();
+        }
+        
+        private String cleanStepText(String text) {
+            if (text == null) return "";
+            
+            // Remove HTML tags and entities
+            String cleaned = text.replaceAll("<[^>]+>", "")
+                               .replace("&quot;", "\"")
+                               .replace("&amp;", "&")
+                               .replace("&lt;", "<")
+                               .replace("&gt;", ">")
+                               .replace("&#39;", "'")
+                               .replace("&nbsp;", " ")
+                               .replace("&#x2713;", "✓")
+                               .replace("&#8226;", "•")
+                               .replace("&#8230;", "...")
+                               .replace("&#x27;", "'")
+                               .replace("&#x3A;", ":")
+                               .replace("&#91;", "[")
+                               .replace("&#93;", "]")
+                               .replace("&lsquo;", "'")
+                               .replace("&rsquo;", "'")
+                               .replace("&ldquo;", "\"")
+                               .replace("&rdquo;", "\"")
+                               .replace("&hellip;", "...")
+                               .replace("&mdash;", "—")
+                               .replace("&ndash;", "–")
+                               .replaceAll("&#x([0-9A-Fa-f]+);", "")
+                               .replaceAll("&#([0-9]+);", "")
+                               .replaceAll("\\s+", " ")
+                               .trim();
+            
+            return cleaned;
+        }
+        
+        @Override
+        public String toString() {
+            return stepText + (hasDialogs() ? " [Has Dialogs]" : "");
+        }
+    }
+    
+    /**
+     * Represents a quest section containing multiple steps.
+     */
+    public static class QuestSection {
+        private final String sectionName;
+        private final List<QuestStep> steps;
+        
+        public QuestSection(String sectionName) {
+            this.sectionName = sectionName;
+            this.steps = new ArrayList<>();
+        }
+        
+        public void addStep(QuestStep step) {
+            steps.add(step);
+        }
+        
+        public String getSectionName() {
+            return sectionName;
+        }
+        
+        public List<QuestStep> getSteps() {
+            return new ArrayList<>(steps);
+        }
+        
+        public int getTotalSteps() {
+            return steps.size();
+        }
+        
+        public int getCompletedSteps() {
+            return (int) steps.stream().filter(QuestStep::isCompleted).count();
+        }
+        
+        @Override
+        public String toString() {
+            return sectionName + " (" + getCompletedSteps() + "/" + getTotalSteps() + " completed)";
+        }
+    }
+    
+    /**
+     * Represents the complete quest guide with all sections and steps.
+     */
+    public static class QuestGuide {
+        private final String questName;
+        private final List<QuestSection> sections;
+        
+        public QuestGuide(String questName) {
+            this.questName = questName;
+            this.sections = new ArrayList<>();
+        }
+        
+        public void addSection(QuestSection section) {
+            sections.add(section);
+        }
+        
+        public String getQuestName() {
+            return questName;
+        }
+        
+        public List<QuestSection> getSections() {
+            return new ArrayList<>(sections);
+        }
+        
+        public List<QuestStep> getAllSteps() {
+            List<QuestStep> allSteps = new ArrayList<>();
+            for (QuestSection section : sections) {
+                allSteps.addAll(section.getSteps());
+            }
+            return allSteps;
+        }
+        
+        public List<DialogSequence> getDialogsForIncompleteSteps() {
+            List<DialogSequence> dialogs = new ArrayList<>();
+            for (QuestStep step : getAllSteps()) {
+                if (!step.isCompleted()) {
+                    dialogs.addAll(step.getDialogs());
+                }
+            }
+            return dialogs;
+        }
+        
+        public int getTotalSteps() {
+            return getAllSteps().size();
+        }
+        
+        public int getCompletedSteps() {
+            return (int) getAllSteps().stream().filter(QuestStep::isCompleted).count();
+        }
+        
+        @Override
+        public String toString() {
+            return questName + " (" + getCompletedSteps() + "/" + getTotalSteps() + " steps completed)";
+        }
+    }
+
+    /**
+     * Fetches quest guide with structured steps and dialogs from the RuneScape Wiki.
      * 
      * @param questName The name of the quest (will be converted to wiki URL format)
-     * @return Map of dialog sequences found in the quest guide
+     * @return QuestGuide containing structured quest data with steps and dialogs
      */
-    public static Map<String, List<DialogSequence>> fetchQuestDialogs(String questName) {
-        Map<String, List<DialogSequence>> dialogMap = new HashMap<>();
+    public static QuestGuide fetchQuestGuide(String questName) {
+        QuestGuide guide = new QuestGuide(questName);
         
         try {
             String wikiUrl = buildWikiUrl(questName);
-            ScriptConsole.println("[QuestDialogFetcher] Fetching dialogs from: " + wikiUrl);
+            ScriptConsole.println("[QuestDialogFetcher] Fetching quest guide from: " + wikiUrl);
             
             String htmlContent = fetchHtmlContent(wikiUrl);
             if (htmlContent == null) {
                 ScriptConsole.println("[QuestDialogFetcher] Failed to fetch content for: " + questName);
-                return dialogMap;
+                return guide;
             }
             
-            dialogMap = parseDialogOptions(htmlContent);
-            ScriptConsole.println("[QuestDialogFetcher] Found " + dialogMap.size() + " dialog sections for: " + questName);
+            parseQuestGuide(htmlContent, guide);
+            ScriptConsole.println("[QuestDialogFetcher] Parsed " + guide.getSections().size() + " sections with " + guide.getTotalSteps() + " total steps for: " + questName);
             
         } catch (Exception e) {
-            ScriptConsole.println("[QuestDialogFetcher] Error fetching dialogs for " + questName + ": " + e.getMessage());
+            ScriptConsole.println("[QuestDialogFetcher] Error fetching quest guide for " + questName + ": " + e.getMessage());
         }
         
-        return dialogMap;
+        return guide;
     }
     
+    /**
+     * Parses the HTML content to extract quest sections and steps.
+     */
+    private static void parseQuestGuide(String htmlContent, QuestGuide guide) {
+        // Pattern to match quest sections (h2 headers)
+        Pattern sectionPattern = Pattern.compile(
+            "<h2><span class=\"mw-headline\"[^>]*id=\"([^\"]+)\"[^>]*>([^<]+)</span>.*?</h2>",
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
+        );
+        
+        // Pattern to match checklist content after sections
+        Pattern checklistPattern = Pattern.compile(
+            "<div class=\"lighttable checklist\"[^>]*>.*?<ul>(.*?)</ul>.*?</div>",
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
+        );
+        
+        // Pattern to match individual list items (steps)
+        Pattern stepPattern = Pattern.compile(
+            "<li>(.*?)</li>",
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
+        );
+        
+        ScriptConsole.println("[QuestDialogFetcher] Starting to parse quest guide...");
+        
+        Matcher sectionMatcher = sectionPattern.matcher(htmlContent);
+        int lastSectionEnd = 0;
+        
+        while (sectionMatcher.find()) {
+            String sectionId = sectionMatcher.group(1);
+            String sectionName = cleanOptionText(sectionMatcher.group(2));
+            int sectionStart = sectionMatcher.start();
+            int sectionEnd = sectionMatcher.end();
+            
+            ScriptConsole.println("[QuestDialogFetcher] Found section: " + sectionName + " (ID: " + sectionId + ")");
+            
+            // Find the next section or end of content
+            String sectionContent;
+            Matcher nextSectionMatcher = sectionPattern.matcher(htmlContent);
+            nextSectionMatcher.region(sectionEnd, htmlContent.length());
+            
+            if (nextSectionMatcher.find()) {
+                sectionContent = htmlContent.substring(sectionEnd, nextSectionMatcher.start());
+            } else {
+                sectionContent = htmlContent.substring(sectionEnd);
+            }
+            
+            QuestSection section = new QuestSection(sectionName);
+            
+            // Find checklist in this section
+            Matcher checklistMatcher = checklistPattern.matcher(sectionContent);
+            if (checklistMatcher.find()) {
+                String checklistContent = checklistMatcher.group(1);
+                ScriptConsole.println("[QuestDialogFetcher] Found checklist for section: " + sectionName);
+                
+                // Parse individual steps
+                Matcher stepMatcher = stepPattern.matcher(checklistContent);
+                while (stepMatcher.find()) {
+                    String stepContent = stepMatcher.group(1);
+                    QuestStep step = new QuestStep(stepContent);
+                    
+                    // Parse dialogs within this step
+                    parseDialogsInStep(stepContent, step);
+                    
+                    section.addStep(step);
+                    ScriptConsole.println("[QuestDialogFetcher] Added step: " + step.getStepText().substring(0, Math.min(50, step.getStepText().length())) + "..." + (step.hasDialogs() ? " [Has Dialogs]" : ""));
+                }
+            }
+            
+            if (section.getTotalSteps() > 0) {
+                guide.addSection(section);
+            }
+            
+            lastSectionEnd = sectionEnd;
+        }
+    }
+    
+    /**
+     * Parses dialog options within a specific step.
+     */
+    private static void parseDialogsInStep(String stepContent, QuestStep step) {
+        // Pattern for chat options with tooltip
+        Pattern chatOptionsPattern = Pattern.compile(
+            "<span class=\"chat-options\">.*?data-tooltip-name=\"([^\"]+)\".*?</span>",
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
+        );
+        
+        // Pattern for tooltip content
+        Pattern tooltipPattern = Pattern.compile(
+            "<div[^>]*data-tooltip-for=\"([^\"]+)\"[^>]*>.*?<table><tbody>(.*?)</tbody></table>.*?</div>",
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
+        );
+        
+        // Pattern for table rows in tooltip
+        Pattern tableRowPattern = Pattern.compile(
+            "<tr><td><b>([^<]+)</b></td><td>([^<]+)</td></tr>",
+            Pattern.CASE_INSENSITIVE
+        );
+        
+        // Pattern for sequence display
+        Pattern sequenceDisplayPattern = Pattern.compile(
+            "<span class=\"chat-options-underline\"[^>]*>([^<]+)</span>",
+            Pattern.CASE_INSENSITIVE
+        );
+        
+        Matcher chatMatcher = chatOptionsPattern.matcher(stepContent);
+        while (chatMatcher.find()) {
+            String tooltipName = chatMatcher.group(1);
+            String chatOptionsContent = chatMatcher.group(0);
+            
+            // Extract sequence display
+            List<String> sequenceParts = new ArrayList<>();
+            Matcher seqMatcher = sequenceDisplayPattern.matcher(chatOptionsContent);
+            while (seqMatcher.find()) {
+                String part = seqMatcher.group(1).trim();
+                part = cleanOptionText(part);
+                if (!part.isEmpty()) {
+                    sequenceParts.add(part);
+                }
+            }
+            
+            String sequenceDisplay = String.join(" → ", sequenceParts);
+            
+            // Find matching tooltip in the full step content
+            Matcher tooltipMatcher = tooltipPattern.matcher(stepContent);
+            while (tooltipMatcher.find()) {
+                String divTooltipName = tooltipMatcher.group(1);
+                
+                if (divTooltipName.equals(tooltipName)) {
+                    String tableContent = tooltipMatcher.group(2);
+                    
+                    DialogSequence dialogSeq = new DialogSequence("Step dialog: " + sequenceDisplay);
+                    
+                    Matcher rowMatcher = tableRowPattern.matcher(tableContent);
+                    while (rowMatcher.find()) {
+                        String optionNum = rowMatcher.group(1).trim();
+                        String optionText = rowMatcher.group(2).trim();
+                        
+                        optionNum = cleanOptionText(optionNum);
+                        optionText = cleanOptionText(optionText);
+                        
+                        if (optionNum.equals("?") || optionNum.isEmpty()) {
+                            continue;
+                        }
+                        
+                        dialogSeq.addOption(new DialogOption(optionNum, optionText));
+                    }
+                    
+                    if (!dialogSeq.getOptions().isEmpty()) {
+                        step.addDialog(dialogSeq);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
     /**
      * Builds the wiki URL for a quest's quick guide.
      */
@@ -161,228 +488,6 @@ public class QuestDialogFetcher {
     }
     
     /**
-     * Parses HTML content to extract dialog options and sequences.
-     */
-    private static Map<String, List<DialogSequence>> parseDialogOptions(String htmlContent) {
-        Map<String, List<DialogSequence>> dialogMap = new HashMap<>();
-        
-        Pattern chatOptionsPattern = Pattern.compile(
-            "<span class=\"chat-options\">.*?data-tooltip-name=\"([^\"]+)\".*?</span>",
-            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
-        );
-        
-        Pattern tooltipDivPattern = Pattern.compile(
-            "<div[^>]*data-tooltip-for=\"([^\"]+)\"[^>]*>.*?<table><tbody>(.*?)</tbody></table>.*?</div>",
-            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
-        );
-        
-        Pattern sequenceDisplayPattern = Pattern.compile(
-            "<span class=\"chat-options-underline\"[^>]*>([^<]+)</span>",
-            Pattern.CASE_INSENSITIVE
-        );
-        
-        Pattern tableRowPattern = Pattern.compile(
-            "<tr><td><b>([^<]+)</b></td><td>([^<]+)</td></tr>",
-            Pattern.CASE_INSENSITIVE
-        );
-        
-        ScriptConsole.println("[QuestDialogFetcher] Starting to parse HTML content...");
-        
-        Matcher chatMatcher = chatOptionsPattern.matcher(htmlContent);
-        int chatCount = 0;
-        
-        while (chatMatcher.find()) {
-            chatCount++;
-            String tooltipName = chatMatcher.group(1);
-            String chatOptionsContent = chatMatcher.group(0);
-            
-            ScriptConsole.println("[QuestDialogFetcher] Found chat options " + chatCount + " with tooltip: " + tooltipName);
-            
-            List<String> sequenceParts = new ArrayList<>();
-            Matcher seqMatcher = sequenceDisplayPattern.matcher(chatOptionsContent);
-            while (seqMatcher.find()) {
-                String part = seqMatcher.group(1).trim();
-                part = cleanOptionText(part);
-                
-                if (part.isEmpty()) continue;
-                
-                if (part.contains("•")) {
-                    String[] subParts = part.split("•");
-                    for (String subPart : subParts) {
-                        String cleanSubPart = subPart.trim().replace("?", "").trim();
-                        if (!cleanSubPart.isEmpty()) {
-                            sequenceParts.add(cleanSubPart);
-                        }
-                    }
-                } else {
-                    sequenceParts.add(part);
-                }
-            }
-            
-            String sequenceDisplay = "";
-            if (!sequenceParts.isEmpty()) {
-                sequenceDisplay = String.join(" → ", sequenceParts);
-            }
-            ScriptConsole.println("[QuestDialogFetcher] Sequence display: " + sequenceDisplay);
-            
-            Matcher tooltipMatcher = tooltipDivPattern.matcher(htmlContent);
-            while (tooltipMatcher.find()) {
-                String divTooltipName = tooltipMatcher.group(1);
-                
-                if (divTooltipName.equals(tooltipName)) {
-                    String tableContent = tooltipMatcher.group(2);
-                    ScriptConsole.println("[QuestDialogFetcher] Found matching tooltip div for: " + tooltipName);
-                    
-                    DialogSequence dialogSeq = new DialogSequence("Chat sequence: " + sequenceDisplay);
-                    
-                    Matcher rowMatcher = tableRowPattern.matcher(tableContent);
-                    while (rowMatcher.find()) {
-                        String optionNum = rowMatcher.group(1).trim();
-                        String optionText = rowMatcher.group(2).trim();
-                        
-                        optionNum = cleanOptionText(optionNum);
-                        optionText = cleanOptionText(optionText);
-                        
-                        if (optionNum.equals("?") || optionNum.isEmpty()) {
-                            ScriptConsole.println("[QuestDialogFetcher] Skipping continuation dialog: " + optionNum + " = " + optionText);
-                            continue;
-                        }
-                        
-                        if (!optionNum.matches("\\d+")) {
-                            ScriptConsole.println("[QuestDialogFetcher] Skipping non-numbered option: " + optionNum + " = " + optionText);
-                            continue;
-                        }
-                        
-                        dialogSeq.addOption(new DialogOption(optionNum, optionText));
-                        ScriptConsole.println("[QuestDialogFetcher] Found dialog option: " + optionNum + " = " + optionText);
-                    }
-                    
-                    if (!dialogSeq.getOptions().isEmpty()) {
-                        dialogMap.computeIfAbsent("Chat Options", k -> new ArrayList<>()).add(dialogSeq);
-                    }
-                    break;
-                }
-            }
-        }
-        
-        ScriptConsole.println("[QuestDialogFetcher] Processed " + chatCount + " chat option sequences");
-        
-        Pattern oldTooltipPattern = Pattern.compile(
-            "<span[^>]*class=\"[^\"]*tooltip[^\"]*\"[^>]*data-tooltip=\"([^\"]+)\"[^>]*>([^<]+)</span>",
-            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
-        );
-        
-        Pattern dialogOptionPattern = Pattern.compile(
-            "([0-9]+):\\s*([^\\n\\r]+)",
-            Pattern.MULTILINE
-        );
-        
-        Pattern specialOptionPattern = Pattern.compile(
-            "(✓|\\[Accept Quest\\]|\\[Continue\\]):\\s*([^\\n\\r]+)",
-            Pattern.MULTILINE
-        );
-        
-        Matcher oldTooltipMatcher = oldTooltipPattern.matcher(htmlContent);
-        int oldTooltipCount = 0;
-        
-        while (oldTooltipMatcher.find()) {
-            oldTooltipCount++;
-            String tooltipData = oldTooltipMatcher.group(1);
-            String displayText = oldTooltipMatcher.group(2).trim();
-            
-            ScriptConsole.println("[QuestDialogFetcher] Found old-style tooltip " + oldTooltipCount + ": " + displayText);
-            
-            if (tooltipData.contains("Chat") || displayText.matches(".*[0-9]•.*") || displayText.contains("✓")) {
-                DialogSequence dialogSeq = new DialogSequence("Dialog sequence: " + displayText);
-                
-                Matcher optionMatcher = dialogOptionPattern.matcher(tooltipData);
-                while (optionMatcher.find()) {
-                    String optionNum = optionMatcher.group(1).trim();
-                    String optionText = optionMatcher.group(2).trim();
-                    
-                    optionText = cleanOptionText(optionText);
-                    if (optionNum.isEmpty()) optionNum = "1";
-                    
-                    dialogSeq.addOption(new DialogOption(optionNum, optionText));
-                    ScriptConsole.println("[QuestDialogFetcher] Found old-style option: " + optionNum + " = " + optionText);
-                }
-                
-                Matcher specialMatcher = specialOptionPattern.matcher(tooltipData);
-                while (specialMatcher.find()) {
-                    String optionNum = specialMatcher.group(1).trim();
-                    String optionText = specialMatcher.group(2).trim();
-                    
-                    optionText = cleanOptionText(optionText);
-                    if (optionNum.isEmpty()) optionNum = "✓";
-                    
-                    dialogSeq.addOption(new DialogOption(optionNum, optionText));
-                    ScriptConsole.println("[QuestDialogFetcher] Found old-style special option: " + optionNum + " = " + optionText);
-                }
-                
-                if (!dialogSeq.getOptions().isEmpty()) {
-                    dialogMap.computeIfAbsent("Dialog Tooltips", k -> new ArrayList<>()).add(dialogSeq);
-                }
-            }
-        }
-        
-        Pattern chatSequencePattern = Pattern.compile(
-            "\\(Chat\\s+([0-9•✓\\-]+)\\)",
-            Pattern.CASE_INSENSITIVE
-        );
-        
-        Matcher chatSeqMatcher = chatSequencePattern.matcher(htmlContent);
-        while (chatSeqMatcher.find()) {
-            String sequence = chatSeqMatcher.group(1).trim();
-            DialogSequence dialogSeq = new DialogSequence("Chat sequence: " + sequence);
-            
-            String[] parts = sequence.split("•");
-            for (String part : parts) {
-                part = part.trim();
-                if (!part.isEmpty() && !part.equals("✓")) {
-                    dialogSeq.addOption(new DialogOption(part, "Option " + part));
-                }
-            }
-            
-            if (!dialogSeq.getOptions().isEmpty()) {
-                dialogMap.computeIfAbsent("Chat Sequences", k -> new ArrayList<>()).add(dialogSeq);
-            }
-        }
-        
-        Pattern dialogTablePattern = Pattern.compile(
-            "\\(_Chat_\\s+([^)]+)\\).*?<table[^>]*>.*?</table>", 
-            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
-        );
-        
-        Pattern optionPattern = Pattern.compile(
-            "<td[^>]*>\\s*<strong>([^<]+)</strong>\\s*</td>\\s*<td[^>]*>([^<]+)</td>",
-            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
-        );
-        
-        Matcher tableMatcher = dialogTablePattern.matcher(htmlContent);
-        while (tableMatcher.find()) {
-            String sequence = tableMatcher.group(1).trim();
-            String tableContent = tableMatcher.group(0);
-            
-            DialogSequence dialogSeq = new DialogSequence("Dialog table: " + sequence);
-            
-            Matcher optionMatcher = optionPattern.matcher(tableContent);
-            while (optionMatcher.find()) {
-                String optionNum = optionMatcher.group(1).trim();
-                String optionText = optionMatcher.group(2).trim();
-                optionText = cleanOptionText(optionText);
-                dialogSeq.addOption(new DialogOption(optionNum, optionText));
-            }
-            
-            if (!dialogSeq.getOptions().isEmpty()) {
-                dialogMap.computeIfAbsent("Dialog Tables", k -> new ArrayList<>()).add(dialogSeq);
-            }
-        }
-        
-        ScriptConsole.println("[QuestDialogFetcher] Total dialog sections found: " + dialogMap.size());
-        return dialogMap;
-    }
-    
-    /**
      * Cleans up option text by removing HTML entities and extra whitespace.
      */
     private static String cleanOptionText(String text) {
@@ -415,23 +520,35 @@ public class QuestDialogFetcher {
     }
     
     /**
-     * Formats dialog information for display.
+     * Formats quest guide information for display.
      */
-    public static String formatDialogInfo(Map<String, List<DialogSequence>> dialogMap) {
-        if (dialogMap.isEmpty()) {
-            return "No dialog options found.";
+    public static String formatQuestGuide(QuestGuide guide) {
+        if (guide.getSections().isEmpty()) {
+            return "No quest guide found for: " + guide.getQuestName();
         }
         
         StringBuilder sb = new StringBuilder();
-        sb.append("Quest Dialog Options:\n\n");
+        sb.append("Quest Guide for ").append(guide.getQuestName()).append(":\n");
+        sb.append("Progress: ").append(guide.getCompletedSteps()).append("/").append(guide.getTotalSteps()).append(" steps completed\n\n");
         
-        for (Map.Entry<String, List<DialogSequence>> entry : dialogMap.entrySet()) {
-            sb.append("=== ").append(entry.getKey()).append(" ===\n");
+        for (QuestSection section : guide.getSections()) {
+            sb.append("=== ").append(section.getSectionName()).append(" ===\n");
+            sb.append("Section Progress: ").append(section.getCompletedSteps()).append("/").append(section.getTotalSteps()).append(" steps completed\n");
             
-            for (DialogSequence sequence : entry.getValue()) {
-                sb.append(sequence.getContext()).append("\n");
-                for (DialogOption option : sequence.getOptions()) {
-                    sb.append("  ").append(option.toString()).append("\n");
+            for (int i = 0; i < section.getSteps().size(); i++) {
+                QuestStep step = section.getSteps().get(i);
+                sb.append((i + 1)).append(". ");
+                sb.append(step.isCompleted() ? "[✓] " : "[ ] ");
+                sb.append(step.getStepText()).append("\n");
+                
+                if (step.hasDialogs()) {
+                    sb.append("   Dialog Options:\n");
+                    for (DialogSequence dialog : step.getDialogs()) {
+                        sb.append("   - ").append(dialog.getContext()).append("\n");
+                        for (DialogOption option : dialog.getOptions()) {
+                            sb.append("     ").append(option.toString()).append("\n");
+                        }
+                    }
                 }
                 sb.append("\n");
             }
@@ -441,12 +558,48 @@ public class QuestDialogFetcher {
     }
     
     /**
-     * Test method to demonstrate usage.
+     * Test method to demonstrate new functionality.
      */
-    public static void testFetch(String questName) {
-        ScriptConsole.println("[QuestDialogFetcher] Testing fetch for: " + questName);
-        Map<String, List<DialogSequence>> dialogs = fetchQuestDialogs(questName);
-        String formatted = formatDialogInfo(dialogs);
+    public static void testFetchGuide(String questName) {
+        ScriptConsole.println("[QuestDialogFetcher] Testing quest guide fetch for: " + questName);
+        QuestGuide guide = fetchQuestGuide(questName);
+        String formatted = formatQuestGuide(guide);
         ScriptConsole.println(formatted);
+    }
+
+    /**
+     * Legacy method: Fetches quest dialog options as a simple list of strings.
+     * This method extracts dialog options from the quest guide for backward compatibility.
+     * 
+     * @param questName The name of the quest
+     * @return List of dialog option strings
+     */
+    public static List<String> fetchQuestDialogs(String questName) {
+        List<String> dialogOptions = new ArrayList<>();
+        
+        try {
+            QuestGuide guide = fetchQuestGuide(questName);
+            
+            if (guide != null && !guide.getSections().isEmpty()) {
+                for (QuestSection section : guide.getSections()) {
+                    for (QuestStep step : section.getSteps()) {
+                        for (DialogSequence sequence : step.getDialogs()) {
+                            for (DialogOption option : sequence.getOptions()) {
+                                if (option.getOptionText() != null && !option.getOptionText().trim().isEmpty()) {
+                                    dialogOptions.add(option.getOptionText());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            ScriptConsole.println("[QuestDialogFetcher] Extracted " + dialogOptions.size() + " dialog options from quest guide for: " + questName);
+            
+        } catch (Exception e) {
+            ScriptConsole.println("[QuestDialogFetcher] Error fetching legacy dialog options for " + questName + ": " + e.getMessage());
+        }
+        
+        return dialogOptions;
     }
 } 
