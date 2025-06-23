@@ -295,43 +295,51 @@ public class QuestDialogFetcher {
             "<h2><span class=\"mw-headline\"[^>]*id=\"([^\"]+)\"[^>]*>([^<]+)</span>.*?</h2>",
             Pattern.DOTALL | Pattern.CASE_INSENSITIVE
         );
-        
-        Pattern checklistPattern = Pattern.compile(
-            "<div class=\"lighttable checklist\"[^>]*>.*?<ul>(.*?)</ul>.*?</div>",
-            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
-        );
-        
+
         ScriptConsole.println("[QuestDialogFetcher] Starting to parse quest guide...");
-        
+
         Matcher sectionMatcher = sectionPattern.matcher(htmlContent);
-        
+
         while (sectionMatcher.find()) {
             String sectionId = sectionMatcher.group(1);
             String sectionName = cleanOptionText(sectionMatcher.group(2));
             int sectionEnd = sectionMatcher.end();
-            
-            ScriptConsole.println("[QuestDialogFetcher] Found section: " + sectionName + " (ID: " + sectionId + ")");
-            
+
             String sectionContent;
             Matcher nextSectionMatcher = sectionPattern.matcher(htmlContent);
             nextSectionMatcher.region(sectionEnd, htmlContent.length());
-            
             if (nextSectionMatcher.find()) {
                 sectionContent = htmlContent.substring(sectionEnd, nextSectionMatcher.start());
             } else {
                 sectionContent = htmlContent.substring(sectionEnd);
             }
-            
+
+            ScriptConsole.println("[QuestDialogFetcher] Found section: " + sectionName + " (ID: " + sectionId + ")");
             QuestSection section = new QuestSection(sectionName);
-            
-            Matcher checklistMatcher = checklistPattern.matcher(sectionContent);
-            if (checklistMatcher.find()) {
-                String checklistContent = checklistMatcher.group(1);
-                ScriptConsole.println("[QuestDialogFetcher] Found checklist for section: " + sectionName);
-                
-                parseStepsFromChecklist(checklistContent, section);
+
+            /* scan sectionContent for each checklist div manually */
+            int searchIdx = 0;
+            String checklistMarker = "<div class=\"lighttable checklist";
+            while (searchIdx < sectionContent.length()) {
+                int divIdx = sectionContent.indexOf(checklistMarker, searchIdx);
+                if (divIdx == -1) break;
+
+                // Move to end of opening div tag
+                int divOpenEnd = sectionContent.indexOf('>', divIdx);
+                if (divOpenEnd == -1) break;
+
+                // From here, attempt to extract first outer <ul> inside this checklist div
+                String divFragment = sectionContent.substring(divOpenEnd + 1);
+                String checklistContent = extractOuterUlContent(divFragment);
+                if (checklistContent != null && !checklistContent.isEmpty()) {
+                    parseStepsFromChecklist(checklistContent, section);
+                }
+
+                // Move searchIdx forward to avoid infinite loop – jump past closing </div> of this checklist
+                int closingDiv = sectionContent.indexOf("</div>", divOpenEnd);
+                searchIdx = closingDiv != -1 ? closingDiv + 6 : divOpenEnd + 1;
             }
-            
+
             if (section.getTotalSteps() > 0) {
                 guide.addSection(section);
             }
@@ -339,204 +347,106 @@ public class QuestDialogFetcher {
     }
     
     /**
-     * Parses steps from checklist content, handling nested lists properly.
+     * Extracts the top-level <ul>...</ul> block from the provided HTML fragment and returns its inner HTML.
+     * Uses tag depth tracking so nested lists do not prematurely terminate extraction.
+     */
+    private static String extractOuterUlContent(String html) {
+        if (html == null) return "";
+        int ulStart = html.indexOf("<ul");
+        if (ulStart == -1) return "";
+
+        // Find end of the opening <ul ...> tag
+        int openTagEnd = html.indexOf('>', ulStart);
+        if (openTagEnd == -1) return "";
+
+        int depth = 1;
+        int index = openTagEnd + 1;
+        Pattern tagPattern = Pattern.compile("<ul[^>]*>|</ul>", Pattern.CASE_INSENSITIVE);
+        Matcher tagMatcher = tagPattern.matcher(html);
+        tagMatcher.region(index, html.length());
+
+        while (tagMatcher.find()) {
+            String tag = tagMatcher.group().toLowerCase();
+            if (tag.startsWith("<ul")) {
+                depth++;
+            } else { // </ul>
+                depth--;
+                if (depth == 0) {
+                    // Extract inner HTML between openTagEnd and the start of this closing tag
+                    return html.substring(openTagEnd + 1, tagMatcher.start());
+                }
+            }
+        }
+        return ""; // unmatched tags
+    }
+    
+    /**
+     * Parses steps from checklist content using improved regex parsing.
      */
     private static void parseStepsFromChecklist(String checklistContent, QuestSection section) {
-        ScriptConsole.println("[QuestDialogFetcher] Original checklist length: " + checklistContent.length());
+        ScriptConsole.println("[QuestDialogFetcher] Parsing checklist for section: " + section.getSectionName());
+        ScriptConsole.println("[QuestDialogFetcher] Original content length: " + checklistContent.length());
         
-        // MANUAL PARSING: Handle nested li elements properly
-        List<String> steps = extractAllLiElements(checklistContent);
+        // First, remove all nested <ul>...</ul> blocks to eliminate explanatory content
+        String cleanedContent = removeNestedUlBlocks(checklistContent);
+        ScriptConsole.println("[QuestDialogFetcher] Cleaned content length: " + cleanedContent.length());
+        
+        // Now extract all <li> elements from the cleaned content
+        Pattern liPattern = Pattern.compile("<li>(.*?)</li>", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+        Matcher matcher = liPattern.matcher(cleanedContent);
         
         int stepCount = 0;
-        for (String stepContent : steps) {
+        while (matcher.find()) {
             stepCount++;
+            String stepContent = matcher.group(1);
             
             if (!stepContent.trim().isEmpty()) {
                 QuestStep step = new QuestStep(stepContent);
-                parseDialogsInStep(stepContent, step);
+                
+                // Parse dialogs from the original HTML (before cleaning) to preserve dialog structure
+                String originalStepHtml = extractOriginalStepHtml(checklistContent, stepContent, stepCount);
+                parseDialogsInStep(originalStepHtml, step);
+                
                 section.addStep(step);
                 
-                String stepPreview = step.getStepText().length() > 50 ? 
-                    step.getStepText().substring(0, 50) + "..." : 
+                String stepPreview = step.getStepText().length() > 100 ? 
+                    step.getStepText().substring(0, 100) + "..." : 
                     step.getStepText();
                 ScriptConsole.println("[QuestDialogFetcher] Added step " + stepCount + ": " + stepPreview + 
                     (step.hasDialogs() ? " [Has Dialogs]" : ""));
             }
         }
         
-        ScriptConsole.println("[QuestDialogFetcher] Total steps found in section '" + section.getSectionName() + "': " + stepCount);
+        ScriptConsole.println("[QuestDialogFetcher] Successfully parsed " + stepCount + " steps");
     }
     
     /**
-     * Extracts all li elements using manual parsing to handle nested structures.
+     * Removes nested <ul>...</ul> blocks while preserving the main structure.
      */
-    private static List<String> extractAllLiElements(String content) {
-        List<String> elements = new ArrayList<>();
-        
-        int index = 0;
-        int depth = 0; // Track if we're inside nested structures
-        
-        while (index < content.length()) {
-            // Look for next <li> or <ul> or </ul>
-            int nextLi = content.indexOf("<li>", index);
-            int nextUl = content.indexOf("<ul>", index);
-            int nextUlEnd = content.indexOf("</ul>", index);
-            
-            // Find which comes first
-            int nextTag = Integer.MAX_VALUE;
-            String tagType = "";
-            
-            if (nextLi != -1 && nextLi < nextTag) {
-                nextTag = nextLi;
-                tagType = "li";
-            }
-            if (nextUl != -1 && nextUl < nextTag) {
-                nextTag = nextUl;
-                tagType = "ul";
-            }
-            if (nextUlEnd != -1 && nextUlEnd < nextTag) {
-                nextTag = nextUlEnd;
-                tagType = "/ul";
-            }
-            
-            if (nextTag == Integer.MAX_VALUE) break; // No more tags
-            
-            if (tagType.equals("ul")) {
-                depth++;
-                index = nextTag + 4;
-            } else if (tagType.equals("/ul")) {
-                depth--;
-                index = nextTag + 5;
-            } else if (tagType.equals("li")) {
-                if (depth == 0) {
-                    // This is a top-level <li>, extract it
-                    int liEnd = findMatchingLiEnd(content, nextTag);
-                    if (liEnd != -1) {
-                        String liContent = content.substring(nextTag + 4, liEnd);
-                        elements.add(liContent);
-                        index = liEnd + 5;
-                    } else {
-                        index = nextTag + 4;
-                    }
-                } else {
-                    // This is a nested <li>, skip it
-                    index = nextTag + 4;
-                }
-            }
+    private static String removeNestedUlBlocks(String content) {
+        if (content == null || !content.contains("<ul")) {
+            return content;
         }
-        
-        ScriptConsole.println("[DEBUG] Extracted " + elements.size() + " TOP-LEVEL li elements");
-        return elements;
+
+        String result = content;
+        // Pattern to match any <ul>...</ul> block (non-greedy to avoid spanning across multiple lists)
+        Pattern nestedUlPattern = Pattern.compile("<ul[^>]*>.*?</ul>", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+
+        // Iteratively remove nested <ul> blocks until none remain
+        while (nestedUlPattern.matcher(result).find()) {
+            result = nestedUlPattern.matcher(result).replaceAll("");
+        }
+
+        return result;
     }
     
     /**
-     * Finds the matching </li> for a <li> tag by counting depth.
+     * Extracts the original HTML for a specific step to preserve dialog parsing.
      */
-    private static int findMatchingLiEnd(String content, int liStart) {
-        int depth = 1;
-        int index = liStart + 4; // Skip opening <li>
-        
-        while (index < content.length() && depth > 0) {
-            int nextLi = content.indexOf("<li>", index);
-            int nextLiEnd = content.indexOf("</li>", index);
-            
-            if (nextLiEnd == -1) break; // No closing tag found
-            
-            if (nextLi != -1 && nextLi < nextLiEnd) {
-                // Found nested <li>
-                depth++;
-                index = nextLi + 4;
-            } else {
-                // Found </li>
-                depth--;
-                if (depth == 0) {
-                    return nextLiEnd;
-                }
-                index = nextLiEnd + 5;
-            }
-        }
-        
-        return -1; // No matching end found
-    }
-    
-    /**
-     * Parses dialog options within a specific step.
-     */
-    private static void parseDialogsInStep(String stepContent, QuestStep step) {
-        // Pattern for chat options with tooltip
-        Pattern chatOptionsPattern = Pattern.compile(
-            "<span class=\"chat-options\">.*?data-tooltip-name=\"([^\"]+)\".*?</span>",
-            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
-        );
-        
-        // Pattern for tooltip content
-        Pattern tooltipPattern = Pattern.compile(
-            "<div[^>]*data-tooltip-for=\"([^\"]+)\"[^>]*>.*?<table><tbody>(.*?)</tbody></table>.*?</div>",
-            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
-        );
-        
-        // Pattern for table rows in tooltip
-        Pattern tableRowPattern = Pattern.compile(
-            "<tr><td><b>([^<]+)</b></td><td>([^<]+)</td></tr>",
-            Pattern.CASE_INSENSITIVE
-        );
-        
-        // Pattern for sequence display
-        Pattern sequenceDisplayPattern = Pattern.compile(
-            "<span class=\"chat-options-underline\"[^>]*>([^<]+)</span>",
-            Pattern.CASE_INSENSITIVE
-        );
-        
-        Matcher chatMatcher = chatOptionsPattern.matcher(stepContent);
-        while (chatMatcher.find()) {
-            String tooltipName = chatMatcher.group(1);
-            String chatOptionsContent = chatMatcher.group(0);
-            
-            // Extract sequence display
-            List<String> sequenceParts = new ArrayList<>();
-            Matcher seqMatcher = sequenceDisplayPattern.matcher(chatOptionsContent);
-            while (seqMatcher.find()) {
-                String part = seqMatcher.group(1).trim();
-                part = cleanOptionText(part);
-                if (!part.isEmpty()) {
-                    sequenceParts.add(part);
-                }
-            }
-            
-            String sequenceDisplay = String.join(" → ", sequenceParts);
-            
-            // Find matching tooltip in the full step content
-            Matcher tooltipMatcher = tooltipPattern.matcher(stepContent);
-            while (tooltipMatcher.find()) {
-                String divTooltipName = tooltipMatcher.group(1);
-                
-                if (divTooltipName.equals(tooltipName)) {
-                    String tableContent = tooltipMatcher.group(2);
-                    
-                    DialogSequence dialogSeq = new DialogSequence("Step dialog: " + sequenceDisplay);
-                    
-                    Matcher rowMatcher = tableRowPattern.matcher(tableContent);
-                    while (rowMatcher.find()) {
-                        String optionNum = rowMatcher.group(1).trim();
-                        String optionText = rowMatcher.group(2).trim();
-                        
-                        optionNum = cleanOptionText(optionNum);
-                        optionText = cleanOptionText(optionText);
-                        
-                        if (optionNum.equals("?") || optionNum.isEmpty()) {
-                            continue;
-                        }
-                        
-                        dialogSeq.addOption(new DialogOption(optionNum, optionText));
-                    }
-                    
-                    if (!dialogSeq.getOptions().isEmpty()) {
-                        step.addDialog(dialogSeq);
-                    }
-                    break;
-                }
-            }
-        }
+    private static String extractOriginalStepHtml(String originalContent, String stepText, int stepNumber) {
+        // This is a simplified approach - return the step content for dialog parsing
+        // In practice, we could do more sophisticated matching here
+        return stepText;
     }
 
     /**
@@ -719,5 +629,85 @@ public class QuestDialogFetcher {
         }
         
         return dialogOptions;
+    }
+
+    /**
+     * Parses dialog options within a specific step.
+     */
+    private static void parseDialogsInStep(String stepContent, QuestStep step) {
+        // Pattern for chat options with tooltip
+        Pattern chatOptionsPattern = Pattern.compile(
+            "<span class=\"chat-options\">.*?data-tooltip-name=\"([^\"]+)\".*?</span>",
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
+        );
+        
+        // Pattern for tooltip content
+        Pattern tooltipPattern = Pattern.compile(
+            "<div[^>]*data-tooltip-for=\"([^\"]+)\"[^>]*>.*?<table><tbody>(.*?)</tbody></table>.*?</div>",
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
+        );
+        
+        // Pattern for table rows in tooltip
+        Pattern tableRowPattern = Pattern.compile(
+            "<tr><td><b>([^<]+)</b></td><td>([^<]+)</td></tr>",
+            Pattern.CASE_INSENSITIVE
+        );
+        
+        // Pattern for sequence display
+        Pattern sequenceDisplayPattern = Pattern.compile(
+            "<span class=\"chat-options-underline\"[^>]*>([^<]+)</span>",
+            Pattern.CASE_INSENSITIVE
+        );
+        
+        Matcher chatMatcher = chatOptionsPattern.matcher(stepContent);
+        while (chatMatcher.find()) {
+            String tooltipName = chatMatcher.group(1);
+            String chatOptionsContent = chatMatcher.group(0);
+            
+            // Extract sequence display
+            List<String> sequenceParts = new ArrayList<>();
+            Matcher seqMatcher = sequenceDisplayPattern.matcher(chatOptionsContent);
+            while (seqMatcher.find()) {
+                String part = seqMatcher.group(1).trim();
+                part = cleanOptionText(part);
+                if (!part.isEmpty()) {
+                    sequenceParts.add(part);
+                }
+            }
+            
+            String sequenceDisplay = String.join(" → ", sequenceParts);
+            
+            // Find matching tooltip in the full step content
+            Matcher tooltipMatcher = tooltipPattern.matcher(stepContent);
+            while (tooltipMatcher.find()) {
+                String divTooltipName = tooltipMatcher.group(1);
+                
+                if (divTooltipName.equals(tooltipName)) {
+                    String tableContent = tooltipMatcher.group(2);
+                    
+                    DialogSequence dialogSeq = new DialogSequence("Step dialog: " + sequenceDisplay);
+                    
+                    Matcher rowMatcher = tableRowPattern.matcher(tableContent);
+                    while (rowMatcher.find()) {
+                        String optionNum = rowMatcher.group(1).trim();
+                        String optionText = rowMatcher.group(2).trim();
+                        
+                        optionNum = cleanOptionText(optionNum);
+                        optionText = cleanOptionText(optionText);
+                        
+                        if (optionNum.equals("?") || optionNum.isEmpty()) {
+                            continue;
+                        }
+                        
+                        dialogSeq.addOption(new DialogOption(optionNum, optionText));
+                    }
+                    
+                    if (!dialogSeq.getOptions().isEmpty()) {
+                        step.addDialog(dialogSeq);
+                    }
+                    break;
+                }
+            }
+        }
     }
 } 
