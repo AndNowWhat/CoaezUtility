@@ -2131,19 +2131,87 @@ public class QuestHelper implements Task {
         }
         
         try {
-            // Try to get dialog interface coordinates
+            // Try each interface ID individually without using a loop
+            // Use actual interface coordinates and apply offsets for better positioning
             UIScaler.InterfaceRect dialogRect = uiScaler.getInterfaceRect(1188, recommendedOptionIndex);
-            if (dialogRect != null) {
+            
+            if (dialogRect != null && dialogRect.x >= 0 && dialogRect.y >= 0) {
+                // Found valid interface 1188 - apply offsets for better positioning
                 dialogOverlayX = dialogRect.x;
-                dialogOverlayY = dialogRect.y;
-                dialogOverlayWidth = dialogRect.width;
-                dialogOverlayHeight = dialogRect.height;
+                dialogOverlayY = dialogRect.y + (recommendedOptionIndex * 25); // Apply vertical offset based on option index
+                dialogOverlayWidth = dialogRect.width > 0 ? dialogRect.width : 350; // Default width if 0
+                dialogOverlayHeight = dialogRect.height > 0 ? dialogRect.height : 25; // Default height if 0
                 hasValidOverlayCoordinates = true;
-                ScriptConsole.println(String.format("[QuestHelper] Calculated overlay coordinates: x=%d, y=%d, w=%d, h=%d", 
-                    dialogOverlayX, dialogOverlayY, dialogOverlayWidth, dialogOverlayHeight));
-            } else {
-                clearOverlayCoordinates();
+                
+                ScriptConsole.println(String.format("[QuestHelper] Found valid dialog interface 1188 for option %d: x=%d, y=%d, w=%d, h=%d", 
+                    recommendedOptionIndex + 1, dialogOverlayX, dialogOverlayY, dialogOverlayWidth, dialogOverlayHeight));
+                return;
             }
+            
+            // Try next interface ID
+            dialogRect = uiScaler.getInterfaceRect(1186, recommendedOptionIndex);
+            if (dialogRect != null && dialogRect.x >= 0 && dialogRect.y >= 0) {
+                // Found valid interface 1186 - apply offsets
+                dialogOverlayX = dialogRect.x;
+                dialogOverlayY = dialogRect.y + (recommendedOptionIndex * 25);
+                dialogOverlayWidth = dialogRect.width > 0 ? dialogRect.width : 350;
+                dialogOverlayHeight = dialogRect.height > 0 ? dialogRect.height : 25;
+                hasValidOverlayCoordinates = true;
+                
+                ScriptConsole.println(String.format("[QuestHelper] Found valid dialog interface 1186 for option %d: x=%d, y=%d, w=%d, h=%d", 
+                    recommendedOptionIndex + 1, dialogOverlayX, dialogOverlayY, dialogOverlayWidth, dialogOverlayHeight));
+                return;
+            }
+            
+            // Try next interface ID
+            dialogRect = uiScaler.getInterfaceRect(1184, recommendedOptionIndex);
+            if (dialogRect != null && dialogRect.x >= 0 && dialogRect.y >= 0) {
+                // Found valid interface 1184 - apply offsets
+                dialogOverlayX = dialogRect.x;
+                dialogOverlayY = dialogRect.y + (recommendedOptionIndex * 25);
+                dialogOverlayWidth = dialogRect.width > 0 ? dialogRect.width : 350;
+                dialogOverlayHeight = dialogRect.height > 0 ? dialogRect.height : 25;
+                hasValidOverlayCoordinates = true;
+                
+                ScriptConsole.println(String.format("[QuestHelper] Found valid dialog interface 1184 for option %d: x=%d, y=%d, w=%d, h=%d", 
+                    recommendedOptionIndex + 1, dialogOverlayX, dialogOverlayY, dialogOverlayWidth, dialogOverlayHeight));
+                return;
+            }
+            
+            // Try next interface ID
+            dialogRect = uiScaler.getInterfaceRect(1189, recommendedOptionIndex);
+            if (dialogRect != null && dialogRect.x >= 0 && dialogRect.y >= 0) {
+                // Found valid interface 1189 - apply offsets
+                dialogOverlayX = dialogRect.x;
+                dialogOverlayY = dialogRect.y + (recommendedOptionIndex * 25);
+                dialogOverlayWidth = dialogRect.width > 0 ? dialogRect.width : 350;
+                dialogOverlayHeight = dialogRect.height > 0 ? dialogRect.height : 25;
+                hasValidOverlayCoordinates = true;
+                
+                ScriptConsole.println(String.format("[QuestHelper] Found valid dialog interface 1189 for option %d: x=%d, y=%d, w=%d, h=%d", 
+                    recommendedOptionIndex + 1, dialogOverlayX, dialogOverlayY, dialogOverlayWidth, dialogOverlayHeight));
+                return;
+            }
+            
+            // Try final interface ID
+            dialogRect = uiScaler.getInterfaceRect(1191, recommendedOptionIndex);
+            if (dialogRect != null && dialogRect.x >= 0 && dialogRect.y >= 0) {
+                // Found valid interface 1191 - apply offsets
+                dialogOverlayX = dialogRect.x;
+                dialogOverlayY = dialogRect.y + (recommendedOptionIndex * 25);
+                dialogOverlayWidth = dialogRect.width > 0 ? dialogRect.width : 350;
+                dialogOverlayHeight = dialogRect.height > 0 ? dialogRect.height : 25;
+                hasValidOverlayCoordinates = true;
+                
+                ScriptConsole.println(String.format("[QuestHelper] Found valid dialog interface 1191 for option %d: x=%d, y=%d, w=%d, h=%d", 
+                    recommendedOptionIndex + 1, dialogOverlayX, dialogOverlayY, dialogOverlayWidth, dialogOverlayHeight));
+                return;
+            }
+            
+            // If we reach here, no valid interface was found
+            ScriptConsole.println("[QuestHelper] Could not find any valid dialog interface");
+            clearOverlayCoordinates();
+                
         } catch (Exception e) {
             ScriptConsole.println("[QuestHelper] Failed to calculate overlay coordinates: " + e.getMessage());
             clearOverlayCoordinates();

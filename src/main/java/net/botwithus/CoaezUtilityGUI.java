@@ -1615,12 +1615,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             
             // Use default dimensions if width/height are 0
             if (width <= 0) width = 300;
-            if (height <= 0) height = 30;
+            if (height <= 0) height = 20;
             
             // Draw highlight rectangle using BGList.DrawRect
-            // Teal color with some transparency: ARGB format
-            int highlightColor = 0xCC40C8B5; // Teal with ~80% opacity
-            int borderColor = 0xFF40C8B5;    // Solid teal border
+            // Bright yellow/orange colors for high visibility: ARGB format
+            int highlightColor = 0xCCFFD700; // Bright gold/yellow with ~80% opacity
+            int borderColor = 0xFFFF8C00;    // Solid dark orange border
             
             // Draw filled background rectangle
             BGList.DrawRect(x, y, x + width, y + height, highlightColor, 4.0f, 0, 0.0f);
