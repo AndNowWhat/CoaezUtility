@@ -21,6 +21,7 @@ import net.botwithus.tasks.PortableSawmill;
 import net.botwithus.rs3.game.quest.Quest;
 import net.botwithus.tasks.QuestHelper;
 import net.botwithus.tasks.QuestDialogFetcher;
+import net.botwithus.rs3.game.Coordinate;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -278,9 +279,8 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         }
 
         ImGui.SeparatorText("Quest Helper");
-        if (ImGui.Button("Open Quest Helper")) {
+        if (ImGui.Button("Start Quest Helper")) {
             coaezUtility.setBotState(CoaezUtility.BotState.QUESTS);
-            // Initialize quest display names if needed
             if (coaezUtility.getQuestHelper() != null) {
                 coaezUtility.getQuestHelper().initializeQuestDisplay();
             }
@@ -796,6 +796,18 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     questHelper.enableDialogAssistance();
                 }
             }
+            
+            // Navigation button
+            ImGui.SameLine();
+            if (questHelper.isNavigatingToQuestStart()) {
+                if (ImGui.Button("Stop Navigation")) {
+                    questHelper.stopNavigationToQuestStart();
+                }
+            } else {
+                if (ImGui.Button("Navigate to Quest Start")) {
+                    questHelper.startNavigationToQuestStart();
+                }
+            }
         }
         
         ImGui.Separator();
@@ -818,6 +830,20 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 }
             } else {
                 ImGui.Text("Dialog Assistance: Inactive");
+            }
+            
+            // Navigation status
+            if (questHelper.isNavigatingToQuestStart()) {
+                ImGui.PushStyleColor(0, 0.0f, 0.8f, 1.0f, 1.0f); // Blue color
+                ImGui.Text("Navigation: ACTIVE");
+                ImGui.PopStyleColor();
+                
+                Coordinate startCoord = questHelper.getQuestStartCoordinate();
+                if (startCoord != null) {
+                    ImGui.Text("Target Location: (" + startCoord.getX() + ", " + startCoord.getY() + ", " + startCoord.getZ() + ")");
+                }
+            } else {
+                ImGui.Text("Navigation: Inactive");
             }
             
             ImGui.Separator();

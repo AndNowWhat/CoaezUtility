@@ -6,6 +6,13 @@ import net.botwithus.rs3.game.quest.Quest;
 import net.botwithus.rs3.game.js5.types.QuestType;
 import net.botwithus.rs3.game.js5.types.configs.ConfigManager;
 import net.botwithus.rs3.script.ScriptConsole;
+// Navigation imports
+import net.botwithus.rs3.game.Area;
+import net.botwithus.rs3.game.Client;
+import net.botwithus.rs3.game.Coordinate;
+import net.botwithus.rs3.game.movement.Movement;
+import net.botwithus.rs3.game.movement.NavPath;
+import net.botwithus.rs3.game.scene.entities.characters.player.LocalPlayer;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -35,6 +42,9 @@ public class QuestHelper implements Task {
     private final List<Quest> inProgressQuests;
     private final List<Quest> notStartedQuests;
     
+    // Quest ID mapping for efficient lookup
+    private final Map<Quest, Integer> questToIdMap;
+    
     // Dialog assistance fields
     private Map<String, List<QuestDialogFetcher.DialogSequence>> fetchedDialogs;
     private boolean dialogsFetched = false;
@@ -56,6 +66,11 @@ public class QuestHelper implements Task {
 
     private String cachedComprehensiveInfo = null;
     private Quest lastCachedQuest = null;
+    
+    // Navigation fields
+    private boolean isNavigatingToQuestStart = false;
+    private Area questStartArea = null;
+    private Coordinate questStartCoordinate = null;
 
     /**
      * Constructs a new QuestHelper.
@@ -69,46 +84,81 @@ public class QuestHelper implements Task {
         this.inProgressQuests = new ArrayList<>();
         this.notStartedQuests = new ArrayList<>();
         this.fetchedDialogs = new HashMap<>();
+        this.questToIdMap = new HashMap<>();
         loadQuests();
     }
 
     /**
      * Loads all quests from the game and categorizes them by completion status.
      * This method is called during initialization.
-     * Filters out quests that don't have meaningful data.
+     * Filters out quests that don't have meaningful data and handles duplicate quest names
+     * by preferring the quest entry with more comprehensive data.
      */
     private void loadQuests() {
         ScriptConsole.println("[QuestHelper] Loading quests...");
         int filteredCount = 0;
+        
+        // Use a map to track quests by name and prefer the one with more data
+        Map<String, QuestCandidate> questCandidates = new HashMap<>();
         
         for (int i = 0; i < 509; i++) {
             Optional<Quest> questOpt = Quest.byId(i);
             if (questOpt.isPresent()) {
                 Quest quest = questOpt.get();
                 
-                // Only add quests that have meaningful data
+                // Only process quests that have meaningful data
                 if (isValidQuest(quest, i)) {
-                    allQuests.add(quest);
+                    String questName = quest.name();
+                    QuestType questType = ConfigManager.getQuestType(i);
+                    int dataRichness = calculateQuestDataRichness(quest, questType, i);
                     
-                    // Only check completion status for valid quests with proper QuestType data
-                    try {
-                        if (quest.isComplete()) {
-                            completedQuests.add(quest);
-                        } else if (quest.isStarted()) {
-                            inProgressQuests.add(quest);
-                        } else {
-                            notStartedQuests.add(quest);
+                    QuestCandidate candidate = new QuestCandidate(quest, questType, i, dataRichness);
+                    
+                    // Check if we already have a quest with this name
+                    QuestCandidate existingCandidate = questCandidates.get(questName);
+                    if (existingCandidate == null || candidate.dataRichness > existingCandidate.dataRichness) {
+                        if (existingCandidate != null) {
+                            ScriptConsole.println("[QuestHelper] Found duplicate quest '" + questName + 
+                                                 "': Replacing ID " + existingCandidate.questId + 
+                                                 " (richness: " + existingCandidate.dataRichness + 
+                                                 ") with ID " + i + " (richness: " + dataRichness + ")");
                         }
-                    } catch (NullPointerException e) {
-                        // If we can't determine status due to missing QuestType, assume not started
-                        ScriptConsole.println("[QuestHelper] Warning: Could not determine status for quest " + quest.name() + " (ID: " + i + "), assuming not started");
-                        notStartedQuests.add(quest);
+                        questCandidates.put(questName, candidate);
+                    } else {
+                        ScriptConsole.println("[QuestHelper] Found duplicate quest '" + questName + 
+                                             "': Keeping ID " + existingCandidate.questId + 
+                                             " (richness: " + existingCandidate.dataRichness + 
+                                             ") over ID " + i + " (richness: " + dataRichness + ")");
                     }
                 } else {
                     filteredCount++;
                     ScriptConsole.println("[QuestHelper] Filtered out quest ID " + i + ": " + quest.name() + " (insufficient data)");
                 }
             }
+        }
+        
+        // Convert candidates to final quest lists
+        for (QuestCandidate candidate : questCandidates.values()) {
+            Quest quest = candidate.quest;
+            allQuests.add(quest);
+            
+            // Only check completion status for valid quests with proper QuestType data
+            try {
+                if (quest.isComplete()) {
+                    completedQuests.add(quest);
+                } else if (quest.isStarted()) {
+                    inProgressQuests.add(quest);
+                } else {
+                    notStartedQuests.add(quest);
+                }
+            } catch (NullPointerException e) {
+                // If we can't determine status due to missing QuestType, assume not started
+                ScriptConsole.println("[QuestHelper] Warning: Could not determine status for quest " + quest.name() + " (ID: " + candidate.questId + "), assuming not started");
+                notStartedQuests.add(quest);
+            }
+            
+            // Populate questToIdMap
+            questToIdMap.put(quest, candidate.questId);
         }
         
         Comparator<Quest> byName = Comparator.comparing(Quest::name);
@@ -118,6 +168,82 @@ public class QuestHelper implements Task {
         Collections.sort(notStartedQuests, byName);
         
         ScriptConsole.println("[QuestHelper] Loaded " + allQuests.size() + " quests (filtered out " + filteredCount + " quests with insufficient data)");
+    }
+
+    /**
+     * Helper class to track quest candidates with their data richness scores.
+     */
+    private static class QuestCandidate {
+        final Quest quest;
+        final QuestType questType;
+        final int questId;
+        final int dataRichness;
+        
+        QuestCandidate(Quest quest, QuestType questType, int questId, int dataRichness) {
+            this.quest = quest;
+            this.questType = questType;
+            this.questId = questId;
+            this.dataRichness = dataRichness;
+        }
+    }
+    
+    /**
+     * Calculates a richness score for quest data to help prefer more complete quest entries.
+     * Higher scores indicate more comprehensive data.
+     * 
+     * @param quest The quest object
+     * @param questType The quest type (may be null)
+     * @param questId The quest ID
+     * @return A richness score (higher = more data)
+     */
+    private int calculateQuestDataRichness(Quest quest, QuestType questType, int questId) {
+        int score = 0;
+        
+        // Basic Quest object data
+        try {
+            if (quest.getQuestPoints() > 0) score += 10;
+            if (quest.getQuestPointReq() > 0) score += 5;
+            if (!quest.getRequiredSkills().isEmpty()) score += 15;
+            if (!quest.getRequiredQuests().isEmpty()) score += 15;
+        } catch (Exception e) {
+            // Ignore errors when accessing quest data
+        }
+        
+        // QuestType data (more valuable)
+        if (questType != null) {
+            score += 20; // Base score for having QuestType
+            
+            if (questType.questPoints() > 0) score += 10;
+            if (questType.questPointReq() > 0) score += 5;
+            if (questType.skillRequirments() != null && questType.skillRequirments().length > 0) score += 20;
+            if (questType.dependentQuests() != null && questType.dependentQuests().length > 0) score += 20;
+            if (questType.startLocations() != null && questType.startLocations().length > 0) score += 25;
+            if (questType.category() > 0) score += 5;
+            if (questType.difficulty() > 0) score += 5;
+            if (questType.questItemSprite() > 0) score += 5;
+            
+            // Parameters are very valuable
+            Map<Integer, Object> params = questType.params();
+            if (params != null && !params.isEmpty()) {
+                score += 30; // Base score for having params
+                
+                // Count meaningful parameters
+                int meaningfulParams = 0;
+                for (Map.Entry<Integer, Object> entry : params.entrySet()) {
+                    Object value = entry.getValue();
+                    if (value != null && !value.toString().trim().isEmpty()) {
+                        // Skip the name parameter if it just matches quest name
+                        if (entry.getKey() == 1 && value.toString().equals(quest.name())) {
+                            continue;
+                        }
+                        meaningfulParams++;
+                    }
+                }
+                score += meaningfulParams * 3; // 3 points per meaningful parameter
+            }
+        }
+        
+        return score;
     }
 
     /**
@@ -457,8 +583,9 @@ public class QuestHelper implements Task {
     }
     
     /**
-     * Gets the ID of a quest by using the byId method and checking if it matches.
-     * This is a workaround since the Quest class doesn't directly expose the ID.
+     * Gets the ID of a quest by using the efficient questToIdMap.
+     * This method uses the same logic as loadQuests to prefer quests with richer data
+     * when multiple quest IDs have the same name.
      * @param quest The quest to get the ID for.
      * @return The quest ID, or -1 if not found.
      */
@@ -467,13 +594,31 @@ public class QuestHelper implements Task {
             return -1;
         }
         
+        // First try the efficient lookup
+        Integer questId = questToIdMap.get(quest);
+        if (questId != null) {
+            return questId;
+        }
+        
+        // Fallback to the old method if not found in map (shouldn't happen normally)
+        String questName = quest.name();
+        int bestQuestId = -1;
+        int bestDataRichness = -1;
+        
         for (int i = 0; i < 509; i++) {
             Optional<Quest> testQuest = Quest.byId(i);
-            if (testQuest.isPresent() && testQuest.get().name().equals(quest.name())) {
-                return i;
+            if (testQuest.isPresent() && testQuest.get().name().equals(questName)) {
+                QuestType questType = ConfigManager.getQuestType(i);
+                int dataRichness = calculateQuestDataRichness(testQuest.get(), questType, i);
+                
+                if (dataRichness > bestDataRichness) {
+                    bestQuestId = i;
+                    bestDataRichness = dataRichness;
+                }
             }
         }
-        return -1;
+        
+        return bestQuestId;
     }
     
     /**
@@ -509,12 +654,10 @@ public class QuestHelper implements Task {
             return "No quest selected";
         }
         
-        // Check if we can use cached data
         if (cachedComprehensiveInfo != null && selectedQuest.equals(lastCachedQuest)) {
             return cachedComprehensiveInfo;
         }
         
-        // Generate new comprehensive info (expensive operations)
         StringBuilder sb = new StringBuilder();
         sb.append("Quest Information for ").append(selectedQuest.name()).append(":\n\n");
         
@@ -728,16 +871,17 @@ public class QuestHelper implements Task {
             return;
         }
         
-        // Fetch dialogs if not already fetched
+        if (isNavigatingToQuestStart) {
+            processQuestStartNavigation();
+        }
+        
         if (!dialogsFetched) {
             fetchDialogsForSelectedQuest();
         }
         
-        // Monitor for open dialogs
         if (Dialog.isOpen()) {
             processOpenDialog();
         } else {
-            // Clear recommendations when no dialog is open
             clearCurrentRecommendation();
         }
     }
@@ -777,7 +921,6 @@ public class QuestHelper implements Task {
         }
         
         try {
-            // Get the actual dialog options currently displayed on screen
             List<String> currentDialogOptions = Dialog.getOptions();
             if (currentDialogOptions == null || currentDialogOptions.isEmpty()) {
                 clearCurrentRecommendation();
@@ -786,21 +929,16 @@ public class QuestHelper implements Task {
                 return;
             }
             
-            // Check if dialog options have changed since last check
             boolean optionsChanged = !currentDialogOptions.equals(previousDialogOptions);
             
             if (optionsChanged) {
-                // Clear previous recommendation when options change
                 clearCurrentRecommendation();
                 ScriptConsole.println("[QuestHelper] Dialog options changed, clearing previous recommendation");
                 
-                // Store the options as text for display purposes
                 currentDialogText = String.join(" | ", currentDialogOptions);
                 
-                // Find matching dialog options based on the current dialog options
                 findDialogRecommendation(currentDialogOptions);
                 
-                // Update previous options for next comparison
                 previousDialogOptions = new ArrayList<>(currentDialogOptions);
             }
             
@@ -825,10 +963,8 @@ public class QuestHelper implements Task {
             ScriptConsole.println("[QuestHelper]   Option " + (i + 1) + ": '" + currentDialogOptions.get(i) + "'");
         }
         
-        // Keep track of all potential matches to find the best one
         List<MatchCandidate> candidates = new ArrayList<>();
         
-        // Search through all fetched dialog sequences to find matching options
         for (Map.Entry<String, List<QuestDialogFetcher.DialogSequence>> entry : fetchedDialogs.entrySet()) {
             String sectionName = entry.getKey();
             List<QuestDialogFetcher.DialogSequence> sequences = entry.getValue();
@@ -850,7 +986,6 @@ public class QuestHelper implements Task {
                     
                     ScriptConsole.println("[QuestHelper]     Checking fetched option: '" + optionText + "'");
                     
-                    // Check if this fetched option matches any of the current dialog options
                     int matchingIndex = findMatchingOptionIndex(currentDialogOptions, optionText);
                     if (matchingIndex != -1) {
                         ScriptConsole.println("[QuestHelper]     ✓ MATCH FOUND at current dialog index " + matchingIndex);
@@ -863,20 +998,16 @@ public class QuestHelper implements Task {
         }
         
         if (!candidates.isEmpty()) {
-            // For now, use the first candidate found
-            // In the future, we could implement more sophisticated logic to choose the best match
             MatchCandidate bestMatch = candidates.get(0);
             setCurrentRecommendation(bestMatch.optionText, bestMatch.dialogIndex);
             ScriptConsole.println("[QuestHelper] Selected match: '" + bestMatch.optionText + "' at dialog index " + bestMatch.dialogIndex + 
                                  " (from section: " + bestMatch.sectionName + ", sequence: " + bestMatch.sequenceIndex + ")");
         } else {
-            // No matching options found
             clearCurrentRecommendation();
             ScriptConsole.println("[QuestHelper] No matching dialog options found in current dialog");
         }
     }
     
-    // Helper class to store match candidates
     private static class MatchCandidate {
         final String optionText;
         final int dialogIndex;
@@ -913,20 +1044,17 @@ public class QuestHelper implements Task {
             
             String currentLower = currentOption.toLowerCase().trim();
             
-            // Strategy 1: Exact match (case-insensitive)
             if (currentLower.equals(fetchedLower)) {
                 ScriptConsole.println("[QuestHelper]       ✓ EXACT MATCH: '" + currentOption + "' == '" + fetchedOptionText + "'");
                 return i;
             }
             
-            // Strategy 2: Very high similarity (90%+ character overlap)
             double similarity = calculateStringSimilarity(currentLower, fetchedLower);
             if (similarity >= 0.9) {
                 ScriptConsole.println("[QuestHelper]       ✓ HIGH SIMILARITY MATCH (" + String.format("%.1f", similarity * 100) + "%): '" + currentOption + "' ~= '" + fetchedOptionText + "'");
                 return i;
             }
             
-            // Strategy 3: One contains the other, but only if the contained text is substantial (>70% of the shorter text)
             if (currentLower.contains(fetchedLower)) {
                 double containmentRatio = (double) fetchedLower.length() / currentLower.length();
                 if (containmentRatio >= 0.7) {
@@ -943,11 +1071,10 @@ public class QuestHelper implements Task {
                 }
             }
             
-            // Log why this option didn't match
             ScriptConsole.println("[QuestHelper]       ✗ NO MATCH: '" + currentOption + "' vs '" + fetchedOptionText + "' (similarity: " + String.format("%.1f", similarity * 100) + "%)");
         }
         
-        return -1; // No match found
+        return -1;
     }
     
     /**
@@ -1030,7 +1157,7 @@ public class QuestHelper implements Task {
         }
         
         isDialogAssistanceActive = true;
-        dialogsFetched = false; // Force re-fetch of dialogs
+        dialogsFetched = false;
         ScriptConsole.println("[QuestHelper] Dialog assistance enabled for: " + selectedQuest.name());
     }
     
@@ -1083,15 +1210,12 @@ public class QuestHelper implements Task {
         return fetchedDialogs != null ? new HashMap<>(fetchedDialogs) : new HashMap<>();
     }
     
-    // === GUI STATE MANAGEMENT METHODS ===
-    
     /**
      * Updates the quest display list based on current filter settings.
      */
     public void updateQuestDisplayList() {
         questDisplayNames.clear();
         
-        // Use a Set to ensure uniqueness
         Set<String> uniqueQuestNames = new HashSet<>();
         
         if (showCompletedQuests) {
@@ -1115,7 +1239,6 @@ public class QuestHelper implements Task {
                 .collect(Collectors.toSet()));
         }
         
-        // Convert Set back to List and sort by quest ID (lowest to highest)
         questDisplayNames.addAll(uniqueQuestNames);
         Collections.sort(questDisplayNames, (a, b) -> {
             int idA = extractQuestId(a);
@@ -1130,7 +1253,6 @@ public class QuestHelper implements Task {
      * @return true if the quest matches the filters
      */
     private boolean matchesQuestFilters(Quest quest) {
-        // Check membership status filter
         boolean matchesMembershipFilter = false;
         if (quest.isMembers() && showMembersQuests) {
             matchesMembershipFilter = true;
@@ -1142,7 +1264,6 @@ public class QuestHelper implements Task {
             return false;
         }
         
-        // Check search text filter
         if (questSearchText != null && !questSearchText.trim().isEmpty()) {
             String searchLower = questSearchText.toLowerCase().trim();
             String questNameLower = quest.name().toLowerCase();
@@ -1191,8 +1312,6 @@ public class QuestHelper implements Task {
             }
         }
     }
-    
-    // === GUI FILTER GETTERS AND SETTERS ===
     
     public boolean isShowCompletedQuests() {
         return showCompletedQuests;
@@ -1278,5 +1397,184 @@ public class QuestHelper implements Task {
      */
     public String getCurrentDialogText() {
         return currentDialogText;
+    }
+    
+    /**
+     * Starts navigation to the quest start location for the currently selected quest.
+     * Converts the packed location coordinates and creates a circular area for navigation.
+     */
+    public void startNavigationToQuestStart() {
+        if (selectedQuest == null) {
+            ScriptConsole.println("[QuestHelper] No quest selected for navigation.");
+            return;
+        }
+        
+        if (selectedQuestType == null) {
+            ScriptConsole.println("[QuestHelper] No QuestType data available for navigation.");
+            return;
+        }
+        
+        int[] startLocations = selectedQuestType.startLocations();
+        if (startLocations == null || startLocations.length == 0) {
+            ScriptConsole.println("[QuestHelper] No start locations found for quest: " + selectedQuest.name());
+            return;
+        }
+        
+        int packedLocation = startLocations[0];
+        questStartCoordinate = convertPackedLocationToCoordinate(packedLocation);
+        
+        if (questStartCoordinate == null) {
+            ScriptConsole.println("[QuestHelper] Failed to convert start location for quest: " + selectedQuest.name());
+            return;
+        }
+        
+        questStartArea = new Area.Circular(questStartCoordinate, 5);
+        isNavigatingToQuestStart = true;
+        
+        ScriptConsole.println("[QuestHelper] Starting navigation to quest start location: " + questStartCoordinate + 
+                             " for quest: " + selectedQuest.name());
+    }
+    
+    /**
+     * Stops navigation to quest start location.
+     */
+    public void stopNavigationToQuestStart() {
+        isNavigatingToQuestStart = false;
+        questStartArea = null;
+        questStartCoordinate = null;
+        ScriptConsole.println("[QuestHelper] Navigation to quest start stopped.");
+    }
+    
+    /**
+     * Checks if currently navigating to quest start location.
+     * @return true if navigating, false otherwise
+     */
+    public boolean isNavigatingToQuestStart() {
+        return isNavigatingToQuestStart;
+    }
+    
+    /**
+     * Gets the quest start coordinate.
+     * @return The quest start coordinate, or null if not set
+     */
+    public Coordinate getQuestStartCoordinate() {
+        return questStartCoordinate;
+    }
+    
+    /**
+     * Processes navigation to quest start location.
+     * Should be called from the main execute loop when navigation is active.
+     */
+    private void processQuestStartNavigation() {
+        if (!isNavigatingToQuestStart || questStartArea == null) {
+            return;
+        }
+        
+        LocalPlayer player = Client.getLocalPlayer();
+        if (player == null) {
+            return;
+        }
+        
+        if (questStartArea.contains(player.getCoordinate())) {
+            ScriptConsole.println("[QuestHelper] Arrived at quest start location for: " + selectedQuest.name());
+            stopNavigationToQuestStart();
+            return;
+        }
+        
+        try {
+            Coordinate targetCoordinate = questStartArea.getRandomWalkableCoordinate();
+            ScriptConsole.println("[QuestHelper] Target coordinate: " + targetCoordinate);
+            if (targetCoordinate != null) {
+                NavPath path = NavPath.resolve(targetCoordinate);
+                if (path != null) {
+                    Movement.traverse(path);
+                    ScriptConsole.println("[QuestHelper] Navigating to quest start location...");
+                } else {
+                    ScriptConsole.println("[QuestHelper] Failed to resolve path to quest start location.");
+                    stopNavigationToQuestStart();
+                }
+            } else {
+                ScriptConsole.println("[QuestHelper] Failed to get walkable coordinate in quest start area.");
+                stopNavigationToQuestStart();
+            }
+        } catch (Exception e) {
+            ScriptConsole.println("[QuestHelper] Error during navigation: " + e.getMessage());
+            stopNavigationToQuestStart();
+        }
+    }
+    
+    /**
+     * Converts a packed location value to a Coordinate object.
+     * @param packedLocation The packed location value
+     * @return A Coordinate object, or null if conversion fails
+     */
+    private Coordinate convertPackedLocationToCoordinate(int packedLocation) {
+        try {
+            int x = (packedLocation >> 14) & 0x3fff;
+            int y = packedLocation & 0x3fff;
+            int z = packedLocation >> 28;
+            return new Coordinate(x, y, z);
+        } catch (Exception e) {
+            ScriptConsole.println("[QuestHelper] Error converting packed location " + packedLocation + ": " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Debug method to verify quest loading logic for duplicate names.
+     * This method can be called to check if quests with duplicate names are being handled correctly.
+     */
+    public void debugQuestDuplicates() {
+        ScriptConsole.println("[QuestHelper] === QUEST DUPLICATE DEBUG ===");
+        
+        Map<String, List<Integer>> questNameToIds = new HashMap<>();
+        
+        // Collect all quest IDs by name
+        for (int i = 0; i < 509; i++) {
+            Optional<Quest> questOpt = Quest.byId(i);
+            if (questOpt.isPresent()) {
+                Quest quest = questOpt.get();
+                if (quest.name() != null && !quest.name().trim().isEmpty()) {
+                    questNameToIds.computeIfAbsent(quest.name(), k -> new ArrayList<>()).add(i);
+                }
+            }
+        }
+        
+        // Find and report duplicates
+        for (Map.Entry<String, List<Integer>> entry : questNameToIds.entrySet()) {
+            if (entry.getValue().size() > 1) {
+                String questName = entry.getKey();
+                List<Integer> questIds = entry.getValue();
+                
+                ScriptConsole.println("[QuestHelper] Duplicate quest found: " + questName);
+                
+                for (Integer questId : questIds) {
+                    Optional<Quest> questOpt = Quest.byId(questId);
+                    if (questOpt.isPresent()) {
+                        Quest quest = questOpt.get();
+                        QuestType questType = ConfigManager.getQuestType(questId);
+                        int richness = calculateQuestDataRichness(quest, questType, questId);
+                        
+                        boolean isInOurList = allQuests.stream().anyMatch(q -> q.name().equals(questName) && getQuestId(q) == questId);
+                        
+                        ScriptConsole.println("[QuestHelper]   ID " + questId + ": richness=" + richness + 
+                                             ", inOurList=" + isInOurList + 
+                                             ", hasQuestType=" + (questType != null) +
+                                             ", questPoints=" + (questType != null ? questType.questPoints() : "N/A"));
+                    }
+                }
+                
+                // Show which one we selected
+                Quest selectedForName = getQuestByName(questName);
+                if (selectedForName != null) {
+                    int selectedId = getQuestId(selectedForName);
+                    ScriptConsole.println("[QuestHelper]   -> Selected ID: " + selectedId + " for " + questName);
+                }
+                
+                ScriptConsole.println("[QuestHelper]   ---");
+            }
+        }
+        
+        ScriptConsole.println("[QuestHelper] === END QUEST DUPLICATE DEBUG ===");
     }
 } 

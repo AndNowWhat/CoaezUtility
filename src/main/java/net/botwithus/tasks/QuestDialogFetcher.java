@@ -166,25 +166,21 @@ public class QuestDialogFetcher {
     private static Map<String, List<DialogSequence>> parseDialogOptions(String htmlContent) {
         Map<String, List<DialogSequence>> dialogMap = new HashMap<>();
         
-        // Pattern to match the chat options span with tooltip reference
         Pattern chatOptionsPattern = Pattern.compile(
             "<span class=\"chat-options\">.*?data-tooltip-name=\"([^\"]+)\".*?</span>",
             Pattern.DOTALL | Pattern.CASE_INSENSITIVE
         );
         
-        // Pattern to match the corresponding tooltip div with dialog table
         Pattern tooltipDivPattern = Pattern.compile(
             "<div[^>]*data-tooltip-for=\"([^\"]+)\"[^>]*>.*?<table><tbody>(.*?)</tbody></table>.*?</div>",
             Pattern.DOTALL | Pattern.CASE_INSENSITIVE
         );
         
-        // Pattern to match chat sequence display (like "1•✓•1")
         Pattern sequenceDisplayPattern = Pattern.compile(
             "<span class=\"chat-options-underline\"[^>]*>([^<]+)</span>",
             Pattern.CASE_INSENSITIVE
         );
         
-        // Pattern to match table rows with dialog options
         Pattern tableRowPattern = Pattern.compile(
             "<tr><td><b>([^<]+)</b></td><td>([^<]+)</td></tr>",
             Pattern.CASE_INSENSITIVE
@@ -192,7 +188,6 @@ public class QuestDialogFetcher {
         
         ScriptConsole.println("[QuestDialogFetcher] Starting to parse HTML content...");
         
-        // Find all chat options spans and their corresponding tooltips
         Matcher chatMatcher = chatOptionsPattern.matcher(htmlContent);
         int chatCount = 0;
         
@@ -203,18 +198,14 @@ public class QuestDialogFetcher {
             
             ScriptConsole.println("[QuestDialogFetcher] Found chat options " + chatCount + " with tooltip: " + tooltipName);
             
-            // Extract the sequence display from the chat options span
             List<String> sequenceParts = new ArrayList<>();
             Matcher seqMatcher = sequenceDisplayPattern.matcher(chatOptionsContent);
             while (seqMatcher.find()) {
                 String part = seqMatcher.group(1).trim();
-                // Clean up HTML entities and split by bullet points if they exist
                 part = cleanOptionText(part);
                 
-                // Skip empty parts after cleaning
                 if (part.isEmpty()) continue;
                 
-                // If the part contains bullet points, split it further
                 if (part.contains("•")) {
                     String[] subParts = part.split("•");
                     for (String subPart : subParts) {
@@ -228,14 +219,12 @@ public class QuestDialogFetcher {
                 }
             }
             
-            // Create a clean sequence display with proper separators
             String sequenceDisplay = "";
             if (!sequenceParts.isEmpty()) {
                 sequenceDisplay = String.join(" → ", sequenceParts);
             }
             ScriptConsole.println("[QuestDialogFetcher] Sequence display: " + sequenceDisplay);
             
-            // Find the corresponding tooltip div
             Matcher tooltipMatcher = tooltipDivPattern.matcher(htmlContent);
             while (tooltipMatcher.find()) {
                 String divTooltipName = tooltipMatcher.group(1);
@@ -246,13 +235,11 @@ public class QuestDialogFetcher {
                     
                     DialogSequence dialogSeq = new DialogSequence("Chat sequence: " + sequenceDisplay);
                     
-                    // Parse table rows to extract dialog options
                     Matcher rowMatcher = tableRowPattern.matcher(tableContent);
                     while (rowMatcher.find()) {
                         String optionNum = rowMatcher.group(1).trim();
                         String optionText = rowMatcher.group(2).trim();
                         
-                        // Clean up HTML entities
                         optionNum = cleanOptionText(optionNum);
                         optionText = cleanOptionText(optionText);
                         
@@ -261,7 +248,6 @@ public class QuestDialogFetcher {
                             continue;
                         }
                         
-                        // Only keep entries with actual numbered options
                         if (!optionNum.matches("\\d+")) {
                             ScriptConsole.println("[QuestDialogFetcher] Skipping non-numbered option: " + optionNum + " = " + optionText);
                             continue;
@@ -281,7 +267,6 @@ public class QuestDialogFetcher {
         
         ScriptConsole.println("[QuestDialogFetcher] Processed " + chatCount + " chat option sequences");
         
-        // Fallback: Original tooltip pattern for other formats
         Pattern oldTooltipPattern = Pattern.compile(
             "<span[^>]*class=\"[^\"]*tooltip[^\"]*\"[^>]*data-tooltip=\"([^\"]+)\"[^>]*>([^<]+)</span>",
             Pattern.DOTALL | Pattern.CASE_INSENSITIVE
@@ -307,31 +292,28 @@ public class QuestDialogFetcher {
             
             ScriptConsole.println("[QuestDialogFetcher] Found old-style tooltip " + oldTooltipCount + ": " + displayText);
             
-            // Check if this tooltip contains dialog information
             if (tooltipData.contains("Chat") || displayText.matches(".*[0-9]•.*") || displayText.contains("✓")) {
                 DialogSequence dialogSeq = new DialogSequence("Dialog sequence: " + displayText);
                 
-                // Parse dialog options from tooltip data
                 Matcher optionMatcher = dialogOptionPattern.matcher(tooltipData);
                 while (optionMatcher.find()) {
                     String optionNum = optionMatcher.group(1).trim();
                     String optionText = optionMatcher.group(2).trim();
                     
                     optionText = cleanOptionText(optionText);
-                    if (optionNum.isEmpty()) optionNum = "1"; // Default if empty
+                    if (optionNum.isEmpty()) optionNum = "1";
                     
                     dialogSeq.addOption(new DialogOption(optionNum, optionText));
                     ScriptConsole.println("[QuestDialogFetcher] Found old-style option: " + optionNum + " = " + optionText);
                 }
                 
-                // Also look for special options
                 Matcher specialMatcher = specialOptionPattern.matcher(tooltipData);
                 while (specialMatcher.find()) {
                     String optionNum = specialMatcher.group(1).trim();
                     String optionText = specialMatcher.group(2).trim();
                     
                     optionText = cleanOptionText(optionText);
-                    if (optionNum.isEmpty()) optionNum = "✓"; // Keep checkmark or default
+                    if (optionNum.isEmpty()) optionNum = "✓";
                     
                     dialogSeq.addOption(new DialogOption(optionNum, optionText));
                     ScriptConsole.println("[QuestDialogFetcher] Found old-style special option: " + optionNum + " = " + optionText);
@@ -343,7 +325,6 @@ public class QuestDialogFetcher {
             }
         }
         
-        // Fallback: Look for chat sequences in the main text
         Pattern chatSequencePattern = Pattern.compile(
             "\\(Chat\\s+([0-9•✓\\-]+)\\)",
             Pattern.CASE_INSENSITIVE
@@ -354,7 +335,6 @@ public class QuestDialogFetcher {
             String sequence = chatSeqMatcher.group(1).trim();
             DialogSequence dialogSeq = new DialogSequence("Chat sequence: " + sequence);
             
-            // Parse the sequence (e.g., "1•3•3•1•2•2•3")
             String[] parts = sequence.split("•");
             for (String part : parts) {
                 part = part.trim();
@@ -368,7 +348,6 @@ public class QuestDialogFetcher {
             }
         }
         
-        // Legacy table parsing (keep as additional fallback)
         Pattern dialogTablePattern = Pattern.compile(
             "\\(_Chat_\\s+([^)]+)\\).*?<table[^>]*>.*?</table>", 
             Pattern.DOTALL | Pattern.CASE_INSENSITIVE
@@ -415,23 +394,23 @@ public class QuestDialogFetcher {
                   .replace("&gt;", ">")
                   .replace("&#39;", "'")
                   .replace("&nbsp;", " ")
-                  .replace("&#x2713;", "✓")      // Checkmark
-                  .replace("&#8226;", "•")       // Bullet point
-                  .replace("&#8230;", "...")     // Ellipsis
-                  .replace("&#x27;", "'")        // Apostrophe
-                  .replace("&#x3A;", ":")        // Colon
-                  .replace("&#91;", "[")         // Left bracket
-                  .replace("&#93;", "]")         // Right bracket
-                  .replace("&lsquo;", "'")       // Left single quote
-                  .replace("&rsquo;", "'")       // Right single quote
-                  .replace("&ldquo;", "\"")      // Left double quote
-                  .replace("&rdquo;", "\"")      // Right double quote
-                  .replace("&hellip;", "...")    // Horizontal ellipsis
-                  .replace("&mdash;", "—")       // Em dash
-                  .replace("&ndash;", "–")       // En dash
-                  .replaceAll("&#x([0-9A-Fa-f]+);", "")  // Remove any remaining hex entities
-                  .replaceAll("&#([0-9]+);", "")         // Remove any remaining decimal entities
-                  .replaceAll("\\s+", " ")               // Normalize whitespace
+                  .replace("&#x2713;", "✓")
+                  .replace("&#8226;", "•")
+                  .replace("&#8230;", "...")
+                  .replace("&#x27;", "'")
+                  .replace("&#x3A;", ":")
+                  .replace("&#91;", "[")
+                  .replace("&#93;", "]")
+                  .replace("&lsquo;", "'")
+                  .replace("&rsquo;", "'")
+                  .replace("&ldquo;", "\"")
+                  .replace("&rdquo;", "\"")
+                  .replace("&hellip;", "...")
+                  .replace("&mdash;", "—")
+                  .replace("&ndash;", "–")
+                  .replaceAll("&#x([0-9A-Fa-f]+);", "")
+                  .replaceAll("&#([0-9]+);", "")
+                  .replaceAll("\\s+", " ")
                   .trim();
     }
     
