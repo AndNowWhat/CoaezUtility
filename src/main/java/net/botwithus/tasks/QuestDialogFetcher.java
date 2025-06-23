@@ -355,7 +355,6 @@ public class QuestDialogFetcher {
         int ulStart = html.indexOf("<ul");
         if (ulStart == -1) return "";
 
-        // Find end of the opening <ul ...> tag
         int openTagEnd = html.indexOf('>', ulStart);
         if (openTagEnd == -1) return "";
 
@@ -369,15 +368,14 @@ public class QuestDialogFetcher {
             String tag = tagMatcher.group().toLowerCase();
             if (tag.startsWith("<ul")) {
                 depth++;
-            } else { // </ul>
+            } else { 
                 depth--;
                 if (depth == 0) {
-                    // Extract inner HTML between openTagEnd and the start of this closing tag
                     return html.substring(openTagEnd + 1, tagMatcher.start());
                 }
             }
         }
-        return ""; // unmatched tags
+        return "";
     }
     
     /**
@@ -387,11 +385,9 @@ public class QuestDialogFetcher {
         ScriptConsole.println("[QuestDialogFetcher] Parsing checklist for section: " + section.getSectionName());
         ScriptConsole.println("[QuestDialogFetcher] Original content length: " + checklistContent.length());
         
-        // First, remove all nested <ul>...</ul> blocks to eliminate explanatory content
         String cleanedContent = removeNestedUlBlocks(checklistContent);
         ScriptConsole.println("[QuestDialogFetcher] Cleaned content length: " + cleanedContent.length());
         
-        // Now extract all <li> elements from the cleaned content
         Pattern liPattern = Pattern.compile("<li>(.*?)</li>", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
         Matcher matcher = liPattern.matcher(cleanedContent);
         
@@ -403,7 +399,6 @@ public class QuestDialogFetcher {
             if (!stepContent.trim().isEmpty()) {
                 QuestStep step = new QuestStep(stepContent);
                 
-                // Parse dialogs from the original HTML (before cleaning) to preserve dialog structure
                 String originalStepHtml = extractOriginalStepHtml(checklistContent, stepContent, stepCount);
                 parseDialogsInStep(originalStepHtml, step);
                 
@@ -429,10 +424,8 @@ public class QuestDialogFetcher {
         }
 
         String result = content;
-        // Pattern to match any <ul>...</ul> block (non-greedy to avoid spanning across multiple lists)
         Pattern nestedUlPattern = Pattern.compile("<ul[^>]*>.*?</ul>", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
 
-        // Iteratively remove nested <ul> blocks until none remain
         while (nestedUlPattern.matcher(result).find()) {
             result = nestedUlPattern.matcher(result).replaceAll("");
         }
@@ -444,8 +437,6 @@ public class QuestDialogFetcher {
      * Extracts the original HTML for a specific step to preserve dialog parsing.
      */
     private static String extractOriginalStepHtml(String originalContent, String stepText, int stepNumber) {
-        // This is a simplified approach - return the step content for dialog parsing
-        // In practice, we could do more sophisticated matching here
         return stepText;
     }
 
@@ -635,25 +626,21 @@ public class QuestDialogFetcher {
      * Parses dialog options within a specific step.
      */
     private static void parseDialogsInStep(String stepContent, QuestStep step) {
-        // Pattern for chat options with tooltip
         Pattern chatOptionsPattern = Pattern.compile(
             "<span class=\"chat-options\">.*?data-tooltip-name=\"([^\"]+)\".*?</span>",
             Pattern.DOTALL | Pattern.CASE_INSENSITIVE
         );
         
-        // Pattern for tooltip content
         Pattern tooltipPattern = Pattern.compile(
             "<div[^>]*data-tooltip-for=\"([^\"]+)\"[^>]*>.*?<table><tbody>(.*?)</tbody></table>.*?</div>",
             Pattern.DOTALL | Pattern.CASE_INSENSITIVE
         );
         
-        // Pattern for table rows in tooltip
         Pattern tableRowPattern = Pattern.compile(
             "<tr><td><b>([^<]+)</b></td><td>([^<]+)</td></tr>",
             Pattern.CASE_INSENSITIVE
         );
         
-        // Pattern for sequence display
         Pattern sequenceDisplayPattern = Pattern.compile(
             "<span class=\"chat-options-underline\"[^>]*>([^<]+)</span>",
             Pattern.CASE_INSENSITIVE
@@ -677,7 +664,6 @@ public class QuestDialogFetcher {
             
             String sequenceDisplay = String.join(" → ", sequenceParts);
             
-            // Find matching tooltip in the full step content
             Matcher tooltipMatcher = tooltipPattern.matcher(stepContent);
             while (tooltipMatcher.find()) {
                 String divTooltipName = tooltipMatcher.group(1);
