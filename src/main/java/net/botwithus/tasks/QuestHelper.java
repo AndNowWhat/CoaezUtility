@@ -28,6 +28,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.Random;
 
 /**
  * QuestHelper class for managing and tracking quests.
@@ -100,6 +101,14 @@ public class QuestHelper implements Task {
     private boolean showRandomMessage = true;
     private boolean debugMode = false;
     private Set<String> completedSteps = new HashSet<>();
+
+    // Auto-interaction for dialogs
+    private boolean autoInteractWithDialogs = false;
+    private long lastDialogInteractionTime = 0;
+    private long nextInteractionDelay = 0;
+    private static final long MIN_DIALOG_DELAY = 600; // 600ms minimum
+    private static final long MAX_DIALOG_DELAY = 1800; // 1800ms maximum
+    private final Random random = new Random();
 
     /**
      * Constructs a new QuestHelper.
@@ -1092,21 +1101,45 @@ public class QuestHelper implements Task {
     
 
     /**
-     * Processes open dialogs with step tracking support.
+     * Processes open dialogs and updates recommendations.
      */
     private void processOpenDialogs() {
-        if (Dialog.isOpen()) {
-            if (showStepTracker && currentQuestGuide != null) {
-                processOpenDialogWithStepTracking();
-            } else {
-                // Fallback to legacy dialog processing
-                if (!dialogsFetched) {
-                    fetchDialogsForSelectedQuest();
-                }
-                processLegacyDialog();
-            }
-        } else {
+        if (!Dialog.isOpen()) {
             clearCurrentRecommendation();
+            clearOverlayCoordinates();
+            return;
+        }
+        
+        List<String> currentOptions = Dialog.getOptions();
+        if (currentOptions == null || currentOptions.isEmpty()) {
+            if (autoInteractWithDialogs && canInteractWithDialog()) {
+                ScriptConsole.println("[QuestHelper] Auto-continuing dialog (no options available)");
+                if (Dialog.select()) {
+                    lastDialogInteractionTime = System.currentTimeMillis();
+                    generateNextInteractionDelay();
+                    ScriptConsole.println("[QuestHelper] Successfully continued dialog");
+                } else {
+                    ScriptConsole.println("[QuestHelper] Failed to continue dialog");
+                }
+                clearCurrentRecommendation();
+                clearOverlayCoordinates();
+                return;
+            }
+            currentRecommendation = "Continue";
+            clearOverlayCoordinates();
+            return;
+        }
+        
+        if (currentQuestGuide != null && !currentQuestGuide.getSections().isEmpty()) {
+            processOpenDialogWithStepTracking();
+        } else if (dialogsFetched) {
+            processLegacyDialog();
+        }
+        
+        if (Dialog.isOpen() && recommendedOptionIndex != -1) {
+            calculateDialogOverlayCoordinates();
+        } else {
+            clearOverlayCoordinates();
         }
     }
 
@@ -1157,6 +1190,23 @@ public class QuestHelper implements Task {
                     currentRecommendedOptionIndex = matchIndex;
                     
                     ScriptConsole.println("[QuestHelper] ✓ Found match - option " + (matchIndex + 1) + ": " + currentOptions.get(matchIndex));
+                    
+                    // Auto-interact with dialog if enabled
+                    if (autoInteractWithDialogs && canInteractWithDialog()) {
+                        ScriptConsole.println("[QuestHelper] Auto-interacting with dialog option " + (matchIndex + 1));
+                        if (Dialog.interact(matchIndex)) {
+                            lastDialogInteractionTime = System.currentTimeMillis();
+                            generateNextInteractionDelay();
+                            ScriptConsole.println("[QuestHelper] Successfully interacted with dialog option " + (matchIndex + 1));
+                        } else {
+                            ScriptConsole.println("[QuestHelper] Failed to interact with dialog option " + (matchIndex + 1));
+                        }
+                        clearCurrentRecommendation();
+                        clearOverlayCoordinates();
+                        ScriptConsole.println("[QuestHelper] === END DIALOG MATCHING DEBUG ===");
+                        return;
+                    }
+                    
                     ScriptConsole.println("[QuestHelper] === END DIALOG MATCHING DEBUG ===");
                     return;
                 }
@@ -1197,6 +1247,22 @@ public class QuestHelper implements Task {
                 currentRecommendedOptionIndex = matchIndex;
                 
                 ScriptConsole.println("[QuestHelper] Recommending option " + (matchIndex + 1) + ": " + currentOptions.get(matchIndex));
+                
+                // Auto-interact with dialog if enabled
+                if (autoInteractWithDialogs && canInteractWithDialog()) {
+                    ScriptConsole.println("[QuestHelper] Auto-interacting with legacy dialog option " + (matchIndex + 1));
+                    if (Dialog.interact(matchIndex)) {
+                        lastDialogInteractionTime = System.currentTimeMillis();
+                        generateNextInteractionDelay();
+                        ScriptConsole.println("[QuestHelper] Successfully interacted with legacy dialog option " + (matchIndex + 1));
+                    } else {
+                        ScriptConsole.println("[QuestHelper] Failed to interact with legacy dialog option " + (matchIndex + 1));
+                    }
+                    clearCurrentRecommendation();
+                    clearOverlayCoordinates();
+                    return;
+                }
+                
                 return;
             }
         }
@@ -1998,27 +2064,6 @@ public class QuestHelper implements Task {
     }
 
     
-    /**
-     * Extracts meaningful keywords from a string, excluding common words.
-     * @param text The text to extract keywords from
-     * @param commonWords Set of common words to exclude
-     * @return Set of keywords
-     */
-    private Set<String> extractKeywords(String text, Set<String> commonWords) {
-        Set<String> keywords = new HashSet<>();
-        
-        // Split by word boundaries and clean up
-        String[] words = text.replaceAll("[^a-zA-Z0-9\\s]", " ").split("\\s+");
-        
-        for (String word : words) {
-            word = word.toLowerCase().trim();
-            if (word.length() >= 3 && !commonWords.contains(word)) {
-                keywords.add(word);
-            }
-        }
-        
-        return keywords;
-    }
 
     /**
      * Check if step tracking is enabled.
@@ -2034,5 +2079,40 @@ public class QuestHelper implements Task {
      */
     public void setShowStepTracker(boolean showStepTracker) {
         this.showStepTracker = showStepTracker;
+    }
+
+    /**
+     * Gets whether auto-interaction with dialogs is enabled
+     */
+    public boolean isAutoInteractWithDialogs() {
+        return autoInteractWithDialogs;
+    }
+
+    /**
+     * Sets whether auto-interaction with dialogs is enabled
+     */
+    public void setAutoInteractWithDialogs(boolean autoInteractWithDialogs) {
+        this.autoInteractWithDialogs = autoInteractWithDialogs;
+        if (!autoInteractWithDialogs) {
+            ScriptConsole.println("[QuestHelper] Auto dialog interaction disabled");
+        } else {
+            generateNextInteractionDelay();
+            ScriptConsole.println("[QuestHelper] Auto dialog interaction enabled");
+        }
+    }
+
+    /**
+     * Checks if we can interact with the dialog (respecting randomized delay)
+     */
+    private boolean canInteractWithDialog() {
+        return System.currentTimeMillis() - lastDialogInteractionTime >= nextInteractionDelay;
+    }
+    
+    /**
+     * Generates a new random delay for the next interaction
+     */
+    private void generateNextInteractionDelay() {
+        nextInteractionDelay = MIN_DIALOG_DELAY + random.nextInt((int)(MAX_DIALOG_DELAY - MIN_DIALOG_DELAY + 1));
+        ScriptConsole.println("[QuestHelper] Next interaction delay: " + nextInteractionDelay + "ms");
     }
 } 

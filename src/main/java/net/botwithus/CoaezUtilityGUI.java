@@ -797,6 +797,15 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 }
             }
             
+            // Auto-interaction toggle
+            if (questHelper.isDialogAssistanceActive()) {
+                ImGui.SameLine();
+                boolean newAutoInteract = ImGui.Checkbox("Auto-interact", questHelper.isAutoInteractWithDialogs());
+                if (newAutoInteract != questHelper.isAutoInteractWithDialogs()) {
+                    questHelper.setAutoInteractWithDialogs(newAutoInteract);
+                }
+            }
+            
             // Navigation button
             ImGui.SameLine();
             if (questHelper.isNavigatingToQuestStart()) {
@@ -820,6 +829,14 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 ImGui.PushStyleColor(0, 0.0f, 1.0f, 0.0f, 1.0f); // Green color
                 ImGui.Text("Dialog Assistance: ACTIVE");
                 ImGui.PopStyleColor();
+                
+                if (questHelper.isAutoInteractWithDialogs()) {
+                    ImGui.PushStyleColor(0, 1.0f, 0.5f, 0.0f, 1.0f); // Orange color
+                    ImGui.Text("Auto-Interaction: ENABLED");
+                    ImGui.PopStyleColor();
+                } else {
+                    ImGui.Text("Auto-Interaction: Disabled");
+                }
                 
                 if (questHelper.areDialogsFetched()) {
                     ImGui.Text("Dialogs Status: Loaded");
@@ -1666,12 +1683,29 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             if (width <= 0) width = 300;
             if (height <= 0) height = 20;
             
-            int highlightColor = 0xCCFFD700;
-            int borderColor = 0xFFFF8C00;
+            // Use different colors when auto-interaction is enabled
+            int highlightColor;
+            int borderColor;
+            
+            if (questHelper.isAutoInteractWithDialogs()) {
+                // Green highlight when auto-interaction is enabled
+                highlightColor = 0xCC00FF00;  // Semi-transparent green
+                borderColor = 0xFF00CC00;      // Solid darker green
+            } else {
+                // Gold highlight when manual interaction is needed
+                highlightColor = 0xCCFFD700;  // Semi-transparent gold
+                borderColor = 0xFFFF8C00;      // Solid orange
+            }
             
             BGList.DrawRect(x, y, x + width, y + height, highlightColor, 4.0f, 0, 0.0f);
             
             BGList.DrawRect(x, y, x + width, y + height, borderColor, 4.0f, 0, 2.0f);
+            
+            if (questHelper.isAutoInteractWithDialogs()) {
+                int textX = x + width - 40;
+                int textY = y + 2;
+                BGList.DrawText("AUTO", (float)textX, (float)textY, 0xFF00FF00);
+            }
             
         } catch (Exception e) {
             ScriptConsole.println("[CoaezUtilityGUI] Error processing dialog option highlight: " + e.getMessage());
