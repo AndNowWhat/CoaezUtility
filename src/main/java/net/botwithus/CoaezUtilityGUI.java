@@ -808,6 +808,25 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     questHelper.startNavigationToQuestStart();
                 }
             }
+            
+            ImGui.SameLine();
+            if (ImGui.Button("Mark Next Step Complete")) {
+                if (questHelper.isDialogAssistanceActive() && questHelper.getSelectedQuest() != null) {
+                    int[] firstIncompleteStep = questHelper.getFirstIncompleteStepIndex();
+                    if (firstIncompleteStep != null && firstIncompleteStep.length == 2) {
+                        int sectionIndex = firstIncompleteStep[0];
+                        int stepIndex = firstIncompleteStep[1];
+                        
+                        questHelper.setStepCompleted(sectionIndex, stepIndex, true);
+                        
+                        ScriptConsole.println("[QuestHelper] Marked step " + sectionIndex + ":" + stepIndex + " as completed");
+                    } else {
+                        ScriptConsole.println("[QuestHelper] No incomplete steps found or all steps completed");
+                    }
+                } else {
+                    ScriptConsole.println("[QuestHelper] Dialog assistance must be active and a quest must be selected to mark steps");
+                }
+            }
         }
         
         ImGui.Separator();
@@ -1036,7 +1055,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 this.selectedCrafterOptionIndex = 0; 
                 if (PortableCrafter.CRAFTER_OPTIONS != null && PortableCrafter.CRAFTER_OPTIONS.length > 0) {
                     String defaultOptionName = PortableCrafter.CRAFTER_OPTIONS[this.selectedCrafterOptionIndex];
-                    pc_instance.setSelectedInteractionOption(defaultOptionName);
+                    pc_instance.setSelectedInteractionOption(defaultOptionName); 
                     this.currentCrafterGroupIds = pc_instance.getGroupEnumIds();
                     if (!this.currentCrafterGroupIds.isEmpty()) { 
                         this.selectedCrafterGroupIndex = 0;
@@ -1475,7 +1494,6 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     
                     // Display quest guide sections and steps
                     if (currentGuide != null && !currentGuide.getSections().isEmpty()) {
-                        // Show overall progress
                         ImGui.PushStyleColor(0, 0.25f, 0.78f, 0.71f, 1.0f); // Teal accent
                         ImGui.Text("Quest Guide Progress: " + currentGuide.getCompletedSteps() + "/" + currentGuide.getTotalSteps() + " steps");
                         ImGui.PopStyleColor();
@@ -1487,7 +1505,6 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         
                         ImGui.SameLine();
                         if (ImGui.Button("Mark All Complete")) {
-                            // Mark all steps as completed
                             for (int sIdx = 0; sIdx < currentGuide.getSections().size(); sIdx++) {
                                 QuestDialogFetcher.QuestSection section = currentGuide.getSections().get(sIdx);
                                 for (int stIdx = 0; stIdx < section.getSteps().size(); stIdx++) {
@@ -1498,8 +1515,6 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         
                         ImGui.Separator();
                         
-                        // Create a list box for quest steps that fills remaining space
-                        // Calculate available height more dynamically - use a larger base size
                         float baseWindowHeight = 800.0f; // Increased base window size assumption
                         float headerHeight = 140.0f; // Space for quest info, buttons, and progress
                         float windowPadding = 30.0f; // Account for window padding and margins
@@ -1507,24 +1522,19 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         float availableHeight = Math.max(300.0f, baseWindowHeight - headerHeight - windowPadding - recommendationHeight);
                         
                         if (ImGui.ListBoxHeader("Quest Steps", 0, (int)availableHeight)) {
-                            // Display sections and steps inside the list
                             for (int sectionIndex = 0; sectionIndex < currentGuide.getSections().size(); sectionIndex++) {
                                 QuestDialogFetcher.QuestSection section = currentGuide.getSections().get(sectionIndex);
                                 
-                                // Section header with progress
                                 ImGui.PushStyleColor(0, 0.4f, 0.9f, 0.7f, 1.0f); // Lighter teal
                                 ImGui.Text("=== " + section.getSectionName() + " (" + section.getCompletedSteps() + "/" + section.getTotalSteps() + ") ===");
                                 ImGui.PopStyleColor();
                                 
-                                // Display steps in this section
                                 for (int stepIndex = 0; stepIndex < section.getSteps().size(); stepIndex++) {
                                     QuestDialogFetcher.QuestStep step = section.getSteps().get(stepIndex);
                                     
-                                    // Step checkbox and text
                                     String stepId = sectionIndex + ":" + stepIndex;
                                     boolean isCompleted = questHelper.isStepCompleted(sectionIndex, stepIndex);
                                     
-                                    // Create a clickable checkbox for the step
                                     ImGui.PushID(stepId);
                                     boolean newCompletionStatus = ImGui.Checkbox("", isCompleted);
                                     if (newCompletionStatus != isCompleted) {
@@ -1536,15 +1546,14 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                                     
                                     if (isCompleted) {
                                         ImGui.PushStyleColor(0, 0.2f, 0.8f, 0.4f, 1.0f); // Green-teal for completed
-                                        ImGui.Text(step.getStepText());
+                                        ImGui.Text(step.getCleanStepText());
                                         ImGui.PopStyleColor();
                                     } else {
                                         ImGui.PushStyleColor(0, 1.0f, 0.8f, 0.2f, 1.0f); // Yellow for incomplete
-                                        ImGui.Text(step.getStepText());
+                                        ImGui.Text(step.getCleanStepText());
                                         ImGui.PopStyleColor();
                                     }
                                     
-                                    // Show dialog options for incomplete steps
                                     if (!isCompleted && step.hasDialogs()) {
                                         for (QuestDialogFetcher.DialogSequence sequence : step.getDialogs()) {
                                             ImGui.PushStyleColor(0, 0.7f, 0.7f, 0.7f, 1.0f); // Light gray
@@ -1569,8 +1578,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         }
                         
                     } else {
-                        // Show loading state
-                        ImGui.PushStyleColor(0, 1.0f, 0.8f, 0.2f, 1.0f); // Warm yellow
+                        ImGui.PushStyleColor(0, 1.0f, 0.8f, 0.2f, 1.0f);
                         ImGui.Text("Loading quest guide...");
                         ImGui.PopStyleColor();
                     }
@@ -1578,12 +1586,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     ImGui.End();
                 }
                 
-                // Pop the window background color
                 ImGui.PopStyleColor();
                 
             } catch (Exception e) {
                 ScriptConsole.println("[CoaezUtilityGUI] Error drawing overlay: " + e.getMessage());
-                // Don't rethrow - just log and continue
             } finally {
                 // Reset styling
                 guiStyling.resetCustomStyles();
@@ -1613,19 +1619,14 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 return;
             }
             
-            // Use default dimensions if width/height are 0
             if (width <= 0) width = 300;
             if (height <= 0) height = 20;
             
-            // Draw highlight rectangle using BGList.DrawRect
-            // Bright yellow/orange colors for high visibility: ARGB format
-            int highlightColor = 0xCCFFD700; // Bright gold/yellow with ~80% opacity
-            int borderColor = 0xFFFF8C00;    // Solid dark orange border
+            int highlightColor = 0xCCFFD700;
+            int borderColor = 0xFFFF8C00;
             
-            // Draw filled background rectangle
             BGList.DrawRect(x, y, x + width, y + height, highlightColor, 4.0f, 0, 0.0f);
             
-            // Draw border rectangle
             BGList.DrawRect(x, y, x + width, y + height, borderColor, 4.0f, 0, 2.0f);
             
         } catch (Exception e) {

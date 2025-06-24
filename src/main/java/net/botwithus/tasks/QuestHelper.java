@@ -1055,6 +1055,11 @@ public class QuestHelper implements Task {
             fetchQuestGuideForSelectedQuest();
         }
         
+        // Handle quest start navigation
+        if (isNavigatingToQuestStart) {
+            processQuestStartNavigation();
+        }
+        
         // Handle dialog assistance with step tracking
         if (isDialogAssistanceActive) {
             processOpenDialogs();
@@ -1678,19 +1683,46 @@ public class QuestHelper implements Task {
             return;
         }
         
-        int packedLocation = startLocations[0];
-        questStartCoordinate = convertPackedLocationToCoordinate(packedLocation);
+        // Log all available start locations
+        ScriptConsole.println("[QuestHelper] Found " + startLocations.length + " start location(s) for quest: " + selectedQuest.name());
+        for (int i = 0; i < startLocations.length; i++) {
+            Coordinate coord = convertPackedLocationToCoordinate(startLocations[i]);
+            if (coord != null) {
+                ScriptConsole.println("[QuestHelper]   Location " + (i + 1) + ": " + coord);
+            }
+        }
         
-        if (questStartCoordinate == null) {
-            ScriptConsole.println("[QuestHelper] Failed to convert start location for quest: " + selectedQuest.name());
+        // Use the first valid start location
+        Coordinate validCoordinate = null;
+        int selectedLocationIndex = -1;
+        
+        for (int i = 0; i < startLocations.length; i++) {
+            Coordinate coord = convertPackedLocationToCoordinate(startLocations[i]);
+            if (coord != null) {
+                validCoordinate = coord;
+                selectedLocationIndex = i;
+                break;
+            }
+        }
+        
+        if (validCoordinate == null) {
+            ScriptConsole.println("[QuestHelper] Failed to convert any start locations for quest: " + selectedQuest.name());
             return;
         }
         
+        questStartCoordinate = validCoordinate;
         questStartArea = new Area.Circular(questStartCoordinate, 5);
         isNavigatingToQuestStart = true;
         
-        ScriptConsole.println("[QuestHelper] Starting navigation to quest start location: " + questStartCoordinate + 
-                             " for quest: " + selectedQuest.name());
+        ScriptConsole.println("[QuestHelper] Starting navigation to quest start location #" + (selectedLocationIndex + 1) + 
+                             ": " + questStartCoordinate + " for quest: " + selectedQuest.name());
+        
+        // Check current distance
+        LocalPlayer player = Client.getLocalPlayer();
+        if (player != null && player.getCoordinate() != null) {
+            int distance = player.getCoordinate().distanceTo(questStartCoordinate);
+            ScriptConsole.println("[QuestHelper] Current distance to quest start: " + distance + " tiles");
+        }
     }
     
     /**
@@ -1730,33 +1762,52 @@ public class QuestHelper implements Task {
         
         LocalPlayer player = Client.getLocalPlayer();
         if (player == null) {
+            ScriptConsole.println("[QuestHelper] Cannot navigate - player is null");
             return;
         }
         
+        // Check if we've arrived at the quest start location
         if (questStartArea.contains(player.getCoordinate())) {
             ScriptConsole.println("[QuestHelper] Arrived at quest start location for: " + selectedQuest.name());
             stopNavigationToQuestStart();
             return;
         }
         
+        // Check if player is already moving
+        if (Movement.isMoving()) {
+            return; // Don't spam movement commands
+        }
+        
         try {
             Coordinate targetCoordinate = questStartArea.getRandomWalkableCoordinate();
-            ScriptConsole.println("[QuestHelper] Target coordinate: " + targetCoordinate);
             if (targetCoordinate != null) {
+                ScriptConsole.println("[QuestHelper] Attempting to navigate to: " + targetCoordinate);
+                
+                // Try to resolve a path to the target
                 NavPath path = NavPath.resolve(targetCoordinate);
                 if (path != null) {
-                    Movement.traverse(path);
-                    ScriptConsole.println("[QuestHelper] Navigating to quest start location...");
+                    boolean traverseResult = Movement.traverse(path);
+                    if (traverseResult) {
+                        ScriptConsole.println("[QuestHelper] Successfully started navigation to quest start location");
+                    } else {
+                        ScriptConsole.println("[QuestHelper] Failed to start navigation - traverse returned false");
+                    }
                 } else {
-                    ScriptConsole.println("[QuestHelper] Failed to resolve path to quest start location.");
-                    stopNavigationToQuestStart();
+                    ScriptConsole.println("[QuestHelper] Failed to resolve path to quest start location - trying direct walk");
+                    // Try direct walk as fallback
+                    boolean walkResult = Movement.walkTo(targetCoordinate);
+                    if (!walkResult) {
+                        ScriptConsole.println("[QuestHelper] Direct walk also failed - location may be unreachable");
+                        stopNavigationToQuestStart();
+                    }
                 }
             } else {
-                ScriptConsole.println("[QuestHelper] Failed to get walkable coordinate in quest start area.");
+                ScriptConsole.println("[QuestHelper] Failed to get walkable coordinate in quest start area");
                 stopNavigationToQuestStart();
             }
         } catch (Exception e) {
             ScriptConsole.println("[QuestHelper] Error during navigation: " + e.getMessage());
+            e.printStackTrace();
             stopNavigationToQuestStart();
         }
     }
@@ -2024,5 +2075,55 @@ public class QuestHelper implements Task {
      */
     public void setShowStepTracker(boolean showStepTracker) {
         this.showStepTracker = showStepTracker;
+    }
+    
+    /**
+     * Gets the current navigation status as a formatted string.
+     * @return A string describing the current navigation status
+     */
+    public String getNavigationStatus() {
+        if (!isNavigatingToQuestStart) {
+            return "Navigation inactive";
+        }
+        
+        if (questStartCoordinate == null) {
+            return "No destination set";
+        }
+        
+        LocalPlayer player = Client.getLocalPlayer();
+        if (player == null) {
+            return "Waiting for player data...";
+        }
+        
+        Coordinate playerCoord = player.getCoordinate();
+        if (playerCoord == null) {
+            return "Unable to determine player location";
+        }
+        
+        // Calculate distance to target
+        int distance = playerCoord.distanceTo(questStartCoordinate);
+        
+        if (questStartArea != null && questStartArea.contains(playerCoord)) {
+            return "Arrived at destination!";
+        }
+        
+        if (Movement.isMoving()) {
+            return String.format("Moving to quest start (Distance: %d tiles)", distance);
+        } else {
+            return String.format("Calculating path to quest start (Distance: %d tiles)", distance);
+        }
+    }
+    
+    /**
+     * Checks if the quest has a valid start location.
+     * @return true if the selected quest has at least one start location
+     */
+    public boolean hasQuestStartLocation() {
+        if (selectedQuest == null || selectedQuestType == null) {
+            return false;
+        }
+        
+        int[] startLocations = selectedQuestType.startLocations();
+        return startLocations != null && startLocations.length > 0;
     }
 } 

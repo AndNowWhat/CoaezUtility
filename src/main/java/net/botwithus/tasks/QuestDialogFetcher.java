@@ -109,6 +109,51 @@ public class QuestDialogFetcher {
             return stepText;
         }
         
+        /**
+         * Gets clean step text without any dialog information for GUI display.
+         * This removes all dialog-related content and formatting.
+         */
+        public String getCleanStepText() {
+            if (stepText == null) return "";
+            
+            String cleaned = stepText;
+            
+            // Remove all dialog-related patterns more aggressively
+            cleaned = cleaned
+                    // Remove any text that mentions "Dialog:" or "dialog:"
+                    .replaceAll("(?i)dialog[^\\n]*", "")
+                    // Remove numbered option patterns like "1. Option text" or "? ? ? ?"
+                    .replaceAll("\\d+\\.\\s*[^\\n]*", "")
+                    .replaceAll("[?\\d\\s]{3,}", "")
+                    // Remove patterns like "Choose option X" or "Select option Y"
+                    .replaceAll("(?i)(choose|select|pick)\\s+(option|choice)\\s*\\d*[^\\n]*", "")
+                    // Remove any remaining dialog instruction patterns
+                    .replaceAll("(?i)(say|tell|ask|answer|respond)[^\\n]*", "")
+                    // Remove option number patterns at start of lines
+                    .replaceAll("(?m)^\\s*\\d+[.:)]\\s*", "")
+                    // Remove question mark sequences
+                    .replaceAll("\\?+\\s*", "")
+                    // Clean up whitespace and empty lines
+                    .replaceAll("\\s+", " ")
+                    .replaceAll("(\\s*[.,;:]\\s*)+", ". ")
+                    .trim();
+            
+            // If the cleaned text is too short or empty, return the original step text
+            if (cleaned.length() < 5) {
+                cleaned = stepText.replaceAll("(?i)dialog[^\\n]*", "").trim();
+            }
+            
+            // Ensure proper capitalization and punctuation
+            if (!cleaned.isEmpty()) {
+                cleaned = Character.toUpperCase(cleaned.charAt(0)) + cleaned.substring(1);
+                if (!cleaned.matches(".*[.!?]\\s*$")) {
+                    cleaned += ".";
+                }
+            }
+            
+            return cleaned;
+        }
+        
         public List<DialogSequence> getDialogs() {
             return new ArrayList<>(dialogs);
         }
@@ -128,7 +173,6 @@ public class QuestDialogFetcher {
         private String cleanStepText(String text) {
             if (text == null) return "";
             
-            // Remove HTML tags and entities
             String cleaned = text.replaceAll("<[^>]+>", "")
                                .replace("&quot;", "\"")
                                .replace("&amp;", "&")
@@ -155,7 +199,93 @@ public class QuestDialogFetcher {
                                .replaceAll("\\s+", " ")
                                .trim();
             
+            cleaned = improveTextReadability(cleaned);
+            
             return cleaned;
+        }
+        
+        /**
+         * Improves text readability by adding proper punctuation, spacing, and formatting.
+         */
+        private String improveTextReadability(String text) {
+            if (text == null || text.trim().isEmpty()) {
+                return text;
+            }
+
+            text = text
+                      .replaceAll("Dialog:\\s*Step\\s*dialog:[^\\n]*", "")
+                      .replaceAll("Dialog:\\s*[^\\n]*", "")
+                      .replaceAll("(?m)^\\s*Dialog:.*$", "")
+                      .replaceAll("[\\d?\\s]{5,}", "")
+                      .replaceAll("[?\\s]{3,}", "")
+                      .replaceAll("\\bStep\\s+dialog\\b[^\\n]*", "");
+
+            text = text.replaceAll("\\b(go|walk|run|move|travel|head|proceed)\\s+(to|towards|into|through|up|down|north|south|east|west)", 
+                                 "$1 to")
+                      .replaceAll("\\b(click|select|choose|pick)\\s+(on|the)\\s+", "click on ")
+                      .replaceAll("\\b(use|equip|wield)\\s+(the|your)\\s+", "use ")
+                      .replaceAll("\\b(open|close|examine|search)\\s+(the)\\s+", "$1 the ");
+            
+            text = text.replaceAll("\\b(enter|exit|leave)\\s+(the)\\s+", "$1 the ")
+                      .replaceAll("\\b(climb|ascend|descend)\\s+(the|up|down)\\s+", "$1 ")
+                      .replaceAll("\\b(bank|teleport|transport)\\s+(to|at)\\s+", "$1 to ");
+            
+            text = text.replaceAll("\\b(take|get|obtain|collect|gather)\\s+(the|a|an)\\s+", "take ")
+                      .replaceAll("\\b(drop|destroy|discard)\\s+(the|your)\\s+", "drop ")
+                      .replaceAll("\\b(equip|wear|wield)\\s+(the|your)\\s+", "equip ");
+            
+            text = text.replaceAll("\\b(kill|defeat|fight|attack)\\s+(the|a|an)\\s+", "kill ")
+                      .replaceAll("\\b(mine|fish|cut|cook|craft|smith)\\s+(the|a|an)\\s+", "$1 ")
+                      .replaceAll("\\b(level|levels?)\\s+(\\d+)\\s+(\\w+)", "level $2 $3");
+            
+            text = text.replaceAll("([.!?])([A-Z])", "$1 $2")
+                      .replaceAll("([,;:])([A-Za-z])", "$1 $2");
+            
+            text = text.replaceAll("\\((\\d+),\\s*(\\d+)\\)", "($1, $2)")
+                      .replaceAll("\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)", "($1, $2, $3)");
+            
+            text = text.replaceAll("\\b(then)\\s+", "then ")
+                      .replaceAll("\\b(and)\\s+", "and ")
+                      .replaceAll("\\b(or)\\s+", "or ")
+                      .replaceAll("\\b(but)\\s+", "but ")
+                      .replaceAll("\\b(if)\\s+", "if ")
+                      .replaceAll("\\b(when)\\s+", "when ")
+                      .replaceAll("\\b(after)\\s+", "after ")
+                      .replaceAll("\\b(before)\\s+", "before ");
+            
+            text = text.replaceAll("\\b(npc|NPC)\\b", "NPC")
+                      .replaceAll("\\b(hp|HP)\\b", "HP")
+                      .replaceAll("\\b(xp|XP|exp|EXP)\\b", "XP")
+                      .replaceAll("\\b(gp|GP)\\b", "GP")
+                      .replaceAll("\\b(poh|POH)\\b", "POH")
+                      .replaceAll("\\b(ge|GE)\\b", "Grand Exchange")
+                      .replaceAll("\\b(tele|teleport)\\b", "teleport");
+            
+            text = text.replaceAll("\\b(\\d+)\\s*x\\s*(\\w+)", "$1 $2")
+                      .replaceAll("\\b(\\d+)\\s+(coins?|gp|GP)\\b", "$1 GP");
+            
+            text = text.replaceAll("\\s*-\\s*", " - ")
+                      .replaceAll("\\s*→\\s*", " → ")
+                      .replaceAll("\\s*/\\s*", "/");
+
+            text = text.replaceAll("\\s+", " ")
+                      .replaceAll("(\\s*\\.\\s*)+", ". ")
+                      .replaceAll("^[\\s.,]+", "")
+                      .trim();
+            
+            if (text.trim().isEmpty()) {
+                return "";
+            }
+            
+            if (!text.matches(".*[.!?]\\s*$") && text.length() > 0) {
+                text = text.trim() + ".";
+            }
+            
+            if (text.length() > 0 && Character.isLowerCase(text.charAt(0))) {
+                text = Character.toUpperCase(text.charAt(0)) + text.substring(1);
+            }
+            
+            return text;
         }
         
         @Override
@@ -302,7 +432,7 @@ public class QuestDialogFetcher {
 
         while (sectionMatcher.find()) {
             String sectionId = sectionMatcher.group(1);
-            String sectionName = cleanOptionText(sectionMatcher.group(2));
+            String sectionName = cleanSectionName(sectionMatcher.group(2));
             int sectionEnd = sectionMatcher.end();
 
             String sectionContent;
@@ -317,25 +447,21 @@ public class QuestDialogFetcher {
             ScriptConsole.println("[QuestDialogFetcher] Found section: " + sectionName + " (ID: " + sectionId + ")");
             QuestSection section = new QuestSection(sectionName);
 
-            /* scan sectionContent for each checklist div manually */
             int searchIdx = 0;
             String checklistMarker = "<div class=\"lighttable checklist";
             while (searchIdx < sectionContent.length()) {
                 int divIdx = sectionContent.indexOf(checklistMarker, searchIdx);
                 if (divIdx == -1) break;
 
-                // Move to end of opening div tag
                 int divOpenEnd = sectionContent.indexOf('>', divIdx);
                 if (divOpenEnd == -1) break;
 
-                // From here, attempt to extract first outer <ul> inside this checklist div
                 String divFragment = sectionContent.substring(divOpenEnd + 1);
                 String checklistContent = extractOuterUlContent(divFragment);
                 if (checklistContent != null && !checklistContent.isEmpty()) {
                     parseStepsFromChecklist(checklistContent, section);
                 }
 
-                // Move searchIdx forward to avoid infinite loop – jump past closing </div> of this checklist
                 int closingDiv = sectionContent.indexOf("</div>", divOpenEnd);
                 searchIdx = closingDiv != -1 ? closingDiv + 6 : divOpenEnd + 1;
             }
@@ -397,8 +523,9 @@ public class QuestDialogFetcher {
             String stepContent = matcher.group(1);
             
             if (!stepContent.trim().isEmpty()) {
-                QuestStep step = new QuestStep(stepContent);
+                String cleanStepText = extractCleanStepText(stepContent);
                 
+                QuestStep step = new QuestStep(cleanStepText);
                 String originalStepHtml = extractOriginalStepHtml(checklistContent, stepContent, stepCount);
                 parseDialogsInStep(originalStepHtml, step);
                 
@@ -413,6 +540,49 @@ public class QuestDialogFetcher {
         }
         
         ScriptConsole.println("[QuestDialogFetcher] Successfully parsed " + stepCount + " steps");
+    }
+    
+    /**
+     * Extracts clean step text by removing dialog elements and other unwanted content.
+     */
+    private static String extractCleanStepText(String stepContent) {
+        if (stepContent == null || stepContent.trim().isEmpty()) {
+            return "";
+        }
+        
+        String cleanText = stepContent;
+        
+        cleanText = cleanText.replaceAll("<span class=\"chat-options\"[^>]*>.*?</span>", "");
+        cleanText = cleanText.replaceAll("<div[^>]*data-tooltip-for=\"[^\"]+\"[^>]*>.*?</div>", "");
+        
+        cleanText = cleanText.replaceAll("<[^>]+>", "");
+        
+        cleanText = cleanText.replace("&quot;", "\"")
+                            .replace("&amp;", "&")
+                            .replace("&lt;", "<")
+                            .replace("&gt;", ">")
+                            .replace("&#39;", "'")
+                            .replace("&nbsp;", " ")
+                            .replace("&#x2713;", "✓")
+                            .replace("&#8226;", "•")
+                            .replace("&#8230;", "...")
+                            .replace("&#x27;", "'")
+                            .replace("&#x3A;", ":")
+                            .replace("&#91;", "[")
+                            .replace("&#93;", "]")
+                            .replace("&lsquo;", "'")
+                            .replace("&rsquo;", "'")
+                            .replace("&ldquo;", "\"")
+                            .replace("&rdquo;", "\"")
+                            .replace("&hellip;", "...")
+                            .replace("&mdash;", "—")
+                            .replace("&ndash;", "–")
+                            .replaceAll("&#x([0-9A-Fa-f]+);", "")
+                            .replaceAll("&#([0-9]+);", "");
+        
+        cleanText = cleanText.replaceAll("\\s+", " ").trim();
+        
+        return cleanText;
     }
     
     /**
@@ -490,7 +660,7 @@ public class QuestDialogFetcher {
     private static String cleanOptionText(String text) {
         if (text == null) return "";
         
-        return text.replace("&quot;", "\"")
+        String cleaned = text.replace("&quot;", "\"")
                   .replace("&amp;", "&")
                   .replace("&lt;", "<")
                   .replace("&gt;", ">")
@@ -514,6 +684,54 @@ public class QuestDialogFetcher {
                   .replaceAll("&#([0-9]+);", "")
                   .replaceAll("\\s+", " ")
                   .trim();
+        
+        cleaned = applyBasicTextFormatting(cleaned);
+        
+        return cleaned;
+    }
+    
+    /**
+     * Applies basic text formatting improvements for better readability.
+     */
+    private static String applyBasicTextFormatting(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return text;
+        }
+        
+        text = text.replaceAll("([.!?])([A-Z])", "$1 $2")
+                  .replaceAll("([,;:])([A-Za-z])", "$1 $2");
+        
+        text = text.replaceAll("\\((\\d+),\\s*(\\d+)\\)", "($1, $2)")
+                  .replaceAll("\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)", "($1, $2, $3)");
+        
+        text = text.replaceAll("\\b(npc|NPC)\\b", "NPC")
+                  .replaceAll("\\b(hp|HP)\\b", "HP")
+                  .replaceAll("\\b(xp|XP|exp|EXP)\\b", "XP")
+                  .replaceAll("\\b(gp|GP)\\b", "GP")
+                  .replaceAll("\\b(poh|POH)\\b", "POH")
+                  .replaceAll("\\b(ge|GE)\\b", "Grand Exchange");
+        
+        text = text.replaceAll("\\b(\\d+)\\s*x\\s*(\\w+)", "$1 $2")
+                  .replaceAll("\\b(\\d+)\\s+(coins?|gp|GP)\\b", "$1 GP");
+        
+        text = text.replaceAll("\\s*-\\s*", " - ")
+                  .replaceAll("\\s*→\\s*", " → ")
+                  .replaceAll("\\s*/\\s*", "/");
+        
+        text = text.replaceAll("\\b(yes|no|ok|okay)\\b", "YES")
+                  .replaceAll("\\b(continue)\\b", "Continue")
+                  .replaceAll("\\b(skip)\\b", "Skip")
+                  .replaceAll("\\b(next)\\b", "Next")
+                  .replaceAll("\\b(back)\\b", "Back");
+        
+        text = text.replaceAll("\\s+", " ").trim();
+        
+
+        if (text.length() > 0 && Character.isLowerCase(text.charAt(0))) {
+            text = Character.toUpperCase(text.charAt(0)) + text.substring(1);
+        }
+        
+        return text;
     }
     
     /**
@@ -651,18 +869,25 @@ public class QuestDialogFetcher {
             String tooltipName = chatMatcher.group(1);
             String chatOptionsContent = chatMatcher.group(0);
             
-            // Extract sequence display
             List<String> sequenceParts = new ArrayList<>();
             Matcher seqMatcher = sequenceDisplayPattern.matcher(chatOptionsContent);
             while (seqMatcher.find()) {
                 String part = seqMatcher.group(1).trim();
                 part = cleanOptionText(part);
-                if (!part.isEmpty()) {
+                if (!part.isEmpty() && !part.equals("?")) {
                     sequenceParts.add(part);
                 }
             }
             
+            if (sequenceParts.isEmpty()) {
+                continue;
+            }
+            
             String sequenceDisplay = String.join(" → ", sequenceParts);
+            
+            if (sequenceDisplay.trim().isEmpty() || sequenceDisplay.matches("^[?\\s→]+$")) {
+                continue;
+            }
             
             Matcher tooltipMatcher = tooltipPattern.matcher(stepContent);
             while (tooltipMatcher.find()) {
@@ -681,7 +906,8 @@ public class QuestDialogFetcher {
                         optionNum = cleanOptionText(optionNum);
                         optionText = cleanOptionText(optionText);
                         
-                        if (optionNum.equals("?") || optionNum.isEmpty()) {
+                        if (optionNum.equals("?") || optionNum.isEmpty() || 
+                            optionText.equals("?") || optionText.isEmpty()) {
                             continue;
                         }
                         
@@ -695,5 +921,41 @@ public class QuestDialogFetcher {
                 }
             }
         }
+    }
+
+    /**
+     * Cleans up section name by removing HTML entities and extra whitespace.
+     */
+    private static String cleanSectionName(String text) {
+        if (text == null) return "";
+        
+        String cleaned = text.replace("&quot;", "\"")
+                  .replace("&amp;", "&")
+                  .replace("&lt;", "<")
+                  .replace("&gt;", ">")
+                  .replace("&#39;", "'")
+                  .replace("&nbsp;", " ")
+                  .replace("&#x2713;", "✓")
+                  .replace("&#8226;", "•")
+                  .replace("&#8230;", "...")
+                  .replace("&#x27;", "'")
+                  .replace("&#x3A;", ":")
+                  .replace("&#91;", "[")
+                  .replace("&#93;", "]")
+                  .replace("&lsquo;", "'")
+                  .replace("&rsquo;", "'")
+                  .replace("&ldquo;", "\"")
+                  .replace("&rdquo;", "\"")
+                  .replace("&hellip;", "...")
+                  .replace("&mdash;", "—")
+                  .replace("&ndash;", "–")
+                  .replaceAll("&#x([0-9A-Fa-f]+);", "")
+                  .replaceAll("&#([0-9]+);", "")
+                  .replaceAll("\\s+", " ")
+                  .trim();
+        
+        cleaned = applyBasicTextFormatting(cleaned);
+        
+        return cleaned;
     }
 } 
