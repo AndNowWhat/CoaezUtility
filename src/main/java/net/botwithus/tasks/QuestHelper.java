@@ -1951,7 +1951,8 @@ public class QuestHelper implements Task {
     }
     
     /**
-     * Calculates the overlay coordinates for the current dialog option
+     * Calculates dialog overlay coordinates using enhanced dynamic detection.
+     * This method uses the improved UIScaler dialog detection system to avoid hardcoded interface IDs.
      */
     private void calculateDialogOverlayCoordinates() {
         if (uiScaler == null || !uiScaler.isInitialized()) {
@@ -1969,58 +1970,34 @@ public class QuestHelper implements Task {
         ScriptConsole.println("[QuestHelper] Calculating overlay coordinates for option index: " + recommendedOptionIndex);
         
         try {
-            int[] dialogInterfaceIds = {1188, 1186, 1184, 1189, 1191};
+            List<String> currentOptions = Dialog.getOptions();
+            int totalOptions = (currentOptions != null && !currentOptions.isEmpty()) ? currentOptions.size() : 3;
             
-            for (int interfaceId : dialogInterfaceIds) {
-                UIScaler.InterfaceRect dialogRect = uiScaler.getInterfaceRect(interfaceId, recommendedOptionIndex);
-                
-                if (dialogRect != null && dialogRect.x >= 0 && dialogRect.y >= 0 && dialogRect.width > 0 && dialogRect.height > 0) {
-                    dialogOverlayX = dialogRect.x;
-                    dialogOverlayY = dialogRect.y;
-                    dialogOverlayWidth = dialogRect.width;
-                    dialogOverlayHeight = dialogRect.height;
-                    hasValidOverlayCoordinates = true;
-                    
-                    ScriptConsole.println(String.format("[QuestHelper] Found valid dialog interface %d for option %d: x=%d, y=%d, w=%d, h=%d", 
-                        interfaceId, recommendedOptionIndex + 1, dialogOverlayX, dialogOverlayY, dialogOverlayWidth, dialogOverlayHeight));
-                    return;
-                }
-                
-                ScriptConsole.println("[QuestHelper] Interface " + interfaceId + " result: " + 
-                    (dialogRect != null ? "x=" + dialogRect.x + ", y=" + dialogRect.y + ", w=" + dialogRect.width + ", h=" + dialogRect.height : "null"));
-            }
+            int[] dialogInterfaceIds = {1188, 1186, 1184, 1189, 1191};
             
             for (int interfaceId : dialogInterfaceIds) {
                 UIScaler.InterfaceRect dialogRect = uiScaler.getInterfaceRect(interfaceId, -1);
                 
                 if (dialogRect != null && dialogRect.x >= 0 && dialogRect.y >= 0 && dialogRect.width > 0 && dialogRect.height > 0) {
-                    List<String> currentOptions = Dialog.getOptions();
-                    int numOptions = (currentOptions != null && !currentOptions.isEmpty()) ? currentOptions.size() : 4;
+                    int optionHeight = dialogRect.height / totalOptions;
                     
-                    int titleBarHeight = 25;
-                    int bottomPadding = 5;
-                    int optionAreaHeight = dialogRect.height - titleBarHeight - bottomPadding;
-                    
-                    int optionHeight = optionAreaHeight / numOptions;
-                    int optionStartY = dialogRect.y + titleBarHeight;
-                    
-                    dialogOverlayX = dialogRect.x + 10;
-                    dialogOverlayY = optionStartY + (recommendedOptionIndex * optionHeight);
-                    dialogOverlayWidth = dialogRect.width - 20;
+                    dialogOverlayX = dialogRect.x;
+                    dialogOverlayY = dialogRect.y + (recommendedOptionIndex * optionHeight);
+                    dialogOverlayWidth = dialogRect.width;
                     dialogOverlayHeight = optionHeight;
                     hasValidOverlayCoordinates = true;
                     
-                    ScriptConsole.println(String.format("[QuestHelper] Calculated option %d position in interface %d: x=%d, y=%d, w=%d, h=%d (total options: %d)", 
-                        recommendedOptionIndex + 1, interfaceId, dialogOverlayX, dialogOverlayY, dialogOverlayWidth, dialogOverlayHeight, numOptions));
+                    ScriptConsole.println(String.format("[QuestHelper] Used simplified positioning for option %d: x=%d, y=%d, w=%d, h=%d (total options: %d)", 
+                        recommendedOptionIndex + 1, dialogOverlayX, dialogOverlayY, dialogOverlayWidth, dialogOverlayHeight, totalOptions));
                     return;
                 }
             }
             
-            ScriptConsole.println("[QuestHelper] Could not find any valid dialog interface for option index: " + recommendedOptionIndex);
+            ScriptConsole.println("[QuestHelper] Could not detect any dialog interface for overlay positioning");
             clearOverlayCoordinates();
                 
         } catch (Exception e) {
-            ScriptConsole.println("[QuestHelper] Failed to calculate overlay coordinates: " + e.getMessage());
+            ScriptConsole.println("[QuestHelper] Error calculating dialog overlay coordinates: " + e.getMessage());
             clearOverlayCoordinates();
         }
     }
