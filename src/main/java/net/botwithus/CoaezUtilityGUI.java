@@ -808,25 +808,6 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     questHelper.startNavigationToQuestStart();
                 }
             }
-            
-            ImGui.SameLine();
-            if (ImGui.Button("Mark Next Step Complete")) {
-                if (questHelper.isDialogAssistanceActive() && questHelper.getSelectedQuest() != null) {
-                    int[] firstIncompleteStep = questHelper.getFirstIncompleteStepIndex();
-                    if (firstIncompleteStep != null && firstIncompleteStep.length == 2) {
-                        int sectionIndex = firstIncompleteStep[0];
-                        int stepIndex = firstIncompleteStep[1];
-                        
-                        questHelper.setStepCompleted(sectionIndex, stepIndex, true);
-                        
-                        ScriptConsole.println("[QuestHelper] Marked step " + sectionIndex + ":" + stepIndex + " as completed");
-                    } else {
-                        ScriptConsole.println("[QuestHelper] No incomplete steps found or all steps completed");
-                    }
-                } else {
-                    ScriptConsole.println("[QuestHelper] Dialog assistance must be active and a quest must be selected to mark steps");
-                }
-            }
         }
         
         ImGui.Separator();
@@ -1402,11 +1383,74 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             if (questHelper != null) {
                 drawDialogAssistanceOverlay(questHelper);
                 
-                // Draw dialog option highlight overlay if coordinates are available
                 if (questHelper.hasValidOverlayCoordinates()) {
                     drawDialogOptionHighlight(questHelper);
                 }
+                
+                drawMarkNextStepWindow(questHelper);
             }
+        }
+    }
+    
+    /**
+     * Draws a simple window containing only the "Mark Next Step Complete" button.
+     * This window can be easily positioned anywhere on screen.
+     */
+    private void drawMarkNextStepWindow(QuestHelper questHelper) {
+        if (!questHelper.isDialogAssistanceActive() || questHelper.getSelectedQuest() == null) {
+            return;
+        }
+        
+        try {
+            guiStyling.applyCustomColors();
+            guiStyling.applyCustomStyles();
+            
+            if (ImGui.Begin("Quick Actions", 0)) {
+                if (ImGui.Button("Mark Next Step Complete")) {
+                    int[] firstIncompleteStep = questHelper.getFirstIncompleteStepIndex();
+                    if (firstIncompleteStep != null && firstIncompleteStep.length == 2) {
+                        int sectionIndex = firstIncompleteStep[0];
+                        int stepIndex = firstIncompleteStep[1];
+                        
+                        questHelper.setStepCompleted(sectionIndex, stepIndex, true);
+                        
+                        ScriptConsole.println("[QuestHelper] Marked step " + sectionIndex + ":" + stepIndex + " as completed");
+                    } else {
+                        ScriptConsole.println("[QuestHelper] No incomplete steps found or all steps completed");
+                    }
+                }
+                
+                if (ImGui.Button("Undo Last Step")) {
+                    QuestDialogFetcher.QuestGuide currentGuide = questHelper.getCurrentQuestGuide();
+                    if (currentGuide != null && !currentGuide.getSections().isEmpty()) {
+                        boolean foundCompletedStep = false;
+                        
+                        for (int sIdx = currentGuide.getSections().size() - 1; sIdx >= 0 && !foundCompletedStep; sIdx--) {
+                            QuestDialogFetcher.QuestSection section = currentGuide.getSections().get(sIdx);
+                            
+                            for (int stIdx = section.getSteps().size() - 1; stIdx >= 0; stIdx--) {
+                                if (questHelper.isStepCompleted(sIdx, stIdx)) {
+                                    questHelper.setStepCompleted(sIdx, stIdx, false);
+                                    ScriptConsole.println("[QuestHelper] Undid step " + sIdx + ":" + stIdx);
+                                    foundCompletedStep = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (!foundCompletedStep) {
+                            ScriptConsole.println("[QuestHelper] No completed steps to undo");
+                        }
+                    } else {
+                        ScriptConsole.println("[QuestHelper] No quest guide available");
+                    }
+                }
+                
+                ImGui.End();
+            }
+        } finally {
+            guiStyling.resetCustomStyles();
+            guiStyling.resetCustomColors();
         }
     }
     
