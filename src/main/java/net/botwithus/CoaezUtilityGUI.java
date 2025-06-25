@@ -143,7 +143,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 selectedWorkbenchProductIndex = 0;
             }
         } else {
-             ScriptConsole.println("[CoaezUtilityGUI] CRITICAL: CoaezUtility instance is null in GUI constructor.");
+             // ScriptConsole.println("[CoaezUtilityGUI] CRITICAL: CoaezUtility instance is null in GUI constructor.");
         }
         
     }
@@ -432,7 +432,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                             saveConfig();
                         }
                     } else {
-                        ImGui.Text("No products available for this group: " + (currentGroupNames.isEmpty() ? "" : currentGroupNames.get(selectedGroupIndex)));
+                        ImGui.Text("No products available for this group: " + (currentGroupNames.isEmpty() ? "" : currentGroupNames.get(selectedGroupIndex)).replace("%", "%%"));
                     }
                 } else {
                      ImGui.Text("No groups loaded for this workbench.");
@@ -557,7 +557,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                             saveConfig();
                         }
                     } else {
-                        ImGui.Text("No products available for category: " + (currentCrafterGroupNames.isEmpty() ? "N/A" : currentCrafterGroupNames.get(selectedCrafterGroupIndex)));
+                        ImGui.Text("No products available for category: " + (currentCrafterGroupNames.isEmpty() ? "N/A" : currentCrafterGroupNames.get(selectedCrafterGroupIndex)).replace("%", "%%"));
                     }
                 } else {
                      // --- Render Direct Product Mode UI for Crafter (e.g., Tan Leather IF it was direct) ---
@@ -580,7 +580,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                             saveConfig();
                         }
                     } else {
-                        ImGui.Text("No products available for action: " + (PortableCrafter.CRAFTER_OPTIONS.length > selectedCrafterOptionIndex ? PortableCrafter.CRAFTER_OPTIONS[selectedCrafterOptionIndex] : "Unknown Action"));
+                        ImGui.Text("No products available for action: " + (PortableCrafter.CRAFTER_OPTIONS.length > selectedCrafterOptionIndex ? PortableCrafter.CRAFTER_OPTIONS[selectedCrafterOptionIndex] : "Unknown Action").replace("%", "%%"));
                     }
                 }
             } else {
@@ -633,16 +633,16 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     coaezUtility.setBotState(CoaezUtility.BotState.PORTABLES);
                     saveConfig();
                 } else {
-                    ScriptConsole.println("[GUI] Cannot start Portables: No product/plank selected for the current portable type.");
+                    // ScriptConsole.println("[GUI] Cannot start Portables: No product/plank selected for the current portable type.");
                 }
             } else {
-                ScriptConsole.println("[GUI] Cannot start Portables: No active portable or no product/plank selected.");
+                // ScriptConsole.println("[GUI] Cannot start Portables: No active portable or no product/plank selected.");
             }
         }
 
         if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() != null) {
             Portable currentPortable = coaezUtility.getPortableTask().getActivePortable();
-            ImGui.Text("Active Portable: " + currentPortable.getType().getName());
+            ImGui.Text("Active Portable: " + currentPortable.getType().getName().replace("%", "%%"));
 
             Product currentProd = null;
             SawmillPlank currentPlank = null;
@@ -652,9 +652,9 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             } else if (currentPortable instanceof PortableCrafter) {
                 PortableCrafter pc = (PortableCrafter) currentPortable;
                 currentProd = pc.getSelectedProduct();
-                ImGui.Text("Selected Action: " + (pc.getInteractionOption() != null ? pc.getInteractionOption() : "None"));
+                ImGui.Text("Selected Action: " + (pc.getInteractionOption() != null ? pc.getInteractionOption() : "None").replace("%", "%%"));
                 if (!pc.getGroupEnumIds().isEmpty() && pc.getSelectedGroupId() != -1) {
-                     ImGui.Text("Selected Category: " + pc.getGroupName(pc.getSelectedGroupId()));
+                     ImGui.Text("Selected Category: " + pc.getGroupName(pc.getSelectedGroupId()).replace("%", "%%"));
                 }
             } else if (currentPortable instanceof PortableSawmill) {
                 currentPlank = ((PortableSawmill) currentPortable).getSelectedPlank();
@@ -662,7 +662,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
 
             // Simplified Product Display
             if (currentProd != null) {
-                ImGui.Text("Selected Product: " + currentProd.getName());
+                ImGui.Text("Selected Product: " + currentProd.getName().replace("%", "%%"));
 
                 // Restore Ingredient Display
                 ImGui.Text("Required Ingredients:");
@@ -680,7 +680,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                      ImGui.Text("- (No ingredient data found)");
                 }
             } else if (currentPlank != null) {
-                ImGui.Text("Selected Plank: " + currentPlank.getDisplayName());
+                ImGui.Text("Selected Plank: " + currentPlank.getDisplayName().replace("%", "%%"));
             } else {
                 // Display only if it's a type that *should* have a product/plank
                 if (currentPortable instanceof PortableWorkbench || currentPortable instanceof PortableCrafter || currentPortable instanceof PortableSawmill) {
@@ -922,7 +922,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         lastSelectedProductId = Integer.parseInt(savedProductIdStr);
                          
                     } catch (NumberFormatException e) {
-                        ScriptConsole.println("[GUI] Error parsing saved workbenchProductId: " + savedProductIdStr);
+                        // ScriptConsole.println("[GUI] Error parsing saved workbenchProductId: " + savedProductIdStr);
                         lastSelectedProductId = -1;
                     }
                 }
@@ -1016,7 +1016,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 // selectedSawmillPlankIndex will be updated by loadConfig or user interaction
                 break;
             default:
-                 ScriptConsole.println("[GUI] Unknown portable type selected in update: " + selectedType);
+                 // ScriptConsole.println("[GUI] Unknown portable type selected in update: " + selectedType);
                   coaezUtility.getPortableTask().setActivePortable(null);
                   coaezUtility.getPortableTask().setSelectedProduct(null);
                 break;
@@ -1028,15 +1028,15 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             try {
                 pc_instance = new PortableCrafter(coaezUtility);
             } catch (Throwable t) {
-                 ScriptConsole.println("[GUI|UpdateActivePortableType|CRAFTER] CRITICAL EXCEPTION during PortableCrafter constructor: " + t.getMessage());
-                 t.printStackTrace();
-                 this.currentCrafterGroupIds.clear();
-                 this.currentCrafterGroupNames.clear();
-                 this.currentCrafterProducts.clear();
-                 this.selectedCrafterOptionIndex = 0;
-                 this.selectedCrafterGroupIndex = 0;
-                 this.selectedCrafterProductIndex = 0;
-                 if (coaezUtility.getPortableTask() != null) {
+                // ScriptConsole.println("[GUI|UpdateActivePortableType|CRAFTER] CRITICAL EXCEPTION during PortableCrafter constructor: " + t.getMessage());
+                t.printStackTrace();
+                this.currentCrafterGroupIds.clear();
+                this.currentCrafterGroupNames.clear();
+                this.currentCrafterProducts.clear();
+                this.selectedCrafterOptionIndex = 0;
+                this.selectedCrafterGroupIndex = 0;
+                this.selectedCrafterProductIndex = 0;
+                if (coaezUtility.getPortableTask() != null) {
                       coaezUtility.getPortableTask().setActivePortable(null);
                       coaezUtility.getPortableTask().setSelectedProduct(null);
                  }
@@ -1084,11 +1084,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         this.selectedCrafterProductIndex = 0; 
                     }
                 } else {
-                    ScriptConsole.println("[GUI|UpdateActivePortableType|CRAFTER] CRAFTER_OPTIONS is not available. Cannot initialize default option.");
-                    this.currentCrafterGroupIds.clear();
-                    this.currentCrafterGroupNames.clear();
-                    this.currentCrafterProducts.clear();
-                    if(pc_instance != null) pc_instance.setSelectedProduct(null);
+                    // ScriptConsole.println("[GUI|UpdateActivePortableType|CRAFTER] CRAFTER_OPTIONS is not available. Cannot initialize default option.");
                 }
                  // Clear workbench state when Crafter is selected
                 currentGroupIds.clear();
@@ -1255,7 +1251,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 if (typeSet) {
                     updateActivePortableType();
                 } else {
-                      ScriptConsole.println("[GUI] Saved portable type name " + selectedPortableTypeName + " not found in PortableType enum. Defaulting.");
+                      // ScriptConsole.println("[GUI] Saved portable type name " + selectedPortableTypeName + " not found in PortableType enum. Defaulting.");
                      selectedPortableTypeIndex = 0;
                      updateActivePortableType();
                  }
@@ -1281,7 +1277,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                          // Set the option on the crafter instance to load correct groups/products
                          String chosenOption = PortableCrafter.CRAFTER_OPTIONS[selectedCrafterOptionIndex];
                          crafterInstance.setSelectedInteractionOption(chosenOption); 
-                         ScriptConsole.println("[GUI Load] Set Crafter option to index: " + selectedCrafterOptionIndex + " (" + chosenOption + ")");
+                         // ScriptConsole.println("[GUI Load] Set Crafter option to index: " + selectedCrafterOptionIndex + " (" + chosenOption + ")");
                          // Refresh GUI lists based on the loaded option
                          currentCrafterGroupIds = crafterInstance.getGroupEnumIds();
                          currentCrafterGroupNames = currentCrafterGroupIds.stream().map(crafterInstance::getGroupName).collect(Collectors.toList());
@@ -1319,7 +1315,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         if (savedCrafterGroupIndex != -1) {
                             selectedCrafterGroupIndex = savedCrafterGroupIndex;
                             crafterInstance.setSelectedGroupId(savedCrafterGroupId);
-                            ScriptConsole.println("[GUI Load] Set Crafter group to index: " + selectedCrafterGroupIndex + " (ID: " + savedCrafterGroupId + ")");
+                            // ScriptConsole.println("[GUI Load] Set Crafter group to index: " + selectedCrafterGroupIndex + " (ID: " + savedCrafterGroupId + ")");
                             // Load products for the restored group
                             currentCrafterProducts = new ArrayList<>(crafterInstance.getProductsForGroup(savedCrafterGroupId));
                             selectedCrafterProductIndex = 0; // Reset product index for new group
@@ -1365,23 +1361,23 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     if (restoredProductIndex != -1) {
                         selectedCrafterProductIndex = restoredProductIndex;
                         crafterInstance.setSelectedProduct(currentCrafterProducts.get(selectedCrafterProductIndex));
-                        ScriptConsole.println("[GUI Load] Restored Crafter product to index: " + selectedCrafterProductIndex + " (ID: " + savedCrafterProductId + ")");
+                        // ScriptConsole.println("[GUI Load] Restored Crafter product to index: " + selectedCrafterProductIndex + " (ID: " + savedCrafterProductId + ")");
                     } else {
                         // Select default product (index 0) if restoration failed or no ID saved
                         selectedCrafterProductIndex = 0;
                         if (currentCrafterProducts != null && !currentCrafterProducts.isEmpty()) {
                             crafterInstance.setSelectedProduct(currentCrafterProducts.get(0));
-                             ScriptConsole.println("[GUI Load] Setting default Crafter product (index 0). ID: " + currentCrafterProducts.get(0).getId());
+                             // ScriptConsole.println("[GUI Load] Setting default Crafter product (index 0). ID: " + currentCrafterProducts.get(0).getId());
                         } else {
                             crafterInstance.setSelectedProduct(null); // No products available
-                             ScriptConsole.println("[GUI Load] No Crafter products available for selected group/option.");
+                             // ScriptConsole.println("[GUI Load] No Crafter products available for selected group/option.");
                         }
                     }
                 } 
                 // ** Crafter State Restoration END **
 
             } catch (IllegalArgumentException e) {
-                 ScriptConsole.println("[GUI] Failed to load portable type from config: " + selectedPortableTypeName + ". " + e.getMessage());
+                 // ScriptConsole.println("[GUI] Failed to load portable type from config: " + selectedPortableTypeName + ". " + e.getMessage());
                  selectedPortableTypeIndex = 0;
                  updateActivePortableType();
              }
@@ -1431,9 +1427,9 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         
                         questHelper.setStepCompleted(sectionIndex, stepIndex, true);
                         
-                        ScriptConsole.println("[QuestHelper] Marked step " + sectionIndex + ":" + stepIndex + " as completed");
+                        // ScriptConsole.println("[QuestHelper] Marked step " + sectionIndex + ":" + stepIndex + " as completed");
                     } else {
-                        ScriptConsole.println("[QuestHelper] No incomplete steps found or all steps completed");
+                        // ScriptConsole.println("[QuestHelper] No incomplete steps found or all steps completed");
                     }
                 }
                 
@@ -1448,7 +1444,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                             for (int stIdx = section.getSteps().size() - 1; stIdx >= 0; stIdx--) {
                                 if (questHelper.isStepCompleted(sIdx, stIdx)) {
                                     questHelper.setStepCompleted(sIdx, stIdx, false);
-                                    ScriptConsole.println("[QuestHelper] Undid step " + sIdx + ":" + stIdx);
+                                    // ScriptConsole.println("[QuestHelper] Undid step " + sIdx + ":" + stIdx);
                                     foundCompletedStep = true;
                                     break;
                                 }
@@ -1456,10 +1452,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         }
                         
                         if (!foundCompletedStep) {
-                            ScriptConsole.println("[QuestHelper] No completed steps to undo");
+                            // ScriptConsole.println("[QuestHelper] No completed steps to undo");
                         }
                     } else {
-                        ScriptConsole.println("[QuestHelper] No quest guide available");
+                        // ScriptConsole.println("[QuestHelper] No quest guide available");
                     }
                 }
                 
@@ -1517,9 +1513,8 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     
                     ImGui.Separator();
                     
-                    // Draw quest name at the top with teal accent
                     ImGui.PushStyleColor(0, 0.25f, 0.78f, 0.71f, 1.0f); // Teal accent
-                    ImGui.Text("Quest: " + selectedQuest.name());
+                    ImGui.Text("Quest: " + selectedQuest.name().replace("%", "%%"));
                     ImGui.PopStyleColor();
                     
                     try {
@@ -1542,7 +1537,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         }
                         
                         ImGui.PushStyleColor(0, statusColor[0], statusColor[1], statusColor[2], statusColor[3]);
-                        ImGui.Text("Status: " + status);
+                        ImGui.Text("Status: " + status.replace("%", "%%"));
                         ImGui.PopStyleColor();
                         
                     } catch (Exception e) {
@@ -1587,7 +1582,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                                 QuestDialogFetcher.QuestSection section = currentGuide.getSections().get(sectionIndex);
                                 
                                 ImGui.PushStyleColor(0, 0.4f, 0.9f, 0.7f, 1.0f); // Lighter teal
-                                ImGui.Text("=== " + section.getSectionName() + " (" + section.getCompletedSteps() + "/" + section.getTotalSteps() + ") ===");
+                                ImGui.Text("=== " + section.getSectionName().replace("%", "%%") + " (" + section.getCompletedSteps() + "/" + section.getTotalSteps() + ") ===");
                                 ImGui.PopStyleColor();
                                 
                                 for (int stepIndex = 0; stepIndex < section.getSteps().size(); stepIndex++) {
@@ -1607,23 +1602,23 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                                     
                                     if (isCompleted) {
                                         ImGui.PushStyleColor(0, 0.2f, 0.8f, 0.4f, 1.0f); // Green-teal for completed
-                                        ImGui.Text(step.getCleanStepText());
+                                        ImGui.Text(step.getCleanStepText().replace("%", "%%"));
                                         ImGui.PopStyleColor();
                                     } else {
                                         ImGui.PushStyleColor(0, 1.0f, 0.8f, 0.2f, 1.0f); // Yellow for incomplete
-                                        ImGui.Text(step.getCleanStepText());
+                                        ImGui.Text(step.getCleanStepText().replace("%", "%%"));
                                         ImGui.PopStyleColor();
                                     }
                                     
                                     if (!isCompleted && step.hasDialogs()) {
                                         for (QuestDialogFetcher.DialogSequence sequence : step.getDialogs()) {
                                             ImGui.PushStyleColor(0, 0.7f, 0.7f, 0.7f, 1.0f); // Light gray
-                                            ImGui.Text("    Dialog: " + sequence.getContext());
+                                            ImGui.Text("    Dialog: " + sequence.getContext().replace("%", "%%"));
                                             ImGui.PopStyleColor();
                                             
                                             for (QuestDialogFetcher.DialogOption option : sequence.getOptions()) {
                                                 ImGui.PushStyleColor(0, 0.8f, 0.9f, 1.0f, 1.0f); // Light blue
-                                                ImGui.Text("      " + option.getOptionNumber() + ": " + option.getOptionText());
+                                                ImGui.Text("      " + option.getOptionNumber() + ": " + option.getOptionText().replace("%", "%%"));
                                                 ImGui.PopStyleColor();
                                             }
                                         }
@@ -1650,7 +1645,8 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 ImGui.PopStyleColor();
                 
             } catch (Exception e) {
-                ScriptConsole.println("[CoaezUtilityGUI] Error drawing overlay: " + e.getMessage());
+                // ScriptConsole.println("[CoaezUtilityGUI] Error drawing overlay: " + e.getMessage());
+                e.printStackTrace();
             } finally {
                 // Reset styling
                 guiStyling.resetCustomStyles();
@@ -1708,7 +1704,8 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             }
             
         } catch (Exception e) {
-            ScriptConsole.println("[CoaezUtilityGUI] Error processing dialog option highlight: " + e.getMessage());
+            // ScriptConsole.println("[CoaezUtilityGUI] Error processing dialog option highlight: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
