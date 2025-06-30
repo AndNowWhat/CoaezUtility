@@ -299,23 +299,35 @@ public class BeachEventTask implements Task {
     }
     
     private boolean hasTemperaturePreventingBuff() {
-        // Check for temperature-preventing cocktail buffs
-        // A Hole in One (Dungeoneering) - ID: 51729
-        if (hasBuffActive(51729)) {
+        // Check for temperature-preventing cocktail buffs using their specific varcs
+        // A Hole in One (Dungeoneering) - varc 6925
+        if ((VarManager.getVarc(6925) - Client.getClientCycle()) > 0) {
+            int remainingTimer = VarManager.getVarc(6925) - Client.getClientCycle();
+            ScriptConsole.println("[BeachEventTask] A Hole in One buff active, remaining timer: " + remainingTimer);
             return true;
         }
-        // Ugly Duckling (Hook a Duck) - ID: 51730
-        if (hasBuffActive(51730)) {
+        
+        // Ugly Duckling (Hook a Duck) - varc 6926
+        if ((VarManager.getVarc(6926) - Client.getClientCycle()) > 0) {
+            int remainingTimer = VarManager.getVarc(6926) - Client.getClientCycle();
+            ScriptConsole.println("[BeachEventTask] Ugly Duckling buff active, remaining timer: " + remainingTimer);
             return true;
         }
-        // Palmer Farmer (Palm Tree Farming) - ID: 51731
-        if (hasBuffActive(51731)) {
+        
+        // Palmer Farmer (Palm Tree Farming) - varc 6927
+        if ((VarManager.getVarc(6927) - Client.getClientCycle()) > 0) {
+            int remainingTimer = VarManager.getVarc(6927) - Client.getClientCycle();
+            ScriptConsole.println("[BeachEventTask] Palmer Farmer buff active, remaining timer: " + remainingTimer);
             return true;
         }
-        // Fisherman's Friend (Rock Pools) - ID: 51732
-        if (hasBuffActive(51732)) {
+        
+        // Fisherman's Friend (Rock Pools) - varc 6928
+        if ((VarManager.getVarc(6928) - Client.getClientCycle()) > 0) {
+            int remainingTimer = VarManager.getVarc(6928) - Client.getClientCycle();
+            ScriptConsole.println("[BeachEventTask] Fisherman's Friend buff active, remaining timer: " + remainingTimer);
             return true;
         }
+        
         return false;
     }
     
@@ -832,26 +844,56 @@ public class BeachEventTask implements Task {
     }
     
     private boolean hasBuffActive(int itemId) {
+        int varcValue;
+        int remainingTimer;
         switch (itemId) {
             case 35051: // Pink fizz
-                return VarManager.getVarc(6921) > 0;
+                varcValue = VarManager.getVarc(6921);
+                remainingTimer = varcValue - Client.getClientCycle();
+                ScriptConsole.println("[BeachEventTask] Checking Pink Fizz buff - Varc 6921: " + varcValue + ", Timer: " + remainingTimer);
+                return remainingTimer > 0;
             case 35052: // Purple Lumbridge
-                return VarManager.getVarc(6922) > 0;
+                varcValue = VarManager.getVarc(6922);
+                remainingTimer = varcValue - Client.getClientCycle();
+                ScriptConsole.println("[BeachEventTask] Checking Purple Lumbridge buff - Varc 6922: " + varcValue + ", Timer: " + remainingTimer);
+                return remainingTimer > 0;
             case 35053: // Pineappletini
-                return VarManager.getVarc(6923) > 0;
+                varcValue = VarManager.getVarc(6923);
+                remainingTimer = varcValue - Client.getClientCycle();
+                ScriptConsole.println("[BeachEventTask] Checking Pineappletini buff - Varc 6923: " + varcValue + ", Timer: " + remainingTimer);
+                return remainingTimer > 0;
             case 35054: // Lemon sour
-                return VarManager.getVarc(6924) > 0;
+                varcValue = VarManager.getVarc(6924);
+                remainingTimer = varcValue - Client.getClientCycle();
+                ScriptConsole.println("[BeachEventTask] Checking Lemon Sour buff - Varc 6924: " + varcValue + ", Timer: " + remainingTimer);
+                return remainingTimer > 0;
             case 51729: // A Hole in One
-                return VarManager.getVarc(6925) > 0;
+                varcValue = VarManager.getVarc(6925);
+                remainingTimer = varcValue - Client.getClientCycle();
+                ScriptConsole.println("[BeachEventTask] Checking A Hole in One buff - Varc 6925: " + varcValue + ", Timer: " + remainingTimer);
+                return remainingTimer > 0;
             case 51730: // Ugly Duckling (hook a duck)
-                return VarManager.getVarc(6926) > 0;
+                varcValue = VarManager.getVarc(6926);
+                remainingTimer = varcValue - Client.getClientCycle();
+                ScriptConsole.println("[BeachEventTask] Checking Ugly Duckling buff - Varc 6926: " + varcValue + ", Timer: " + remainingTimer);
+                return remainingTimer > 0;
             case 51731: // Palmer Farmer (palm tree)
-                return VarManager.getVarc(6927) > 0;
+                varcValue = VarManager.getVarc(6927);
+                remainingTimer = varcValue - Client.getClientCycle();
+                ScriptConsole.println("[BeachEventTask] Checking Palmer Farmer buff - Varc 6927: " + varcValue + ", Timer: " + remainingTimer);
+                return remainingTimer > 0;
             case 51732: // Fishermans Friend (rock pools)
-                return VarManager.getVarc(6928) > 0;
+                varcValue = VarManager.getVarc(6928);
+                remainingTimer = varcValue - Client.getClientCycle();
+                ScriptConsole.println("[BeachEventTask] Checking Fishermans Friend buff - Varc 6928: " + varcValue + ", Timer: " + remainingTimer);
+                return remainingTimer > 0;
             case 51733: // George's Peach Delight (sandcastle)
-                return VarManager.getVarc(6929) > 0;
+                varcValue = VarManager.getVarc(6929);
+                remainingTimer = varcValue - Client.getClientCycle();
+                ScriptConsole.println("[BeachEventTask] Checking George's Peach Delight buff - Varc 6929: " + varcValue + ", Timer: " + remainingTimer);
+                return remainingTimer > 0;
             default:
+                ScriptConsole.println("[BeachEventTask] Unknown cocktail item ID: " + itemId);
                 return false;
         }
     }
