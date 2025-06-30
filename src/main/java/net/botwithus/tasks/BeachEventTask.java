@@ -248,7 +248,7 @@ public class BeachEventTask implements Task {
     }
     
     private void handleBattleship() {
-        if (!Backpack.contains("Toy royal battleship")) {
+        if (!Backpack.contains(33769)) {
             ScriptConsole.println("[BeachEventTask] No battleship in inventory");
             return;
         }
