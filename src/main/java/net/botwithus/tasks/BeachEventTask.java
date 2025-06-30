@@ -119,7 +119,12 @@ public class BeachEventTask implements Task {
     }
     
     private void updateActivityFromSpotlight(int spotlightActivity, boolean isHappyHour) {
+        ScriptConsole.println("[BeachEventTask] Spotlight update - Activity ID: " + spotlightActivity + 
+                             ", Is Happy Hour: " + isHappyHour + 
+                             ", Happy Hour Preference: " + spotlightHappyHour);
+        
         if (isHappyHour) {
+            ScriptConsole.println("[BeachEventTask] Happy hour active, switching to preference: " + spotlightHappyHour);
             switch (spotlightHappyHour) {
                 case "Dung":
                     selectedActivity = BeachActivity.DUNGEONEERING_HOLE;
@@ -142,13 +147,21 @@ public class BeachEventTask implements Task {
                 case "Farming":
                     selectedActivity = BeachActivity.PALM_TREE_FARMING;
                     break;
+                default:
+                    ScriptConsole.println("[BeachEventTask] Unknown happy hour preference: " + spotlightHappyHour);
             }
         } else {
             BeachActivity spotlightBeachActivity = BeachActivity.getById(spotlightActivity);
+            ScriptConsole.println("[BeachEventTask] Normal time, following spotlight activity: " + spotlightBeachActivity);
             if (spotlightBeachActivity != null) {
                 selectedActivity = spotlightBeachActivity;
+                ScriptConsole.println("[BeachEventTask] Selected activity updated to: " + selectedActivity);
+            } else {
+                ScriptConsole.println("[BeachEventTask] Warning: Could not find activity for spotlight ID " + spotlightActivity);
             }
         }
+        
+        ScriptConsole.println("[BeachEventTask] Final selected activity: " + selectedActivity);
     }
     
     private boolean eatIceCream(int beachTemp, boolean isHappyHour) {
@@ -196,7 +209,17 @@ public class BeachEventTask implements Task {
         }
         
         if (lastBattleshipMessage.isEmpty()) {
-            ScriptConsole.println("[BeachEventTask] Waiting for battleship result message...");
+            ScriptConsole.println("[BeachEventTask] No battleship message, deploying default aggressive ship");
+            if (Backpack.interact("Toy royal battleship", "Deploy")) {
+                boolean interfaceOpened = Execution.delayUntil(3000, () -> 
+                    Interfaces.isOpen(751));
+                
+                if (interfaceOpened) {
+                    ScriptConsole.println("[BeachEventTask] Deploying default aggressive ship");
+                    MiniMenu.interact(ComponentAction.DIALOGUE.getType(), 0, -1, 49217602);
+                    Execution.delay(1200);
+                }
+            }
             return;
         }
         
@@ -208,15 +231,12 @@ public class BeachEventTask implements Task {
             
             if (interfaceOpened) {
                 if (lastBattleshipMessage.contains("Our accuracy penetrated their defences!")) {
-                    // Deploy aggressive ship
                     ScriptConsole.println("[BeachEventTask] Deploying aggressive ship");
                     MiniMenu.interact(ComponentAction.DIALOGUE.getType(), 0, -1, 49217602);
                 } else if (lastBattleshipMessage.contains("Our defences withstood their aggression!")) {
-                    // Deploy accurate ship
                     ScriptConsole.println("[BeachEventTask] Deploying accurate ship");
                     MiniMenu.interact(ComponentAction.DIALOGUE.getType(), 0, -1, 49217586);
                 } else if (lastBattleshipMessage.contains("Our aggression overcame their accuracy!")) {
-                    // Deploy defensive ship
                     ScriptConsole.println("[BeachEventTask] Deploying defensive ship");
                     MiniMenu.interact(ComponentAction.DIALOGUE.getType(), 0, -1, 49217594);
                 }
