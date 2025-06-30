@@ -95,6 +95,7 @@ public class BeachEventTask implements Task {
 
         if (player.getAnimationId() != -1 && selectedActivity != BeachActivity.BODY_BUILDING) {
             ScriptConsole.println("[BeachEventTask] Player is animating (" + player.getAnimationId() + "), waiting...");
+            Execution.delay(script.getRandom().nextInt(1200, 4000));
             return;
         }
         
@@ -577,6 +578,7 @@ public class BeachEventTask implements Task {
             ScriptConsole.println("[BeachEventTask] Playing coconut shy...");
             if (cachedCoconutShy.interact("Play")) {
                 ScriptConsole.println("[BeachEventTask] Throw that coconut!");
+                Execution.delay(script.getRandom().nextInt(1200, 4000));
             }
         }
     }
