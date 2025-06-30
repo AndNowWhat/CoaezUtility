@@ -147,10 +147,20 @@ public class BeachEventTask implements Task {
                     selectedActivity = BeachActivity.BODY_BUILDING;
                     break;
                 case "Construction":
-                    selectedActivity = BeachActivity.SANDCASTLE_BUILDING;
+                    if (!Client.isMember()) {
+                        ScriptConsole.println("[BeachEventTask] Sandcastle building requires membership, switching to default activity");
+                        selectedActivity = BeachActivity.DUNGEONEERING_HOLE;
+                    } else {
+                        selectedActivity = BeachActivity.SANDCASTLE_BUILDING;
+                    }
                     break;
                 case "Hunter":
-                    selectedActivity = BeachActivity.HOOK_A_DUCK;
+                    if (!Client.isMember()) {
+                        ScriptConsole.println("[BeachEventTask] Hook-a-duck requires membership, switching to default activity");
+                        selectedActivity = BeachActivity.DUNGEONEERING_HOLE;
+                    } else {
+                        selectedActivity = BeachActivity.HOOK_A_DUCK;
+                    }
                     break;
                 case "Ranged":
                     selectedActivity = BeachActivity.COCONUT_SHY;
@@ -159,7 +169,12 @@ public class BeachEventTask implements Task {
                     selectedActivity = BeachActivity.BARBEQUES;
                     break;
                 case "Farming":
-                    selectedActivity = BeachActivity.PALM_TREE_FARMING;
+                    if (!Client.isMember()) {
+                        ScriptConsole.println("[BeachEventTask] Palm tree farming requires membership, switching to default activity");
+                        selectedActivity = BeachActivity.DUNGEONEERING_HOLE;
+                    } else {
+                        selectedActivity = BeachActivity.PALM_TREE_FARMING;
+                    }
                     break;
                 default:
                     ScriptConsole.println("[BeachEventTask] Unknown happy hour preference: " + spotlightHappyHour);
@@ -168,7 +183,15 @@ public class BeachEventTask implements Task {
             BeachActivity spotlightBeachActivity = BeachActivity.getById(spotlightActivity);
             ScriptConsole.println("[BeachEventTask] Normal time, following spotlight activity: " + spotlightBeachActivity);
             if (spotlightBeachActivity != null) {
-                selectedActivity = spotlightBeachActivity;
+                // Check if the spotlight activity is member-only and player is F2P
+                if (!Client.isMember() && (spotlightBeachActivity == BeachActivity.HOOK_A_DUCK || 
+                                           spotlightBeachActivity == BeachActivity.SANDCASTLE_BUILDING || 
+                                           spotlightBeachActivity == BeachActivity.PALM_TREE_FARMING)) {
+                    ScriptConsole.println("[BeachEventTask] Spotlight activity " + spotlightBeachActivity + " requires membership, switching to default activity");
+                    selectedActivity = BeachActivity.DUNGEONEERING_HOLE;
+                } else {
+                    selectedActivity = spotlightBeachActivity;
+                }
                 ScriptConsole.println("[BeachEventTask] Selected activity updated to: " + selectedActivity);
             } else {
                 ScriptConsole.println("[BeachEventTask] Warning: Could not find activity for spotlight ID " + spotlightActivity);
@@ -320,7 +343,7 @@ public class BeachEventTask implements Task {
             cachedDungeoneeringHole = results.nearest();
         }
         
-        if (cachedDungeoneeringHole != null && !canDeployShip) {
+        if (cachedDungeoneeringHole != null) {
             ScriptConsole.println("[BeachEventTask] Interacting with dungeoneering hole...");
             if (cachedDungeoneeringHole.interact("Dungeoneer")) {
                 ScriptConsole.println("[BeachEventTask] Get Back in that Hole!");
@@ -341,7 +364,7 @@ public class BeachEventTask implements Task {
             cachedBodybuilding = results.nearest();
         }
         
-        if (cachedBodybuilding != null && !canDeployShip) {
+        if (cachedBodybuilding != null) {
             boolean workoutInterfaceOpen = Interfaces.isOpen(796);
             ScriptConsole.println("[BeachEventTask] Workout interface 796 open: " + workoutInterfaceOpen);
             
@@ -457,6 +480,11 @@ public class BeachEventTask implements Task {
     }
     
     private void executeSandcastleBuilding() {
+        if (!Client.isMember()) {
+            ScriptConsole.println("[BeachEventTask] Sandcastle building requires membership, skipping activity");
+            return;
+        }
+        
         if (useCocktails) {
             useSandcastleCocktail();
         }
@@ -497,7 +525,7 @@ public class BeachEventTask implements Task {
             ScriptConsole.println("[BeachEventTask] Found Sand Exchange");
         }
         
-        if (sandcastle != null && !canDeployShip) {
+        if (sandcastle != null) {
             ScriptConsole.println("[BeachEventTask] Building sandcastle: " + sandcastle.getName());
             if (sandcastle.interact("Build")) {
                 ScriptConsole.println("[BeachEventTask] Successfully interacted with sandcastle");
@@ -511,6 +539,11 @@ public class BeachEventTask implements Task {
     }
     
     private void executeHookADuck() {
+        if (!Client.isMember()) {
+            ScriptConsole.println("[BeachEventTask] Hook-a-duck requires membership, skipping activity");
+            return;
+        }
+        
         if (useCocktails) {
             useHookADuckCocktail();
         }
@@ -522,7 +555,7 @@ public class BeachEventTask implements Task {
             cachedHookADuck = results.nearest();
         }
         
-        if (cachedHookADuck != null && !canDeployShip) {
+        if (cachedHookADuck != null) {
             ScriptConsole.println("[BeachEventTask] Playing hook-a-duck...");
             if (cachedHookADuck.interact("Play")) {
                 ScriptConsole.println("[BeachEventTask] Go catch dat ducky!");
@@ -555,6 +588,24 @@ public class BeachEventTask implements Task {
             useBarbequeCocktail();
         }
         
+        LocalPlayer player = Client.getLocalPlayer();
+        if (player != null && player.getAnimationId() == -1) {
+            // Player is not animating, try to interact with grill
+            EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery()
+                .name("Grill")
+                .option("Use")
+                .results();
+            
+            SceneObject grill = results.nearest();
+            if (grill != null) {
+                ScriptConsole.println("[BeachEventTask] Player not animating, interacting with grill...");
+                if (grill.interact("Use")) {
+                    ScriptConsole.println("[BeachEventTask] Started using grill!");
+                }
+                return;
+            }
+        }
+        
         if (cachedBarbeque == null) {
             EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery()
                 .id(BeachEventObjects.BARBEQUE_GRILL.getId())
@@ -562,7 +613,7 @@ public class BeachEventTask implements Task {
             cachedBarbeque = results.nearest();
         }
         
-        if (cachedBarbeque != null && !canDeployShip) {
+        if (cachedBarbeque != null) {
             ScriptConsole.println("[BeachEventTask] Using barbeque...");
             if (cachedBarbeque.interact("Cook")) {
                 ScriptConsole.println("[BeachEventTask] Get that fish cooked!");
@@ -571,12 +622,16 @@ public class BeachEventTask implements Task {
     }
     
     private void executePalmTreeFarming() {
+        if (!Client.isMember()) {
+            ScriptConsole.println("[BeachEventTask] Palm tree farming requires membership, skipping activity");
+            return;
+        }
+        
         if (useCocktails) {
             usePalmTreeCocktail();
         }
         
         if (Backpack.isFull() && Backpack.contains("Coconut")) {
-            // Deposit coconuts
             EntityResultSet<SceneObject> pileResults = SceneObjectQuery.newQuery()
                 .id(BeachEventObjects.PILEOFCOCONUTS.getId())
                 .results();
@@ -594,9 +649,9 @@ public class BeachEventTask implements Task {
             .results();
         
         SceneObject tree = treeResults.nearest();
-        if (tree != null && !canDeployShip) {
+        if (tree != null) {
             ScriptConsole.println("[BeachEventTask] Chopping palm tree...");
-            if (tree.interact("Chop")) {
+            if (tree.interact("Pick coconut")) {
                 ScriptConsole.println("[BeachEventTask] Back to chopping trees.");
             }
         }
@@ -625,7 +680,7 @@ public class BeachEventTask implements Task {
             .results();
         
         Npc fishingSpot = fishingSpotResults.nearest();
-        if (fishingSpot != null && !canDeployShip) {
+        if (fishingSpot != null) {
             ScriptConsole.println("[BeachEventTask] Fishing at rock pools...");
             if (fishingSpot.interact("Fish")) {
                 ScriptConsole.println("[BeachEventTask] Back to fishing.");
