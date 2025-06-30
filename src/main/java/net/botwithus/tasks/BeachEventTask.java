@@ -142,7 +142,12 @@ public class BeachEventTask implements Task {
             return;
         }
 
-        drinkSelectedCocktails();
+        if (shouldDrinkCocktails()) {
+            drinkSelectedCocktails();
+            Execution.delay(1200);
+            return; 
+        }
+                
 
         
         ScriptConsole.println("[BeachEventTask] Execute called - Selected activity: " + (selectedActivity != null ? selectedActivity.getName() : "NULL"));
@@ -422,11 +427,7 @@ public class BeachEventTask implements Task {
             return;
         }
         
-        if (shouldDrinkCocktails()) {
-            drinkSelectedCocktails();
-            return; // Don't proceed with activity execution, let cocktail drinking finish first
-        }
-        
+
         switch (selectedActivity) {
             case DUNGEONEERING_HOLE:
                 executeDungeoneering();
