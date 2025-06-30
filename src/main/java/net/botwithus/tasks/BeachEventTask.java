@@ -257,6 +257,12 @@ public class BeachEventTask implements Task {
     }
     
     private boolean eatIceCream(int beachTemp, boolean isHappyHour) {
+        // Check if we have any temperature-preventing cocktail buffs active
+        if (hasTemperaturePreventingBuff()) {
+            ScriptConsole.println("[BeachEventTask] Temperature-preventing cocktail buff active, skipping ice cream");
+            return true;
+        }
+        
         if (beachTemp >= MAX_BEACH_TEMP && !isHappyHour) {
             ScriptConsole.println("[BeachEventTask] Beach temp at max (" + beachTemp + "), need to eat ice cream!");
             if (Backpack.contains("Ice cream")) {
@@ -290,6 +296,27 @@ public class BeachEventTask implements Task {
             return false;
         }
         return true;
+    }
+    
+    private boolean hasTemperaturePreventingBuff() {
+        // Check for temperature-preventing cocktail buffs
+        // A Hole in One (Dungeoneering) - ID: 51729
+        if (hasBuffActive(51729)) {
+            return true;
+        }
+        // Ugly Duckling (Hook a Duck) - ID: 51730
+        if (hasBuffActive(51730)) {
+            return true;
+        }
+        // Palmer Farmer (Palm Tree Farming) - ID: 51731
+        if (hasBuffActive(51731)) {
+            return true;
+        }
+        // Fisherman's Friend (Rock Pools) - ID: 51732
+        if (hasBuffActive(51732)) {
+            return true;
+        }
+        return false;
     }
     
     private boolean handleClawdia() {
