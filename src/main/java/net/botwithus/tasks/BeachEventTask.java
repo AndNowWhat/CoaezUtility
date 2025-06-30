@@ -1,5 +1,7 @@
 package net.botwithus.tasks;
 
+import java.awt.Dialog;
+
 import net.botwithus.CoaezUtility;
 import net.botwithus.api.game.hud.inventories.Backpack;
 import net.botwithus.rs3.game.Client;
@@ -16,6 +18,8 @@ import net.botwithus.rs3.script.ScriptConsole;
 import net.botwithus.rs3.game.hud.interfaces.Interfaces;
 import net.botwithus.rs3.game.minimenu.MiniMenu;
 import net.botwithus.rs3.game.minimenu.actions.ComponentAction;
+import net.botwithus.rs3.game.queries.builders.components.ComponentQuery;
+import net.botwithus.rs3.game.hud.interfaces.Component;
 
 public class BeachEventTask implements Task {
     private final CoaezUtility script;
@@ -212,6 +216,26 @@ public class BeachEventTask implements Task {
             ScriptConsole.println("[BeachEventTask] Beach temp at max (" + beachTemp + "), need to eat ice cream!");
             if (Backpack.contains("Ice cream")) {
                 if (Backpack.interact("Ice cream", "Eat")) {
+                    boolean brainFreezeOccurred = Execution.delayUntil(3000, () -> {
+                        if (Interfaces.isOpen(1189)) {
+                            Component brainFreezeComponent = ComponentQuery.newQuery(1189)
+                                .componentIndex(3)
+                                .results()
+                                .first();
+                            
+                            if (brainFreezeComponent != null && brainFreezeComponent.getText() != null) {
+                                return brainFreezeComponent.getText().contains("BRAIN FREEZE!");
+                            }
+                        }
+                        return false;
+                    });
+                    
+                    if (brainFreezeOccurred) {
+                        ScriptConsole.println("[BeachEventTask] BRAIN FREEZE! occurred - stopping script");
+                        script.setActive(false);
+                        return false;
+                    }
+                    
                     Execution.delayUntil(5000, () -> VarManager.getVarbitValue(BEACH_TEMP_VARBIT) < MAX_BEACH_TEMP);
                     return true;
                 }
