@@ -183,7 +183,6 @@ public class BeachEventTask implements Task {
             BeachActivity spotlightBeachActivity = BeachActivity.getById(spotlightActivity);
             ScriptConsole.println("[BeachEventTask] Normal time, following spotlight activity: " + spotlightBeachActivity);
             if (spotlightBeachActivity != null) {
-                // Check if the spotlight activity is member-only and player is F2P
                 if (!Client.isMember() && (spotlightBeachActivity == BeachActivity.HOOK_A_DUCK || 
                                            spotlightBeachActivity == BeachActivity.SANDCASTLE_BUILDING || 
                                            spotlightBeachActivity == BeachActivity.PALM_TREE_FARMING)) {
@@ -662,7 +661,7 @@ public class BeachEventTask implements Task {
             useRockPoolCocktail();
         }
         
-        if (Backpack.isFull() && Backpack.contains("Tropical trout")) {
+        if (Backpack.isFull() && Backpack.contains("Raw tropical trout")) {
             EntityResultSet<Npc> wellingtonResults = NpcQuery.newQuery()
                 .id(BeachEventNPCs.WELLINGTON.getId())
                 .results();
@@ -670,7 +669,7 @@ public class BeachEventTask implements Task {
             Npc wellington = wellingtonResults.nearest();
             if (wellington != null) {
                 ScriptConsole.println("[BeachEventTask] Inventory full, depositing fish...");
-                wellington.interact("Trade");
+                wellington.interact("Hand in fish");
                 return;
             }
         }
@@ -682,7 +681,7 @@ public class BeachEventTask implements Task {
         Npc fishingSpot = fishingSpotResults.nearest();
         if (fishingSpot != null) {
             ScriptConsole.println("[BeachEventTask] Fishing at rock pools...");
-            if (fishingSpot.interact("Fish")) {
+            if (fishingSpot.interact("Catch")) {
                 ScriptConsole.println("[BeachEventTask] Back to fishing.");
             }
         }
