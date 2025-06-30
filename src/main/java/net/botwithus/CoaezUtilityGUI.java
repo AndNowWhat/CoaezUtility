@@ -91,6 +91,16 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private String beachSpotlightHappyHour = "Hunter";
     private final String[] spotlightHappyHourOptions = {"Dung", "Strength", "Construction", "Hunter", "Ranged", "Cooking", "Farming"};
     private int selectedSpotlightHappyHourIndex = 3;
+    
+    private boolean guiUsePinkFizz = false;
+    private boolean guiUsePurpleLumbridge = false;
+    private boolean guiUsePineappletini = false;
+    private boolean guiUseLemonSour = false;
+    private boolean guiUseFishermanssFriend = false;
+    private boolean guiUseGeorgesPeachDelight = false;
+    private boolean guiUseAHoleInOne = false;
+    private boolean guiUsePalmerFarmer = false;
+    private boolean guiUseUglyDuckling = false;
 
     public CoaezUtilityGUI(ScriptConsole scriptConsole, CoaezUtility coaezUtility) {
         super(scriptConsole);
@@ -218,6 +228,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         renderQuestsTab();
                         ImGui.EndTabItem();
                     }
+                    if (ImGui.BeginTabItem("Beach Event", 0)) {
+                        renderBeachEventTab();
+                        ImGui.EndTabItem();
+                    }
                     /* if (ImGui.BeginTabItem("Smithing", 0)) {
                         renderSmithingTab();
                         ImGui.EndTabItem();
@@ -310,77 +324,6 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 coaezUtility.getQuestHelper().initializeQuestDisplay();
             }
         }
-        
-        ImGui.SeparatorText("Beach Event");
-        
-        // Beach Activity Selection
-        String[] beachActivityNames = Arrays.stream(beachActivities)
-            .map(activity -> activity.getName())
-            .toArray(String[]::new);
-        
-        int newBeachActivityIndex = ImGui.Combo("Select Beach Activity", selectedBeachActivityIndex, beachActivityNames);
-        if (newBeachActivityIndex != selectedBeachActivityIndex) {
-            selectedBeachActivityIndex = newBeachActivityIndex;
-            updateBeachEventSettings(); 
-        }
-        
-        // Beach Event Configuration Options
-        boolean newBeachUseCocktails = ImGui.Checkbox("Use Cocktails (TODO)", beachUseCocktails);
-        if (newBeachUseCocktails != beachUseCocktails) {
-            beachUseCocktails = newBeachUseCocktails;
-            updateBeachEventSettings(); 
-        }
-        
-        boolean newBeachFightClawdia = ImGui.Checkbox("Fight Clawdia", beachFightClawdia);
-        if (newBeachFightClawdia != beachFightClawdia) {
-            beachFightClawdia = newBeachFightClawdia;
-            updateBeachEventSettings(); 
-        }
-        
-        boolean newBeachUseSpotlight = ImGui.Checkbox("Follow Spotlight", beachUseSpotlight);
-        if (newBeachUseSpotlight != beachUseSpotlight) {
-            beachUseSpotlight = newBeachUseSpotlight;
-            updateBeachEventSettings(); 
-        }
-        
-        boolean newBeachUseBattleship = ImGui.Checkbox("Use Battleship", beachUseBattleship);
-        if (newBeachUseBattleship != beachUseBattleship) {
-            beachUseBattleship = newBeachUseBattleship;
-            updateBeachEventSettings(); 
-        }
-        
-        // Spotlight Happy Hour Preference
-        if (beachUseSpotlight) {
-            int newSpotlightHappyHourIndex = ImGui.Combo("Happy Hour Preference", selectedSpotlightHappyHourIndex, spotlightHappyHourOptions);
-            if (newSpotlightHappyHourIndex != selectedSpotlightHappyHourIndex) {
-                selectedSpotlightHappyHourIndex = newSpotlightHappyHourIndex;
-                beachSpotlightHappyHour = spotlightHappyHourOptions[selectedSpotlightHappyHourIndex];
-                updateBeachEventSettings(); 
-            }
-        }
-        
-        // Start Beach Event Button
-        if (ImGui.Button("Start Beach Event")) {
-            if (coaezUtility.getBeachEventTask() != null) {
-                // Settings are already applied via updateBeachEventSettings() calls above
-                // Just start the beach event
-                coaezUtility.setBotState(CoaezUtility.BotState.BEACH_EVENT);
-            } else {
-                ScriptConsole.println("[GUI] Beach Event Task not available.");
-            }
-        }
-        
-        // Display current beach event configuration
-        ImGui.Separator();
-        ImGui.Text("Current Configuration:");
-        ImGui.Text("Activity: " + beachActivities[selectedBeachActivityIndex].getName().replace("%", "%%"));
-        ImGui.Text("Use Cocktails: " + (beachUseCocktails ? "Yes" : "No"));
-        ImGui.Text("Fight Clawdia: " + (beachFightClawdia ? "Yes" : "No"));
-        ImGui.Text("Follow Spotlight: " + (beachUseSpotlight ? "Yes" : "No"));
-        if (beachUseSpotlight) {
-            ImGui.Text("Happy Hour Preference: " + beachSpotlightHappyHour.replace("%", "%%"));
-        }
-        ImGui.Text("Use Battleship: " + (beachUseBattleship ? "Yes" : "No"));
     }
     
     private void renderAlchemyTab() {
@@ -1271,6 +1214,17 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         config.addProperty("beachUseBattleship", String.valueOf(beachUseBattleship));
         config.addProperty("beachSpotlightHappyHour", beachSpotlightHappyHour);
         config.addProperty("selectedSpotlightHappyHourIndex", String.valueOf(selectedSpotlightHappyHourIndex));
+        
+        // Save individual cocktail settings
+        config.addProperty("guiUsePinkFizz", String.valueOf(guiUsePinkFizz));
+        config.addProperty("guiUsePurpleLumbridge", String.valueOf(guiUsePurpleLumbridge));
+        config.addProperty("guiUsePineappletini", String.valueOf(guiUsePineappletini));
+        config.addProperty("guiUseLemonSour", String.valueOf(guiUseLemonSour));
+        config.addProperty("guiUseFishermanssFriend", String.valueOf(guiUseFishermanssFriend));
+        config.addProperty("guiUseGeorgesPeachDelight", String.valueOf(guiUseGeorgesPeachDelight));
+        config.addProperty("guiUseAHoleInOne", String.valueOf(guiUseAHoleInOne));
+        config.addProperty("guiUsePalmerFarmer", String.valueOf(guiUsePalmerFarmer));
+        config.addProperty("guiUseUglyDuckling", String.valueOf(guiUseUglyDuckling));
 
         config.save();
     }
@@ -1549,6 +1503,52 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             } catch (NumberFormatException e) {
                 selectedSpotlightHappyHourIndex = 3; // Default to "Hunter"
             }
+        }
+        
+        // Load individual cocktail settings
+        String guiUsePinkFizzStr = config.getProperty("guiUsePinkFizz");
+        if (guiUsePinkFizzStr != null) {
+            guiUsePinkFizz = Boolean.parseBoolean(guiUsePinkFizzStr);
+        }
+        
+        String guiUsePurpleLumbridgeStr = config.getProperty("guiUsePurpleLumbridge");
+        if (guiUsePurpleLumbridgeStr != null) {
+            guiUsePurpleLumbridge = Boolean.parseBoolean(guiUsePurpleLumbridgeStr);
+        }
+        
+        String guiUsePineappletiniStr = config.getProperty("guiUsePineappletini");
+        if (guiUsePineappletiniStr != null) {
+            guiUsePineappletini = Boolean.parseBoolean(guiUsePineappletiniStr);
+        }
+        
+        String guiUseLemonSourStr = config.getProperty("guiUseLemonSour");
+        if (guiUseLemonSourStr != null) {
+            guiUseLemonSour = Boolean.parseBoolean(guiUseLemonSourStr);
+        }
+        
+        String guiUseFishermanssFriendStr = config.getProperty("guiUseFishermanssFriend");
+        if (guiUseFishermanssFriendStr != null) {
+            guiUseFishermanssFriend = Boolean.parseBoolean(guiUseFishermanssFriendStr);
+        }
+        
+        String guiUseGeorgesPeachDelightStr = config.getProperty("guiUseGeorgesPeachDelight");
+        if (guiUseGeorgesPeachDelightStr != null) {
+            guiUseGeorgesPeachDelight = Boolean.parseBoolean(guiUseGeorgesPeachDelightStr);
+        }
+        
+        String guiUseAHoleInOneStr = config.getProperty("guiUseAHoleInOne");
+        if (guiUseAHoleInOneStr != null) {
+            guiUseAHoleInOne = Boolean.parseBoolean(guiUseAHoleInOneStr);
+        }
+        
+        String guiUsePalmerFarmerStr = config.getProperty("guiUsePalmerFarmer");
+        if (guiUsePalmerFarmerStr != null) {
+            guiUsePalmerFarmer = Boolean.parseBoolean(guiUsePalmerFarmerStr);
+        }
+        
+        String guiUseUglyDucklingStr = config.getProperty("guiUseUglyDuckling");
+        if (guiUseUglyDucklingStr != null) {
+            guiUseUglyDuckling = Boolean.parseBoolean(guiUseUglyDucklingStr);
         }
      }
 
@@ -1898,6 +1898,17 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             beachTask.setUseBattleship(beachUseBattleship);
             beachTask.setSpotlightHappyHour(beachSpotlightHappyHour);
             
+            // Apply individual cocktail settings
+            beachTask.setUsePinkFizz(guiUsePinkFizz);
+            beachTask.setUsePurpleLumbridge(guiUsePurpleLumbridge);
+            beachTask.setUsePineappletini(guiUsePineappletini);
+            beachTask.setUseLemonSour(guiUseLemonSour);
+            beachTask.setUseFishermanssFriend(guiUseFishermanssFriend);
+            beachTask.setUseGeorgesPeachDelight(guiUseGeorgesPeachDelight);
+            beachTask.setUseAHoleInOne(guiUseAHoleInOne);
+            beachTask.setUsePalmerFarmer(guiUsePalmerFarmer);
+            beachTask.setUseUglyDuckling(guiUseUglyDuckling);
+            
             ScriptConsole.println("[GUI] Applied Beach Event settings from config - Activity: " + 
                 beachActivities[selectedBeachActivityIndex].getName() + 
                 ", Cocktails: " + beachUseCocktails + 
@@ -1906,5 +1917,154 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 ", Battleship: " + beachUseBattleship + 
                 ", Happy Hour: " + beachSpotlightHappyHour);
         }
+    }
+
+    private void renderBeachEventTab() {
+        ImGui.Text("Beach Event Configuration");
+        ImGui.Separator();
+        
+        // Beach Activity Selection
+        String[] beachActivityNames = Arrays.stream(beachActivities)
+            .map(activity -> activity.getName())
+            .toArray(String[]::new);
+        
+        int newBeachActivityIndex = ImGui.Combo("Select Beach Activity", selectedBeachActivityIndex, beachActivityNames);
+        if (newBeachActivityIndex != selectedBeachActivityIndex) {
+            selectedBeachActivityIndex = newBeachActivityIndex;
+            updateBeachEventSettings(); 
+        }
+        
+        ImGui.Separator();
+        
+        ImGui.Text("General Options:");
+        
+        boolean newBeachFightClawdia = ImGui.Checkbox("Fight Clawdia", beachFightClawdia);
+        if (newBeachFightClawdia != beachFightClawdia) {
+            beachFightClawdia = newBeachFightClawdia;
+            updateBeachEventSettings(); 
+        }
+        
+        boolean newBeachUseSpotlight = ImGui.Checkbox("Follow Spotlight", beachUseSpotlight);
+        if (newBeachUseSpotlight != beachUseSpotlight) {
+            beachUseSpotlight = newBeachUseSpotlight;
+            updateBeachEventSettings(); 
+        }
+        
+        boolean newBeachUseBattleship = ImGui.Checkbox("Use Battleship", beachUseBattleship);
+        if (newBeachUseBattleship != beachUseBattleship) {
+            beachUseBattleship = newBeachUseBattleship;
+            updateBeachEventSettings(); 
+        }
+        
+        if (beachUseSpotlight) {
+            int newSpotlightHappyHourIndex = ImGui.Combo("Happy Hour Preference", selectedSpotlightHappyHourIndex, spotlightHappyHourOptions);
+            if (newSpotlightHappyHourIndex != selectedSpotlightHappyHourIndex) {
+                selectedSpotlightHappyHourIndex = newSpotlightHappyHourIndex;
+                beachSpotlightHappyHour = spotlightHappyHourOptions[selectedSpotlightHappyHourIndex];
+                updateBeachEventSettings(); 
+            }
+        }
+        
+        ImGui.Separator();
+        
+        ImGui.Text("Cocktail Selection:");
+        
+        boolean newGuiUsePinkFizz = ImGui.Checkbox("Pink Fizz (Strength)", guiUsePinkFizz);
+        if (newGuiUsePinkFizz != guiUsePinkFizz) {
+            guiUsePinkFizz = newGuiUsePinkFizz;
+            updateBeachEventSettings(); 
+        }
+        
+        boolean newGuiUsePurpleLumbridge = ImGui.Checkbox("Purple Lumbridge (Construction/Cooking)", guiUsePurpleLumbridge);
+        if (newGuiUsePurpleLumbridge != guiUsePurpleLumbridge) {
+            guiUsePurpleLumbridge = newGuiUsePurpleLumbridge;
+            updateBeachEventSettings(); 
+        }
+        
+        boolean newGuiUsePineappletini = ImGui.Checkbox("Pineappletini (Hunter/Farming/Fishing)", guiUsePineappletini);
+        if (newGuiUsePineappletini != guiUsePineappletini) {
+            guiUsePineappletini = newGuiUsePineappletini;
+            updateBeachEventSettings(); 
+        }
+        
+        boolean newGuiUseLemonSour = ImGui.Checkbox("Lemon Sour (Dungeoneering)", guiUseLemonSour);
+        if (newGuiUseLemonSour != guiUseLemonSour) {
+            guiUseLemonSour = newGuiUseLemonSour;
+            updateBeachEventSettings(); 
+        }
+        
+        boolean newGuiUseFishermanssFriend = ImGui.Checkbox("Fisherman's Friend (Fishing)", guiUseFishermanssFriend);
+        if (newGuiUseFishermanssFriend != guiUseFishermanssFriend) {
+            guiUseFishermanssFriend = newGuiUseFishermanssFriend;
+            updateBeachEventSettings(); 
+        }
+        
+        boolean newGuiUseGeorgesPeachDelight = ImGui.Checkbox("George's Peach Delight (Construction)", guiUseGeorgesPeachDelight);
+        if (newGuiUseGeorgesPeachDelight != guiUseGeorgesPeachDelight) {
+            guiUseGeorgesPeachDelight = newGuiUseGeorgesPeachDelight;
+            updateBeachEventSettings(); 
+        }
+        
+        boolean newGuiUseAHoleInOne = ImGui.Checkbox("A Hole in One (Dungeoneering)", guiUseAHoleInOne);
+        if (newGuiUseAHoleInOne != guiUseAHoleInOne) {
+            guiUseAHoleInOne = newGuiUseAHoleInOne;
+            updateBeachEventSettings(); 
+        }
+        
+        boolean newGuiUsePalmerFarmer = ImGui.Checkbox("Palmer Farmer (Farming)", guiUsePalmerFarmer);
+        if (newGuiUsePalmerFarmer != guiUsePalmerFarmer) {
+            guiUsePalmerFarmer = newGuiUsePalmerFarmer;
+            updateBeachEventSettings(); 
+        }
+        
+        boolean newGuiUseUglyDuckling = ImGui.Checkbox("Ugly Duckling (Hunter)", guiUseUglyDuckling);
+        if (newGuiUseUglyDuckling != guiUseUglyDuckling) {
+            guiUseUglyDuckling = newGuiUseUglyDuckling;
+            updateBeachEventSettings(); 
+        }
+        
+        ImGui.Separator();
+        
+        if (ImGui.Button("Start Beach Event")) {
+            if (coaezUtility.getBeachEventTask() != null) {
+                coaezUtility.setBotState(CoaezUtility.BotState.BEACH_EVENT);
+            } else {
+                ScriptConsole.println("[GUI] Beach Event Task not available.");
+            }
+        }
+        
+        // Display current beach event configuration
+        ImGui.Separator();
+        ImGui.Text("Current Configuration:");
+        ImGui.Text("Activity: " + beachActivities[selectedBeachActivityIndex].getName().replace("%", "%%"));
+        
+        // Display selected cocktails
+        StringBuilder cocktailsText = new StringBuilder("Cocktails: ");
+        boolean hasSelectedCocktails = false;
+        if (guiUsePinkFizz) { cocktailsText.append("Pink Fizz, "); hasSelectedCocktails = true; }
+        if (guiUsePurpleLumbridge) { cocktailsText.append("Purple Lumbridge, "); hasSelectedCocktails = true; }
+        if (guiUsePineappletini) { cocktailsText.append("Pineappletini, "); hasSelectedCocktails = true; }
+        if (guiUseLemonSour) { cocktailsText.append("Lemon Sour, "); hasSelectedCocktails = true; }
+        if (guiUseFishermanssFriend) { cocktailsText.append("Fisherman's Friend, "); hasSelectedCocktails = true; }
+        if (guiUseGeorgesPeachDelight) { cocktailsText.append("George's Peach Delight, "); hasSelectedCocktails = true; }
+        if (guiUseAHoleInOne) { cocktailsText.append("A Hole in One, "); hasSelectedCocktails = true; }
+        if (guiUsePalmerFarmer) { cocktailsText.append("Palmer Farmer, "); hasSelectedCocktails = true; }
+        if (guiUseUglyDuckling) { cocktailsText.append("Ugly Duckling, "); hasSelectedCocktails = true; }
+        
+        if (hasSelectedCocktails) {
+            // Remove the trailing ", "
+            String cocktailsList = cocktailsText.toString();
+            cocktailsList = cocktailsList.substring(0, cocktailsList.length() - 2);
+            ImGui.Text(cocktailsList.replace("%", "%%"));
+        } else {
+            ImGui.Text("Cocktails: None");
+        }
+        
+        ImGui.Text("Fight Clawdia: " + (beachFightClawdia ? "Yes" : "No"));
+        ImGui.Text("Follow Spotlight: " + (beachUseSpotlight ? "Yes" : "No"));
+        if (beachUseSpotlight) {
+            ImGui.Text("Happy Hour Preference: " + beachSpotlightHappyHour.replace("%", "%%"));
+        }
+        ImGui.Text("Use Battleship: " + (beachUseBattleship ? "Yes" : "No"));
     }
 }

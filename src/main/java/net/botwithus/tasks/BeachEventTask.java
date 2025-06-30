@@ -1,10 +1,13 @@
 package net.botwithus.tasks;
 
 import java.awt.Dialog;
+import java.util.ArrayList;
+import java.util.List;
 
 import net.botwithus.CoaezUtility;
 import net.botwithus.api.game.hud.inventories.Backpack;
 import net.botwithus.rs3.game.Client;
+import net.botwithus.rs3.game.Item;
 import net.botwithus.rs3.game.queries.builders.characters.NpcQuery;
 import net.botwithus.rs3.game.queries.builders.objects.SceneObjectQuery;
 import net.botwithus.rs3.game.queries.results.EntityResultSet;
@@ -44,6 +47,17 @@ public class BeachEventTask implements Task {
     private boolean fightClawdia = true;
     private boolean useSpotlight = false;
     private String spotlightHappyHour = "Hunter";
+    
+    // Individual cocktail settings
+    private boolean usePinkFizz = false;
+    private boolean usePurpleLumbridge = false;
+    private boolean usePineappletini = false;
+    private boolean useLemonSour = false;
+    private boolean useFishermanssFriend = false;
+    private boolean useGeorgesPeachDelight = false;
+    private boolean useAHoleInOne = false;
+    private boolean usePalmerFarmer = false;
+    private boolean useUglyDuckling = false;
     
     // State
     private boolean canDeployShip = true;
@@ -86,6 +100,33 @@ public class BeachEventTask implements Task {
         this.spotlightHappyHour = spotlightHappyHour;
     }
     
+    public boolean isUsePinkFizz() { return usePinkFizz; }
+    public void setUsePinkFizz(boolean usePinkFizz) { this.usePinkFizz = usePinkFizz; }
+    
+    public boolean isUsePurpleLumbridge() { return usePurpleLumbridge; }
+    public void setUsePurpleLumbridge(boolean usePurpleLumbridge) { this.usePurpleLumbridge = usePurpleLumbridge; }
+    
+    public boolean isUsePineappletini() { return usePineappletini; }
+    public void setUsePineappletini(boolean usePineappletini) { this.usePineappletini = usePineappletini; }
+    
+    public boolean isUseLemonSour() { return useLemonSour; }
+    public void setUseLemonSour(boolean useLemonSour) { this.useLemonSour = useLemonSour; }
+    
+    public boolean isUseFishermanssFriend() { return useFishermanssFriend; }
+    public void setUseFishermanssFriend(boolean useFishermanssFriend) { this.useFishermanssFriend = useFishermanssFriend; }
+    
+    public boolean isUseGeorgesPeachDelight() { return useGeorgesPeachDelight; }
+    public void setUseGeorgesPeachDelight(boolean useGeorgesPeachDelight) { this.useGeorgesPeachDelight = useGeorgesPeachDelight; }
+    
+    public boolean isUseAHoleInOne() { return useAHoleInOne; }
+    public void setUseAHoleInOne(boolean useAHoleInOne) { this.useAHoleInOne = useAHoleInOne; }
+    
+    public boolean isUsePalmerFarmer() { return usePalmerFarmer; }
+    public void setUsePalmerFarmer(boolean usePalmerFarmer) { this.usePalmerFarmer = usePalmerFarmer; }
+    
+    public boolean isUseUglyDuckling() { return useUglyDuckling; }
+    public void setUseUglyDuckling(boolean useUglyDuckling) { this.useUglyDuckling = useUglyDuckling; }
+    
     @Override
     public void execute() {
         LocalPlayer player = Client.getLocalPlayer();
@@ -100,6 +141,9 @@ public class BeachEventTask implements Task {
             ScriptConsole.println("[BeachEventTask] Player has active headbar ID 13, already interacting...");
             return;
         }
+
+        drinkSelectedCocktails();
+
         
         ScriptConsole.println("[BeachEventTask] Execute called - Selected activity: " + (selectedActivity != null ? selectedActivity.getName() : "NULL"));
 
@@ -129,6 +173,7 @@ public class BeachEventTask implements Task {
         if (!eatIceCream(beachTemp, happyHour == 1)) {
             return;
         }
+        
         
         if (fightClawdia && handleClawdia()) {
             return;
@@ -338,6 +383,11 @@ public class BeachEventTask implements Task {
             return;
         }
         
+        if (shouldDrinkCocktails()) {
+            drinkSelectedCocktails();
+            return; // Don't proceed with activity execution, let cocktail drinking finish first
+        }
+        
         switch (selectedActivity) {
             case DUNGEONEERING_HOLE:
                 executeDungeoneering();
@@ -368,11 +418,39 @@ public class BeachEventTask implements Task {
         }
     }
     
-    private void executeDungeoneering() {
-        if (useCocktails) {
-            useDungeoneeringCocktail();
+    private boolean shouldDrinkCocktails() {
+        if (!usePinkFizz && !usePurpleLumbridge && !usePineappletini && !useLemonSour && 
+            !useFishermanssFriend && !useGeorgesPeachDelight && !useAHoleInOne && 
+            !usePalmerFarmer && !useUglyDuckling) {
+            return false;
         }
         
+        List<Item> backpackItems = Backpack.getItems();
+        if (backpackItems == null || backpackItems.isEmpty()) {
+            return false;
+        }
+        
+        List<Integer> enabledCocktailIds = new ArrayList<>();
+        if (usePinkFizz) enabledCocktailIds.add(BeachEventItems.PINK_FIZZ.getId());
+        if (usePurpleLumbridge) enabledCocktailIds.add(BeachEventItems.PURPLE_LUMBRIDGE.getId());
+        if (usePineappletini) enabledCocktailIds.add(BeachEventItems.PINEAPPLETINI.getId());
+        if (useLemonSour) enabledCocktailIds.add(BeachEventItems.LEMON_SOUR.getId());
+        if (useFishermanssFriend) enabledCocktailIds.add(BeachEventItems.FISHERMANS_FRIEND.getId());
+        if (useGeorgesPeachDelight) enabledCocktailIds.add(BeachEventItems.GEORGES_PEACH_DELIGHT.getId());
+        if (useAHoleInOne) enabledCocktailIds.add(BeachEventItems.A_HOLE_IN_ONE.getId());
+        if (usePalmerFarmer) enabledCocktailIds.add(BeachEventItems.PALMER_FARMER.getId());
+        if (useUglyDuckling) enabledCocktailIds.add(BeachEventItems.UGLY_DUCKLING.getId());
+        
+        for (Item item : backpackItems) {
+            if (item != null && enabledCocktailIds.contains(item.getId()) && !hasBuffActive(item.getId())) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    private void executeDungeoneering() {
         if (cachedDungeoneeringHole == null) {
             EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery()
                 .name("Dungeoneering hole")
@@ -389,10 +467,6 @@ public class BeachEventTask implements Task {
     }
     
     private void executeBodybuilding() {
-        if (useCocktails) {
-            useBodybuildingCocktail();
-        }
-        
         if (cachedBodybuilding == null) {
             EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery()
                 .name("Body building podium")
@@ -522,10 +596,6 @@ public class BeachEventTask implements Task {
             return;
         }
         
-        if (useCocktails) {
-            useSandcastleCocktail();
-        }
-        
         EntityResultSet<SceneObject> lumbridgeResults = SceneObjectQuery.newQuery()
             .name("Lumbridge Sandcastle")
             .option("Build")
@@ -581,10 +651,6 @@ public class BeachEventTask implements Task {
             return;
         }
         
-        if (useCocktails) {
-            useHookADuckCocktail();
-        }
-        
         if (cachedHookADuck == null) {
             EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery()
                 .id(BeachEventObjects.HOOK_A_DUCK.getId())
@@ -601,10 +667,6 @@ public class BeachEventTask implements Task {
     }
     
     private void executeCoconutShy() {
-        if (useCocktails) {
-            useCoconutShyCocktail();
-        }
-        
         if (cachedCoconutShy == null) {
             EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery()
                 .id(BeachEventObjects.COCONUT_SKY.getId())
@@ -622,10 +684,6 @@ public class BeachEventTask implements Task {
     }
     
     private void executeBarbeques() {
-        if (useCocktails) {
-            useBarbequeCocktail();
-        }
-        
         LocalPlayer player = Client.getLocalPlayer();
         if (player != null && player.getAnimationId() == -1) {
             // Player is not animating, try to interact with grill
@@ -665,10 +723,6 @@ public class BeachEventTask implements Task {
             return;
         }
         
-        if (useCocktails) {
-            usePalmTreeCocktail();
-        }
-        
         if (Backpack.isFull() && Backpack.contains("Coconut")) {
             EntityResultSet<SceneObject> pileResults = SceneObjectQuery.newQuery()
                 .id(BeachEventObjects.PILEOFCOCONUTS.getId())
@@ -696,9 +750,6 @@ public class BeachEventTask implements Task {
     }
     
     private void executeRockPools() {
-        if (useCocktails) {
-            useRockPoolCocktail();
-        }
         
         if (Backpack.isFull() && Backpack.contains(35106)) {
             EntityResultSet<Npc> results = NpcQuery.newQuery().name("Wellington").option("Hand in fish").results();
@@ -722,163 +773,60 @@ public class BeachEventTask implements Task {
         }
     }
     
-    private void useDungeoneeringCocktail() {
-        boolean isHappyHour = VarManager.getVarbitValue(HAPPY_HOUR_VARBIT) == 1;
+    private void drinkSelectedCocktails() {
+        List<Item> backpackItems = Backpack.getItems();
+        if (backpackItems == null || backpackItems.isEmpty()) {
+            return;
+        }
         
-        if (!isHappyHour) {
-            if (Backpack.contains(BeachEventItems.A_HOLE_IN_ONE.getId()) && !hasBuffActive(BeachEventItems.A_HOLE_IN_ONE.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking A Hole in One cocktail...");
-                Backpack.interact(BeachEventItems.A_HOLE_IN_ONE.getId(), "Drink");
-                Execution.delay(600);
-            } else if (Backpack.contains(BeachEventItems.LEMON_SOUR.getId()) && !hasBuffActive(BeachEventItems.LEMON_SOUR.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Lemon Sour cocktail...");
-                Backpack.interact(BeachEventItems.LEMON_SOUR.getId(), "Drink");
-                Execution.delay(600);
-            }
-        } else {
-            if (Backpack.contains(BeachEventItems.LEMON_SOUR.getId()) && !hasBuffActive(BeachEventItems.LEMON_SOUR.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Lemon Sour cocktail...");
-                Backpack.interact(BeachEventItems.LEMON_SOUR.getId(), "Drink");
-                Execution.delay(600);
-            } else if (Backpack.contains(BeachEventItems.A_HOLE_IN_ONE.getId()) && !hasBuffActive(BeachEventItems.A_HOLE_IN_ONE.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking A Hole in One cocktail...");
-                Backpack.interact(BeachEventItems.A_HOLE_IN_ONE.getId(), "Drink");
-                Execution.delay(600);
-            }
-        }
-    }
-    
-    private void useBodybuildingCocktail() {
-        if (Backpack.contains(BeachEventItems.PINK_FIZZ.getId()) && !hasBuffActive(BeachEventItems.PINK_FIZZ.getId())) {
-            ScriptConsole.println("[BeachEventTask] Drinking Pink Fizz cocktail...");
-            Backpack.interact(BeachEventItems.PINK_FIZZ.getId(), "Drink");
-            Execution.delay(600);
-        }
-    }
-    
-    private void useSandcastleCocktail() {
-        boolean isHappyHour = VarManager.getVarbitValue(HAPPY_HOUR_VARBIT) == 1;
+        List<Integer> enabledCocktailIds = new ArrayList<>();
+        if (usePinkFizz) enabledCocktailIds.add(BeachEventItems.PINK_FIZZ.getId());
+        if (usePurpleLumbridge) enabledCocktailIds.add(BeachEventItems.PURPLE_LUMBRIDGE.getId());
+        if (usePineappletini) enabledCocktailIds.add(BeachEventItems.PINEAPPLETINI.getId());
+        if (useLemonSour) enabledCocktailIds.add(BeachEventItems.LEMON_SOUR.getId());
+        if (useFishermanssFriend) enabledCocktailIds.add(BeachEventItems.FISHERMANS_FRIEND.getId());
+        if (useGeorgesPeachDelight) enabledCocktailIds.add(BeachEventItems.GEORGES_PEACH_DELIGHT.getId());
+        if (useAHoleInOne) enabledCocktailIds.add(BeachEventItems.A_HOLE_IN_ONE.getId());
+        if (usePalmerFarmer) enabledCocktailIds.add(BeachEventItems.PALMER_FARMER.getId());
+        if (useUglyDuckling) enabledCocktailIds.add(BeachEventItems.UGLY_DUCKLING.getId());
         
-        if (!isHappyHour) {
-            if (Backpack.contains(BeachEventItems.GEORGES_PEACH_DELIGHT.getId()) && !hasBuffActive(BeachEventItems.GEORGES_PEACH_DELIGHT.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking George's Peach Delight cocktail...");
-                Backpack.interact(BeachEventItems.GEORGES_PEACH_DELIGHT.getId(), "Drink");
+        for (Item item : backpackItems) {
+            if (item != null && enabledCocktailIds.contains(item.getId()) && !hasBuffActive(item.getId())) {
+                ScriptConsole.println("[BeachEventTask] Drinking cocktail: " + item.getName() + " from slot " + item.getSlot());
+                if (Backpack.interact(item.getSlot(), "Drink")) {
+                    ScriptConsole.println("[BeachEventTask] Successfully interacted with cocktail in slot " + item.getSlot());
+                } else {
+                    ScriptConsole.println("[BeachEventTask] Failed to interact with cocktail in slot " + item.getSlot());
+                }
                 Execution.delay(600);
-            } else if (Backpack.contains(BeachEventItems.PURPLE_LUMBRIDGE.getId()) && !hasBuffActive(BeachEventItems.PURPLE_LUMBRIDGE.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Purple Lumbridge cocktail...");
-                Backpack.interact(BeachEventItems.PURPLE_LUMBRIDGE.getId(), "Drink");
-                Execution.delay(600);
-            }
-        } else {
-            if (Backpack.contains(BeachEventItems.PURPLE_LUMBRIDGE.getId()) && !hasBuffActive(BeachEventItems.PURPLE_LUMBRIDGE.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Purple Lumbridge cocktail...");
-                Backpack.interact(BeachEventItems.PURPLE_LUMBRIDGE.getId(), "Drink");
-                Execution.delay(600);
-            } else if (Backpack.contains(BeachEventItems.GEORGES_PEACH_DELIGHT.getId()) && !hasBuffActive(BeachEventItems.GEORGES_PEACH_DELIGHT.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking George's Peach Delight cocktail...");
-                Backpack.interact(BeachEventItems.GEORGES_PEACH_DELIGHT.getId(), "Drink");
-                Execution.delay(600);
-            }
-        }
-    }
-    
-    private void useHookADuckCocktail() {
-        boolean isHappyHour = VarManager.getVarbitValue(HAPPY_HOUR_VARBIT) == 1;
-        
-        if (!isHappyHour) {
-            if (Backpack.contains(BeachEventItems.UGLY_DUCKLING.getId()) && !hasBuffActive(BeachEventItems.UGLY_DUCKLING.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Ugly Duckling cocktail...");
-                Backpack.interact(BeachEventItems.UGLY_DUCKLING.getId(), "Drink");
-                Execution.delay(600);
-            } else if (Backpack.contains(BeachEventItems.PINEAPPLETINI.getId()) && !hasBuffActive(BeachEventItems.PINEAPPLETINI.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Pineappletini cocktail...");
-                Backpack.interact(BeachEventItems.PINEAPPLETINI.getId(), "Drink");
-                Execution.delay(600);
-            }
-        } else {
-            if (Backpack.contains(BeachEventItems.PINEAPPLETINI.getId()) && !hasBuffActive(BeachEventItems.PINEAPPLETINI.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Pineappletini cocktail...");
-                Backpack.interact(BeachEventItems.PINEAPPLETINI.getId(), "Drink");
-                Execution.delay(600);
-            } else if (Backpack.contains(BeachEventItems.UGLY_DUCKLING.getId()) && !hasBuffActive(BeachEventItems.UGLY_DUCKLING.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Ugly Duckling cocktail...");
-                Backpack.interact(BeachEventItems.UGLY_DUCKLING.getId(), "Drink");
-                Execution.delay(600);
-            }
-        }
-    }
-    
-    private void useCoconutShyCocktail() {
-        if (Backpack.contains(BeachEventItems.PINK_FIZZ.getId()) && !hasBuffActive(BeachEventItems.PINK_FIZZ.getId())) {
-            ScriptConsole.println("[BeachEventTask] Drinking Pink Fizz cocktail...");
-            Backpack.interact(BeachEventItems.PINK_FIZZ.getId(), "Drink");
-            Execution.delay(600);
-        }
-    }
-    
-    private void useBarbequeCocktail() {
-        if (Backpack.contains(BeachEventItems.PURPLE_LUMBRIDGE.getId()) && !hasBuffActive(BeachEventItems.PURPLE_LUMBRIDGE.getId())) {
-            ScriptConsole.println("[BeachEventTask] Drinking Purple Lumbridge cocktail...");
-            Backpack.interact(BeachEventItems.PURPLE_LUMBRIDGE.getId(), "Drink");
-            Execution.delay(600);
-        }
-    }
-    
-    private void usePalmTreeCocktail() {
-        boolean isHappyHour = VarManager.getVarbitValue(HAPPY_HOUR_VARBIT) == 1;
-        
-        if (!isHappyHour) {
-            if (Backpack.contains(BeachEventItems.PALMER_FARMER.getId()) && !hasBuffActive(BeachEventItems.PALMER_FARMER.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Palmer Farmer cocktail...");
-                Backpack.interact(BeachEventItems.PALMER_FARMER.getId(), "Drink");
-                Execution.delay(600);
-            } else if (Backpack.contains(BeachEventItems.PINEAPPLETINI.getId()) && !hasBuffActive(BeachEventItems.PINEAPPLETINI.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Pineappletini cocktail...");
-                Backpack.interact(BeachEventItems.PINEAPPLETINI.getId(), "Drink");
-                Execution.delay(600);
-            }
-        } else {
-            if (Backpack.contains(BeachEventItems.PINEAPPLETINI.getId()) && !hasBuffActive(BeachEventItems.PINEAPPLETINI.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Pineappletini cocktail...");
-                Backpack.interact(BeachEventItems.PINEAPPLETINI.getId(), "Drink");
-                Execution.delay(600);
-            } else if (Backpack.contains(BeachEventItems.PALMER_FARMER.getId()) && !hasBuffActive(BeachEventItems.PALMER_FARMER.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Palmer Farmer cocktail...");
-                Backpack.interact(BeachEventItems.PALMER_FARMER.getId(), "Drink");
-                Execution.delay(600);
-            }
-        }
-    }
-    
-    private void useRockPoolCocktail() {
-        boolean isHappyHour = VarManager.getVarbitValue(HAPPY_HOUR_VARBIT) == 1;
-        
-        if (!isHappyHour) {
-            if (Backpack.contains(BeachEventItems.FISHERMANS_FRIEND.getId()) && !hasBuffActive(BeachEventItems.FISHERMANS_FRIEND.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Fisherman's Friend cocktail...");
-                Backpack.interact(BeachEventItems.FISHERMANS_FRIEND.getId(), "Drink");
-                Execution.delay(600);
-            } else if (Backpack.contains(BeachEventItems.PINEAPPLETINI.getId()) && !hasBuffActive(BeachEventItems.PINEAPPLETINI.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Pineappletini cocktail...");
-                Backpack.interact(BeachEventItems.PINEAPPLETINI.getId(), "Drink");
-                Execution.delay(600);
-            }
-        } else {
-            if (Backpack.contains(BeachEventItems.PINEAPPLETINI.getId()) && !hasBuffActive(BeachEventItems.PINEAPPLETINI.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Pineappletini cocktail...");
-                Backpack.interact(BeachEventItems.PINEAPPLETINI.getId(), "Drink");
-                Execution.delay(600);
-            } else if (Backpack.contains(BeachEventItems.FISHERMANS_FRIEND.getId()) && !hasBuffActive(BeachEventItems.FISHERMANS_FRIEND.getId())) {
-                ScriptConsole.println("[BeachEventTask] Drinking Fisherman's Friend cocktail...");
-                Backpack.interact(BeachEventItems.FISHERMANS_FRIEND.getId(), "Drink");
-                Execution.delay(600);
+                return;
             }
         }
     }
     
     private boolean hasBuffActive(int itemId) {
-        // TODO: Implement buff checking logic
-        return false;
+        switch (itemId) {
+            case 35051: // Pink fizz
+                return VarManager.getVarc(6921) > 0;
+            case 35052: // Purple Lumbridge
+                return VarManager.getVarc(6922) > 0;
+            case 35053: // Pineappletini
+                return VarManager.getVarc(6923) > 0;
+            case 35054: // Lemon sour
+                return VarManager.getVarc(6924) > 0;
+            case 51729: // A Hole in One
+                return VarManager.getVarc(6925) > 0;
+            case 51730: // Ugly Duckling (hook a duck)
+                return VarManager.getVarc(6926) > 0;
+            case 51731: // Palmer Farmer (palm tree)
+                return VarManager.getVarc(6927) > 0;
+            case 51732: // Fishermans Friend (rock pools)
+                return VarManager.getVarc(6928) > 0;
+            case 51733: // George's Peach Delight (sandcastle)
+                return VarManager.getVarc(6929) > 0;
+            default:
+                return false;
+        }
     }
     
     public void handleBattleshipMessage(String message) {
