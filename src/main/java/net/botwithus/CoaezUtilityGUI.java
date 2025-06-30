@@ -326,7 +326,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         beachUseCocktails = ImGui.Checkbox("Use Cocktails (TODO)", beachUseCocktails);
         beachFightClawdia = ImGui.Checkbox("Fight Clawdia", beachFightClawdia);
         beachUseSpotlight = ImGui.Checkbox("Follow Spotlight", beachUseSpotlight);
-        beachUseBattleship = ImGui.Checkbox("Use Battleship (TODO)", beachUseBattleship);
+        beachUseBattleship = ImGui.Checkbox("Use Battleship", beachUseBattleship);
         
         // Spotlight Happy Hour Preference
         if (beachUseSpotlight) {
@@ -367,7 +367,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (beachUseSpotlight) {
             ImGui.Text("Happy Hour Preference: " + beachSpotlightHappyHour.replace("%", "%%"));
         }
-        ImGui.Text("Use Battleship: " + (beachUseBattleship ? "Yes (TODO)" : "No"));
+        ImGui.Text("Use Battleship: " + (beachUseBattleship ? "Yes" : "No"));
     }
     
     private void renderAlchemyTab() {
