@@ -47,6 +47,8 @@ public class CoaezUtility extends LoopingScript {
     private final PortableTask portableTask;
     //private final SmithingTask smithingTask;
     private final SheepShearingTask sheepShearingTask;
+    private final PenguinTrackingTask penguinTrackingTask;
+    private final BeachEventTask beachEventTask;
     // GUI reference
     private CoaezUtilityGUI gui;
 
@@ -65,6 +67,8 @@ public class CoaezUtility extends LoopingScript {
         PORTABLES,
         //SMITHING,
         SHEEP_SHEARING,
+        PENGUIN_TRACKING,
+        BEACH_EVENT,
         QUESTS,
         STOPPED
     }
@@ -93,6 +97,8 @@ public class CoaezUtility extends LoopingScript {
         this.portableTask = new PortableTask(this);
         //this.smithingTask = new SmithingTask(this);
         this.sheepShearingTask = new SheepShearingTask(this);
+        this.penguinTrackingTask = new PenguinTrackingTask(this);
+        this.beachEventTask = new BeachEventTask(this);
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
 
@@ -217,6 +223,14 @@ public class CoaezUtility extends LoopingScript {
                     ScriptConsole.println("Executing sheep shearing task");
                     sheepShearingTask.execute();
                 }
+                case PENGUIN_TRACKING -> {
+                    ScriptConsole.println("Executing penguin tracking task");
+                    penguinTrackingTask.execute();
+                }
+                case BEACH_EVENT -> {
+                    ScriptConsole.println("Executing beach event task");
+                    beachEventTask.execute();
+                }
                 case QUESTS -> {
                     ScriptConsole.println("Quest helper active");
                     questHelper.execute();
@@ -245,6 +259,10 @@ public class CoaezUtility extends LoopingScript {
         }
         if (waitingForPreset && message.contains("Your preset is being withdrawn")) {
             presetLoaded = true;
+        }
+        
+        if (botState == BotState.BEACH_EVENT) {
+            beachEventTask.handleBattleshipMessage(message);
         }
     }
 
@@ -278,6 +296,14 @@ public class CoaezUtility extends LoopingScript {
 
     public PortableTask getPortableTask() {
         return portableTask;
+    }
+
+    public PenguinTrackingTask getPenguinTrackingTask() {
+        return penguinTrackingTask;
+    }
+
+    public BeachEventTask getBeachEventTask() {
+        return beachEventTask;
     }
 
     /* public SmithingTask getSmithingTask() {

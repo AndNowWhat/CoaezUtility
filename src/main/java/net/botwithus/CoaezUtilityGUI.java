@@ -22,6 +22,8 @@ import net.botwithus.rs3.game.quest.Quest;
 import net.botwithus.tasks.QuestHelper;
 import net.botwithus.tasks.QuestDialogFetcher;
 import net.botwithus.rs3.game.Coordinate;
+import net.botwithus.tasks.BeachActivity;
+import net.botwithus.tasks.BeachEventTask;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -41,6 +43,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private String posdLootInput = "";
     private Set<String> preloadedAlchemyItems = new HashSet<>();
     private Set<String> preloadedDisassemblyItems = new HashSet<>();
+    
+    // Flipping GUI state
+    private String flippingItemInput = "";
+    private String flippingItemIdInput = "";
+    private String flippingBuyLimitInput = "";
+    private int selectedFlipHistoryIndex = -1;
 
     private int selectedPortableTypeIndex = 0;
     private final PortableType[] portableTypes = PortableType.values();
@@ -72,6 +80,17 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     
     // Overlay transparency
     private float overlayTransparency = 0.85f;
+    
+    // Beach Event state
+    private int selectedBeachActivityIndex = 0;
+    private final BeachActivity[] beachActivities = BeachActivity.values();
+    private boolean beachUseCocktails = false;
+    private boolean beachFightClawdia = true;
+    private boolean beachUseSpotlight = false;
+    private boolean beachUseBattleship = false;
+    private String beachSpotlightHappyHour = "Hunter";
+    private final String[] spotlightHappyHourOptions = {"Dung", "Strength", "Construction", "Hunter", "Ranged", "Cooking", "Farming"};
+    private int selectedSpotlightHappyHourIndex = 3;
 
     public CoaezUtilityGUI(ScriptConsole scriptConsole, CoaezUtility coaezUtility) {
         super(scriptConsole);
@@ -268,6 +287,11 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 
         ImGui.SeparatorText("Combat Activities");
         
+        ImGui.SeparatorText("Minigames & D&Ds");
+/*         if (ImGui.Button("Start Penguin Tracking")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.PENGUIN_TRACKING);
+        } */
+        
         ImGui.SeparatorText("Invention");
         if (ImGui.Button("Start invention")) {
             coaezUtility.setBotState(CoaezUtility.BotState.INVENTION);
@@ -285,6 +309,64 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 coaezUtility.getQuestHelper().initializeQuestDisplay();
             }
         }
+        
+        ImGui.SeparatorText("Beach Event");
+        
+        // Beach Activity Selection
+        String[] beachActivityNames = Arrays.stream(beachActivities)
+            .map(activity -> activity.getName())
+            .toArray(String[]::new);
+        
+        int newBeachActivityIndex = ImGui.Combo("Select Beach Activity", selectedBeachActivityIndex, beachActivityNames);
+        if (newBeachActivityIndex != selectedBeachActivityIndex) {
+            selectedBeachActivityIndex = newBeachActivityIndex;
+        }
+        
+        // Beach Event Configuration Options
+        beachUseCocktails = ImGui.Checkbox("Use Cocktails (TODO)", beachUseCocktails);
+        beachFightClawdia = ImGui.Checkbox("Fight Clawdia", beachFightClawdia);
+        beachUseSpotlight = ImGui.Checkbox("Follow Spotlight", beachUseSpotlight);
+        beachUseBattleship = ImGui.Checkbox("Use Battleship (TODO)", beachUseBattleship);
+        
+        // Spotlight Happy Hour Preference
+        if (beachUseSpotlight) {
+            int newSpotlightHappyHourIndex = ImGui.Combo("Happy Hour Preference", selectedSpotlightHappyHourIndex, spotlightHappyHourOptions);
+            if (newSpotlightHappyHourIndex != selectedSpotlightHappyHourIndex) {
+                selectedSpotlightHappyHourIndex = newSpotlightHappyHourIndex;
+                beachSpotlightHappyHour = spotlightHappyHourOptions[selectedSpotlightHappyHourIndex];
+            }
+        }
+        
+        // Start Beach Event Button
+        if (ImGui.Button("Start Beach Event")) {
+            if (coaezUtility.getBeachEventTask() != null) {
+                BeachEventTask beachTask = coaezUtility.getBeachEventTask();
+                
+                // Configure the beach event task
+                beachTask.setSelectedActivity(beachActivities[selectedBeachActivityIndex]);
+                beachTask.setUseCocktails(beachUseCocktails);
+                beachTask.setFightClawdia(beachFightClawdia);
+                beachTask.setUseSpotlight(beachUseSpotlight);
+                beachTask.setUseBattleship(beachUseBattleship);
+                
+                // Start the beach event
+                coaezUtility.setBotState(CoaezUtility.BotState.BEACH_EVENT);
+            } else {
+                ScriptConsole.println("[GUI] Beach Event Task not available.");
+            }
+        }
+        
+        // Display current beach event configuration
+        ImGui.Separator();
+        ImGui.Text("Current Configuration:");
+        ImGui.Text("Activity: " + beachActivities[selectedBeachActivityIndex].getName().replace("%", "%%"));
+        ImGui.Text("Use Cocktails: " + (beachUseCocktails ? "Yes" : "No"));
+        ImGui.Text("Fight Clawdia: " + (beachFightClawdia ? "Yes" : "No"));
+        ImGui.Text("Follow Spotlight: " + (beachUseSpotlight ? "Yes" : "No"));
+        if (beachUseSpotlight) {
+            ImGui.Text("Happy Hour Preference: " + beachSpotlightHappyHour.replace("%", "%%"));
+        }
+        ImGui.Text("Use Battleship: " + (beachUseBattleship ? "Yes (TODO)" : "No"));
     }
     
     private void renderAlchemyTab() {
@@ -1166,6 +1248,15 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 config.addProperty("selectedQuestId", String.valueOf(questId));
             }
         }
+        
+        // Save Beach Event settings
+        config.addProperty("selectedBeachActivityIndex", String.valueOf(selectedBeachActivityIndex));
+        config.addProperty("beachUseCocktails", String.valueOf(beachUseCocktails));
+        config.addProperty("beachFightClawdia", String.valueOf(beachFightClawdia));
+        config.addProperty("beachUseSpotlight", String.valueOf(beachUseSpotlight));
+        config.addProperty("beachUseBattleship", String.valueOf(beachUseBattleship));
+        config.addProperty("beachSpotlightHappyHour", beachSpotlightHappyHour);
+        config.addProperty("selectedSpotlightHappyHourIndex", String.valueOf(selectedSpotlightHappyHourIndex));
 
         config.save();
     }
@@ -1387,6 +1478,64 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
           }
         // TODO: Load SmithingTask selections from config and update GUI state
         // (selectedSmithingCategoryIndex, selectedSmithingProductIndex, and call smithingTask.setSelected...)
+        
+        // Load Beach Event settings
+        String selectedBeachActivityIndexStr = config.getProperty("selectedBeachActivityIndex");
+        if (selectedBeachActivityIndexStr != null) {
+            try {
+                int index = Integer.parseInt(selectedBeachActivityIndexStr);
+                if (index >= 0 && index < beachActivities.length) {
+                    selectedBeachActivityIndex = index;
+                }
+            } catch (NumberFormatException e) {
+                selectedBeachActivityIndex = 0;
+            }
+        }
+        
+        String beachUseCocktailsStr = config.getProperty("beachUseCocktails");
+        if (beachUseCocktailsStr != null) {
+            beachUseCocktails = Boolean.parseBoolean(beachUseCocktailsStr);
+        }
+        
+        String beachFightClawdiaStr = config.getProperty("beachFightClawdia");
+        if (beachFightClawdiaStr != null) {
+            beachFightClawdia = Boolean.parseBoolean(beachFightClawdiaStr);
+        }
+        
+        String beachUseSpotlightStr = config.getProperty("beachUseSpotlight");
+        if (beachUseSpotlightStr != null) {
+            beachUseSpotlight = Boolean.parseBoolean(beachUseSpotlightStr);
+        }
+        
+        String beachUseBattleshipStr = config.getProperty("beachUseBattleship");
+        if (beachUseBattleshipStr != null) {
+            beachUseBattleship = Boolean.parseBoolean(beachUseBattleshipStr);
+        }
+        
+        String beachSpotlightHappyHourStr = config.getProperty("beachSpotlightHappyHour");
+        if (beachSpotlightHappyHourStr != null) {
+            beachSpotlightHappyHour = beachSpotlightHappyHourStr;
+            // Update the index to match the loaded value
+            for (int i = 0; i < spotlightHappyHourOptions.length; i++) {
+                if (spotlightHappyHourOptions[i].equals(beachSpotlightHappyHour)) {
+                    selectedSpotlightHappyHourIndex = i;
+                    break;
+                }
+            }
+        }
+        
+        String selectedSpotlightHappyHourIndexStr = config.getProperty("selectedSpotlightHappyHourIndex");
+        if (selectedSpotlightHappyHourIndexStr != null) {
+            try {
+                int index = Integer.parseInt(selectedSpotlightHappyHourIndexStr);
+                if (index >= 0 && index < spotlightHappyHourOptions.length) {
+                    selectedSpotlightHappyHourIndex = index;
+                    beachSpotlightHappyHour = spotlightHappyHourOptions[selectedSpotlightHappyHourIndex];
+                }
+            } catch (NumberFormatException e) {
+                selectedSpotlightHappyHourIndex = 3; // Default to "Hunter"
+            }
+        }
      }
 
     @Override
