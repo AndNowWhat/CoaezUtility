@@ -345,7 +345,6 @@ public class BeachEventTask implements Task {
         if (cachedDungeoneeringHole != null) {
             ScriptConsole.println("[BeachEventTask] Interacting with dungeoneering hole...");
             if (cachedDungeoneeringHole.interact("Dungeoneer")) {
-                ScriptConsole.println("[BeachEventTask] Get Back in that Hole!");
             }
         }
     }
