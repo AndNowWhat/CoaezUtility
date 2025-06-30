@@ -91,6 +91,12 @@ public class BeachEventTask implements Task {
             return;
         }
         
+        // Check if player has headbar ID 13 (indicating already interacting)
+        if (player.getHeadbars().stream().anyMatch(headbar -> headbar.getId() == 13)) {
+            ScriptConsole.println("[BeachEventTask] Player has active headbar ID 13, already interacting...");
+            return;
+        }
+        
         ScriptConsole.println("[BeachEventTask] Execute called - Selected activity: " + (selectedActivity != null ? selectedActivity.getName() : "NULL"));
 
         if (player.getAnimationId() != -1 && selectedActivity != BeachActivity.BODY_BUILDING) {
