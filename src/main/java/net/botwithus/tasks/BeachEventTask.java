@@ -200,19 +200,27 @@ public class BeachEventTask implements Task {
             .results();
         
         Npc clawdia = clawdiaResults.nearest();
-        PathingEntity<?> currentTarget = Client.getLocalPlayer().getTarget();
         
-        if (clawdia != null && currentTarget == null) {
-            LocalPlayer player = Client.getLocalPlayer();
-            if (player != null && player.getTarget() == null) {
-                ScriptConsole.println("[BeachEventTask] Found Clawdia, attacking...");
-                if (clawdia.interact("Attack")) {
-                    Execution.delay(600);
-                    return true;
+        if (clawdia != null) {
+            ScriptConsole.println("[BeachEventTask] Clawdia is present! Prioritizing fight over other activities.");
+            
+            PathingEntity<?> currentTarget = Client.getLocalPlayer().getTarget();
+            
+            if (currentTarget == null) {
+                LocalPlayer player = Client.getLocalPlayer();
+                if (player != null) {
+                    ScriptConsole.println("[BeachEventTask] Found Clawdia, attacking...");
+                    if (clawdia.interact("Attack")) {
+                        Execution.delay(600);
+                    }
                 }
+            } else {
+                ScriptConsole.println("[BeachEventTask] Already fighting Clawdia, continuing combat...");
             }
+            
             return true;
         }
+        
         return false;
     }
     
@@ -334,6 +342,17 @@ public class BeachEventTask implements Task {
         }
         
         if (cachedBodybuilding != null && !canDeployShip) {
+            boolean workoutInterfaceOpen = Interfaces.isOpen(796);
+            ScriptConsole.println("[BeachEventTask] Workout interface 796 open: " + workoutInterfaceOpen);
+            
+            if (!workoutInterfaceOpen) {
+                ScriptConsole.println("[BeachEventTask] Workout interface not open, interacting with platform...");
+                if (cachedBodybuilding.interact("Workout")) {
+                    Execution.delayUntil(8000, () -> Interfaces.isOpen(796));
+                }
+                return;
+            }
+            
             EntityResultSet<Npc> ivanResults = NpcQuery.newQuery()
                 .name("Ivan")
                 .results();
@@ -347,10 +366,16 @@ public class BeachEventTask implements Task {
                                     ", Last: " + lastIvanAnimation + 
                                     ", Time since change: " + (currentTime - lastAnimationChangeTime) + "ms");
                 
-                if (currentIvanAnimation != lastIvanAnimation && currentIvanAnimation != -1) {
+                // Only consider it an animation change if both old and new animations are not -1 (not idle)
+                if (currentIvanAnimation != lastIvanAnimation && 
+                    currentIvanAnimation != -1 && 
+                    lastIvanAnimation != -1) {
                     lastIvanAnimation = currentIvanAnimation;
                     lastAnimationChangeTime = currentTime;
-                    ScriptConsole.println("[BeachEventTask] Ivan animation changed to: " + currentIvanAnimation);
+                    ScriptConsole.println("[BeachEventTask] Ivan animation changed to: " + currentIvanAnimation + " (meaningful change)");
+                } else if (currentIvanAnimation != -1 && lastIvanAnimation == -1) {
+                    lastIvanAnimation = currentIvanAnimation;
+                    ScriptConsole.println("[BeachEventTask] Ivan started animating: " + currentIvanAnimation + " (initial animation)");
                 }
                 
                 LocalPlayer player = Client.getLocalPlayer();
@@ -359,9 +384,11 @@ public class BeachEventTask implements Task {
                     ScriptConsole.println("[BeachEventTask] Player animation: " + playerAnimation + 
                                         ", Ivan animation: " + currentIvanAnimation);
                     
-                    // Check if we need to switch workout (either animation changed recently or player doesn't match)
-                    boolean shouldSwitch = (currentTime - lastAnimationChangeTime <= 5000) || 
-                                         (playerAnimation != currentIvanAnimation && currentIvanAnimation != -1);
+
+                    boolean shouldSwitch = currentIvanAnimation != -1 && (
+                        (currentTime - lastAnimationChangeTime <= 5000) || 
+                        (playerAnimation != currentIvanAnimation)
+                    );
                     
                     if (shouldSwitch) {
                         switch (currentIvanAnimation) {
@@ -395,10 +422,9 @@ public class BeachEventTask implements Task {
                                 break;
                             default:
                                 if (playerAnimation == -1) {
-                                    ScriptConsole.println("[BeachEventTask] Starting bodybuilding workout (Ivan unknown anim: " + currentIvanAnimation + ")");
-                                    if (cachedBodybuilding.interact("Workout")) {
-                                        Execution.delay(1500);
-                                    }
+                                    ScriptConsole.println("[BeachEventTask] Starting default workout (Ivan unknown anim: " + currentIvanAnimation + ")");
+                                    MiniMenu.interact(ComponentAction.COMPONENT.getType(), 1, -1, 52166662); // Default to curl
+                                    Execution.delay(800);
                                 } else {
                                     ScriptConsole.println("[BeachEventTask] Unknown Ivan animation: " + currentIvanAnimation + ", player: " + playerAnimation);
                                 }
@@ -418,12 +444,12 @@ public class BeachEventTask implements Task {
                 if (ivanById != null) {
                     ScriptConsole.println("[BeachEventTask] Found Ivan by ID: " + ivanById.getName() + " (ID: " + ivanById.getId() + ")");
                 } else {
-                    ScriptConsole.println("[BeachEventTask] Ivan not found by name or ID, using basic bodybuilding");
+                    ScriptConsole.println("[BeachEventTask] Ivan not found by name or ID, using default workout");
                     LocalPlayer player = Client.getLocalPlayer();
                     if (player != null && player.getAnimationId() == -1) {
-                        if (cachedBodybuilding.interact("Workout")) {
-                            Execution.delay(1500);
-                        }
+                        ScriptConsole.println("[BeachEventTask] Starting default curl workout");
+                        MiniMenu.interact(ComponentAction.COMPONENT.getType(), 1, -1, 52166662);
+                        Execution.delay(800);
                     }
                 }
             }
