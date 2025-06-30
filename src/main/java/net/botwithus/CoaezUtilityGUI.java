@@ -99,6 +99,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (this.coaezUtility != null) {
             lastBotState = this.coaezUtility.getBotState();
             loadConfig(); // This calls updateActivePortableType internally
+            updateBeachEventSettings(); // Apply loaded beach event settings to task
 
             // Initialize GUI state based on current task state AFTER loadConfig
             // This section should align the GUI with whatever state was set by loadConfig
@@ -320,13 +321,33 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         int newBeachActivityIndex = ImGui.Combo("Select Beach Activity", selectedBeachActivityIndex, beachActivityNames);
         if (newBeachActivityIndex != selectedBeachActivityIndex) {
             selectedBeachActivityIndex = newBeachActivityIndex;
+            updateBeachEventSettings(); 
         }
         
         // Beach Event Configuration Options
-        beachUseCocktails = ImGui.Checkbox("Use Cocktails (TODO)", beachUseCocktails);
-        beachFightClawdia = ImGui.Checkbox("Fight Clawdia", beachFightClawdia);
-        beachUseSpotlight = ImGui.Checkbox("Follow Spotlight", beachUseSpotlight);
-        beachUseBattleship = ImGui.Checkbox("Use Battleship", beachUseBattleship);
+        boolean newBeachUseCocktails = ImGui.Checkbox("Use Cocktails (TODO)", beachUseCocktails);
+        if (newBeachUseCocktails != beachUseCocktails) {
+            beachUseCocktails = newBeachUseCocktails;
+            updateBeachEventSettings(); 
+        }
+        
+        boolean newBeachFightClawdia = ImGui.Checkbox("Fight Clawdia", beachFightClawdia);
+        if (newBeachFightClawdia != beachFightClawdia) {
+            beachFightClawdia = newBeachFightClawdia;
+            updateBeachEventSettings(); 
+        }
+        
+        boolean newBeachUseSpotlight = ImGui.Checkbox("Follow Spotlight", beachUseSpotlight);
+        if (newBeachUseSpotlight != beachUseSpotlight) {
+            beachUseSpotlight = newBeachUseSpotlight;
+            updateBeachEventSettings(); 
+        }
+        
+        boolean newBeachUseBattleship = ImGui.Checkbox("Use Battleship", beachUseBattleship);
+        if (newBeachUseBattleship != beachUseBattleship) {
+            beachUseBattleship = newBeachUseBattleship;
+            updateBeachEventSettings(); 
+        }
         
         // Spotlight Happy Hour Preference
         if (beachUseSpotlight) {
@@ -334,23 +355,15 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             if (newSpotlightHappyHourIndex != selectedSpotlightHappyHourIndex) {
                 selectedSpotlightHappyHourIndex = newSpotlightHappyHourIndex;
                 beachSpotlightHappyHour = spotlightHappyHourOptions[selectedSpotlightHappyHourIndex];
+                updateBeachEventSettings(); 
             }
         }
         
         // Start Beach Event Button
         if (ImGui.Button("Start Beach Event")) {
             if (coaezUtility.getBeachEventTask() != null) {
-                BeachEventTask beachTask = coaezUtility.getBeachEventTask();
-                
-                // Configure the beach event task
-                beachTask.setSelectedActivity(beachActivities[selectedBeachActivityIndex]);
-                beachTask.setUseCocktails(beachUseCocktails);
-                beachTask.setFightClawdia(beachFightClawdia);
-                beachTask.setUseSpotlight(beachUseSpotlight);
-                beachTask.setUseBattleship(beachUseBattleship);
-                beachTask.setSpotlightHappyHour(beachSpotlightHappyHour);
-                
-                // Start the beach event
+                // Settings are already applied via updateBeachEventSettings() calls above
+                // Just start the beach event
                 coaezUtility.setBotState(CoaezUtility.BotState.BEACH_EVENT);
             } else {
                 ScriptConsole.println("[GUI] Beach Event Task not available.");
@@ -1871,5 +1884,27 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             }
         }
         return -1;
+    }
+
+    private void updateBeachEventSettings() {
+        if (coaezUtility != null && coaezUtility.getBeachEventTask() != null) {
+            BeachEventTask beachTask = coaezUtility.getBeachEventTask();
+            
+            // Apply loaded GUI settings to the task
+            beachTask.setSelectedActivity(beachActivities[selectedBeachActivityIndex]);
+            beachTask.setUseCocktails(beachUseCocktails);
+            beachTask.setFightClawdia(beachFightClawdia);
+            beachTask.setUseSpotlight(beachUseSpotlight);
+            beachTask.setUseBattleship(beachUseBattleship);
+            beachTask.setSpotlightHappyHour(beachSpotlightHappyHour);
+            
+            ScriptConsole.println("[GUI] Applied Beach Event settings from config - Activity: " + 
+                beachActivities[selectedBeachActivityIndex].getName() + 
+                ", Cocktails: " + beachUseCocktails + 
+                ", Clawdia: " + beachFightClawdia + 
+                ", Spotlight: " + beachUseSpotlight + 
+                ", Battleship: " + beachUseBattleship + 
+                ", Happy Hour: " + beachSpotlightHappyHour);
+        }
     }
 }
