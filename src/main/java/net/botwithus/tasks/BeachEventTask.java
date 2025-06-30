@@ -661,12 +661,10 @@ public class BeachEventTask implements Task {
             useRockPoolCocktail();
         }
         
-        if (Backpack.isFull() && Backpack.contains("Raw tropical trout")) {
-            EntityResultSet<Npc> wellingtonResults = NpcQuery.newQuery()
-                .id(BeachEventNPCs.WELLINGTON.getId())
-                .results();
+        if (Backpack.isFull() && Backpack.contains(35106)) {
+            EntityResultSet<Npc> results = NpcQuery.newQuery().name("Wellington").option("Hand in fish").results();
             
-            Npc wellington = wellingtonResults.nearest();
+            Npc wellington = results.nearest();
             if (wellington != null) {
                 ScriptConsole.println("[BeachEventTask] Inventory full, depositing fish...");
                 wellington.interact("Hand in fish");
