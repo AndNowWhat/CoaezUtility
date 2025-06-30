@@ -674,11 +674,9 @@ public class BeachEventTask implements Task {
             }
         }
         
-        EntityResultSet<Npc> fishingSpotResults = NpcQuery.newQuery()
-            .id(BeachEventNPCs.FISHING_SPOT.getId())
-            .results();
+        EntityResultSet<Npc> results = NpcQuery.newQuery().name("Fishing spot").option("Catch").results();
         
-        Npc fishingSpot = fishingSpotResults.nearest();
+        Npc fishingSpot = results.nearest();
         if (fishingSpot != null) {
             ScriptConsole.println("[BeachEventTask] Fishing at rock pools...");
             if (fishingSpot.interact("Catch")) {
