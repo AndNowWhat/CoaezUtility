@@ -461,31 +461,52 @@ public class BeachEventTask implements Task {
             useSandcastleCocktail();
         }
         
-        EntityResultSet<Npc> wizardsNpc = NpcQuery.newQuery().id(BeachEventNPCs.WIZARDS_NPC.getId()).results();
-        EntityResultSet<Npc> lumbridgeNpc = NpcQuery.newQuery().id(BeachEventNPCs.LUMBRIDGE_NPC.getId()).results();
-        EntityResultSet<Npc> pyramidNpc = NpcQuery.newQuery().id(BeachEventNPCs.PYRAMID_NPC.getId()).results();
-        EntityResultSet<Npc> exchangeNpc = NpcQuery.newQuery().id(BeachEventNPCs.EXCHANGE_NPC.getId()).results();
-        
-        if (!wizardsNpc.isEmpty()) {
-            interactWithSandcastles(BeachEventObjects.getWizardsSandcastles());
-        } else if (!lumbridgeNpc.isEmpty()) {
-            interactWithSandcastles(BeachEventObjects.getLumbridgeSandcastles());
-        } else if (!pyramidNpc.isEmpty()) {
-            interactWithSandcastles(BeachEventObjects.getPyramidSandcastles());
-        } else if (!exchangeNpc.isEmpty()) {
-            interactWithSandcastles(BeachEventObjects.getExchangeSandcastles());
-        }
-    }
-    
-    private void interactWithSandcastles(int[] sandcastleIds) {
-        EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery()
-            .ids(sandcastleIds)
+        EntityResultSet<SceneObject> lumbridgeResults = SceneObjectQuery.newQuery()
+            .name("Lumbridge Sandcastle")
+            .option("Build")
             .results();
         
-        SceneObject sandcastle = results.nearest();
+        EntityResultSet<SceneObject> wizardsResults = SceneObjectQuery.newQuery()
+            .name("Wizards' Sandtower")
+            .option("Build")
+            .results();
+        
+        EntityResultSet<SceneObject> pyramidResults = SceneObjectQuery.newQuery()
+            .name("Sand Pyramid")
+            .option("Build")
+            .results();
+        
+        EntityResultSet<SceneObject> exchangeResults = SceneObjectQuery.newQuery()
+            .name("Sand Exchange")
+            .option("Build")
+            .results();
+        
+        // Find the nearest available sandcastle
+        SceneObject sandcastle = null;
+        if (!lumbridgeResults.isEmpty()) {
+            sandcastle = lumbridgeResults.nearest();
+            ScriptConsole.println("[BeachEventTask] Found Lumbridge Sandcastle");
+        } else if (!wizardsResults.isEmpty()) {
+            sandcastle = wizardsResults.nearest();
+            ScriptConsole.println("[BeachEventTask] Found Wizards' Sandtower");
+        } else if (!pyramidResults.isEmpty()) {
+            sandcastle = pyramidResults.nearest();
+            ScriptConsole.println("[BeachEventTask] Found Sand Pyramid");
+        } else if (!exchangeResults.isEmpty()) {
+            sandcastle = exchangeResults.nearest();
+            ScriptConsole.println("[BeachEventTask] Found Sand Exchange");
+        }
+        
         if (sandcastle != null && !canDeployShip) {
-            ScriptConsole.println("[BeachEventTask] Building sandcastle...");
-            sandcastle.interact("Build");
+            ScriptConsole.println("[BeachEventTask] Building sandcastle: " + sandcastle.getName());
+            if (sandcastle.interact("Build")) {
+                ScriptConsole.println("[BeachEventTask] Successfully interacted with sandcastle");
+                Execution.delay(6000);
+            } else {
+                ScriptConsole.println("[BeachEventTask] Failed to interact with sandcastle");
+            }
+        } else if (sandcastle == null) {
+            ScriptConsole.println("[BeachEventTask] No sandcastles found to build");
         }
     }
     
