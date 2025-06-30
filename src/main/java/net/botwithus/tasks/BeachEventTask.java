@@ -46,7 +46,7 @@ public class BeachEventTask implements Task {
     private String spotlightHappyHour = "Hunter";
     
     // State
-    private boolean canDeployShip = false;
+    private boolean canDeployShip = true;
     private int failCount = 0;
     private String lastBattleshipMessage = "";
     
@@ -283,6 +283,11 @@ public class BeachEventTask implements Task {
             return;
         }
         
+        if (!canDeployShip) {
+            ScriptConsole.println("[BeachEventTask] Ship already deployed, waiting for it to die");
+            return;
+        }
+        
         if (lastBattleshipMessage.isEmpty()) {
             ScriptConsole.println("[BeachEventTask] No battleship message, deploying default aggressive ship");
             if (Backpack.interact("Toy royal battleship", "Deploy")) {
@@ -292,7 +297,9 @@ public class BeachEventTask implements Task {
                 if (interfaceOpened) {
                     ScriptConsole.println("[BeachEventTask] Deploying default aggressive ship");
                     MiniMenu.interact(ComponentAction.DIALOGUE.getType(), 0, -1, 49217602);
+                    canDeployShip = false;
                     Execution.delay(1200);
+                    return;
                 }
             }
             return;
@@ -317,6 +324,7 @@ public class BeachEventTask implements Task {
                 }
                 
                 lastBattleshipMessage = "";
+                canDeployShip = false;
                 Execution.delay(1200);
             } else {
                 ScriptConsole.println("[BeachEventTask] Failed to open battleship interface");
@@ -879,6 +887,11 @@ public class BeachEventTask implements Task {
             message.contains("Our aggression overcame their accuracy!")) {
             lastBattleshipMessage = message;
             ScriptConsole.println("[BeachEventTask] Battleship message received: " + message);
+        }
+        
+        if (message.contains("battleship was defeated")) {
+            canDeployShip = true;
+            ScriptConsole.println("[BeachEventTask] Ship is dead, can deploy new ship");
         }
     }
 } 
