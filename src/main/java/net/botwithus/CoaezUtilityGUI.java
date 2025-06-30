@@ -348,6 +348,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 beachTask.setFightClawdia(beachFightClawdia);
                 beachTask.setUseSpotlight(beachUseSpotlight);
                 beachTask.setUseBattleship(beachUseBattleship);
+                beachTask.setSpotlightHappyHour(beachSpotlightHappyHour);
                 
                 // Start the beach event
                 coaezUtility.setBotState(CoaezUtility.BotState.BEACH_EVENT);

@@ -34,7 +34,7 @@ public class BeachEventTask implements Task {
     private static final int MAX_BEACH_TEMP = 1500;
     
     // Configuration
-    private BeachActivity selectedActivity = BeachActivity.DUNGEONEERING_HOLE;
+    private BeachActivity selectedActivity = null;
     private boolean useCocktails = false;
     private boolean useBattleship = false;
     private boolean fightClawdia = true;
@@ -46,12 +46,20 @@ public class BeachEventTask implements Task {
     private int failCount = 0;
     private String lastBattleshipMessage = "";
     
+    // State for bodybuilding
+    private int lastIvanAnimation = -1;
+    private long lastAnimationChangeTime = 0;
+    
     public BeachEventTask(CoaezUtility script) {
         this.script = script;
     }
     
     public void setSelectedActivity(BeachActivity activity) {
         this.selectedActivity = activity;
+    }
+    
+    public BeachActivity getSelectedActivity() {
+        return selectedActivity;
     }
     
     public void setUseCocktails(boolean useCocktails) {
@@ -70,6 +78,10 @@ public class BeachEventTask implements Task {
         this.useSpotlight = useSpotlight;
     }
     
+    public void setSpotlightHappyHour(String spotlightHappyHour) {
+        this.spotlightHappyHour = spotlightHappyHour;
+    }
+    
     @Override
     public void execute() {
         LocalPlayer player = Client.getLocalPlayer();
@@ -79,7 +91,9 @@ public class BeachEventTask implements Task {
             return;
         }
         
-        if (player.getAnimationId() != -1) {
+        ScriptConsole.println("[BeachEventTask] Execute called - Selected activity: " + (selectedActivity != null ? selectedActivity.getName() : "NULL"));
+
+        if (player.getAnimationId() != -1 && selectedActivity != BeachActivity.BODY_BUILDING) {
             ScriptConsole.println("[BeachEventTask] Player is animating (" + player.getAnimationId() + "), waiting...");
             return;
         }
@@ -250,6 +264,11 @@ public class BeachEventTask implements Task {
     }
     
     private void executeActivity() {
+        if (selectedActivity == null) {
+            ScriptConsole.println("[BeachEventTask] No activity selected! Please configure an activity in the GUI.");
+            return;
+        }
+        
         switch (selectedActivity) {
             case DUNGEONEERING_HOLE:
                 executeDungeoneering();
@@ -308,15 +327,105 @@ public class BeachEventTask implements Task {
         
         if (cachedBodybuilding == null) {
             EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery()
-                .id(BeachEventObjects.BODYBUILDING.getId())
+                .name("Body building podium")
+                .option("Workout")
                 .results();
             cachedBodybuilding = results.nearest();
         }
         
         if (cachedBodybuilding != null && !canDeployShip) {
-            ScriptConsole.println("[BeachEventTask] Interacting with bodybuilding platform...");
-            if (cachedBodybuilding.interact("Use")) {
-                Execution.delay(1500);
+            EntityResultSet<Npc> ivanResults = NpcQuery.newQuery()
+                .name("Ivan")
+                .results();
+            
+            Npc ivan = ivanResults.nearest();
+            if (ivan != null) {
+                int currentIvanAnimation = ivan.getAnimationId();
+                long currentTime = System.currentTimeMillis();
+                
+                ScriptConsole.println("[BeachEventTask] Ivan found - Animation: " + currentIvanAnimation + 
+                                    ", Last: " + lastIvanAnimation + 
+                                    ", Time since change: " + (currentTime - lastAnimationChangeTime) + "ms");
+                
+                if (currentIvanAnimation != lastIvanAnimation && currentIvanAnimation != -1) {
+                    lastIvanAnimation = currentIvanAnimation;
+                    lastAnimationChangeTime = currentTime;
+                    ScriptConsole.println("[BeachEventTask] Ivan animation changed to: " + currentIvanAnimation);
+                }
+                
+                LocalPlayer player = Client.getLocalPlayer();
+                if (player != null) {
+                    int playerAnimation = player.getAnimationId();
+                    ScriptConsole.println("[BeachEventTask] Player animation: " + playerAnimation + 
+                                        ", Ivan animation: " + currentIvanAnimation);
+                    
+                    // Check if we need to switch workout (either animation changed recently or player doesn't match)
+                    boolean shouldSwitch = (currentTime - lastAnimationChangeTime <= 5000) || 
+                                         (playerAnimation != currentIvanAnimation && currentIvanAnimation != -1);
+                    
+                    if (shouldSwitch) {
+                        switch (currentIvanAnimation) {
+                            case 26552: // Curl
+                                if (playerAnimation != 26552) {
+                                    ScriptConsole.println("[BeachEventTask] Switching to curl workout (Ivan: " + currentIvanAnimation + ")");
+                                    MiniMenu.interact(ComponentAction.COMPONENT.getType(), 1, -1, 52166662);
+                                    Execution.delay(800);
+                                }
+                                break;
+                            case 26553: // Lunge
+                                if (playerAnimation != 26553) {
+                                    ScriptConsole.println("[BeachEventTask] Switching to lunge workout (Ivan: " + currentIvanAnimation + ")");
+                                    MiniMenu.interact(ComponentAction.COMPONENT.getType(), 1, -1, 52166672);
+                                    Execution.delay(800);
+                                }
+                                break;
+                            case 26554: // Fly
+                                if (playerAnimation != 26554) {
+                                    ScriptConsole.println("[BeachEventTask] Switching to fly workout (Ivan: " + currentIvanAnimation + ")");
+                                    MiniMenu.interact(ComponentAction.COMPONENT.getType(), 1, -1, 52166682);
+                                    Execution.delay(800);
+                                }
+                                break;
+                            case 26549: // Raise
+                                if (playerAnimation != 26549) {
+                                    ScriptConsole.println("[BeachEventTask] Switching to raise workout (Ivan: " + currentIvanAnimation + ")");
+                                    MiniMenu.interact(ComponentAction.COMPONENT.getType(), 1, -1, 52166692);
+                                    Execution.delay(800);
+                                }
+                                break;
+                            default:
+                                if (playerAnimation == -1) {
+                                    ScriptConsole.println("[BeachEventTask] Starting bodybuilding workout (Ivan unknown anim: " + currentIvanAnimation + ")");
+                                    if (cachedBodybuilding.interact("Workout")) {
+                                        Execution.delay(1500);
+                                    }
+                                } else {
+                                    ScriptConsole.println("[BeachEventTask] Unknown Ivan animation: " + currentIvanAnimation + ", player: " + playerAnimation);
+                                }
+                        }
+                    } else {
+                        ScriptConsole.println("[BeachEventTask] No workout switch needed - animations match or no recent change");
+                    }
+                }
+            } else {
+                ScriptConsole.println("[BeachEventTask] Ivan not found! Searching for Ivan NPC...");
+                // Try to find Ivan with ID instead
+                EntityResultSet<Npc> ivanByIdResults = NpcQuery.newQuery()
+                    .id(BeachEventNPCs.IVAN.getId())
+                    .results();
+                
+                Npc ivanById = ivanByIdResults.nearest();
+                if (ivanById != null) {
+                    ScriptConsole.println("[BeachEventTask] Found Ivan by ID: " + ivanById.getName() + " (ID: " + ivanById.getId() + ")");
+                } else {
+                    ScriptConsole.println("[BeachEventTask] Ivan not found by name or ID, using basic bodybuilding");
+                    LocalPlayer player = Client.getLocalPlayer();
+                    if (player != null && player.getAnimationId() == -1) {
+                        if (cachedBodybuilding.interact("Workout")) {
+                            Execution.delay(1500);
+                        }
+                    }
+                }
             }
         }
     }
