@@ -769,13 +769,14 @@ public class BeachEventTask implements Task {
         
         if (Backpack.isFull() && Backpack.contains("Coconut")) {
             EntityResultSet<SceneObject> pileResults = SceneObjectQuery.newQuery()
-                .id(BeachEventObjects.PILEOFCOCONUTS.getId())
+                .name("Pile of coconuts")
+                .hidden(false)
                 .results();
             
             SceneObject pile = pileResults.nearest();
             if (pile != null) {
                 ScriptConsole.println("[BeachEventTask] Inventory full, depositing coconuts...");
-                pile.interact("Deposit");
+                pile.interact("Deposit coconuts");
                 return;
             }
         }
