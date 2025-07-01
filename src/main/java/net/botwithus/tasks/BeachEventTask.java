@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.botwithus.CoaezUtility;
+import net.botwithus.api.game.hud.Hud;
 import net.botwithus.api.game.hud.inventories.Backpack;
 import net.botwithus.rs3.game.Client;
 import net.botwithus.rs3.game.Item;
@@ -19,6 +20,7 @@ import net.botwithus.rs3.game.vars.VarManager;
 import net.botwithus.rs3.script.Execution;
 import net.botwithus.rs3.script.ScriptConsole;
 import net.botwithus.rs3.game.hud.interfaces.Interfaces;
+import net.botwithus.rs3.game.login.LoginManager;
 import net.botwithus.rs3.game.minimenu.MiniMenu;
 import net.botwithus.rs3.game.minimenu.actions.ComponentAction;
 import net.botwithus.rs3.game.queries.builders.components.ComponentQuery;
@@ -288,6 +290,8 @@ public class BeachEventTask implements Task {
                     
                     if (brainFreezeOccurred) {
                         ScriptConsole.println("[BeachEventTask] BRAIN FREEZE! occurred - stopping script");
+                        LoginManager.setAutoLogin(false);
+                        Hud.logout();
                         script.setActive(false);
                         return false;
                     }
