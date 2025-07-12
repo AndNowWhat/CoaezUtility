@@ -795,6 +795,7 @@ public class BeachEventTask implements Task {
         
         EntityResultSet<SceneObject> treeResults = SceneObjectQuery.newQuery()
             .ids(BeachEventObjects.getPalmTrees())
+            .hidden(false)
             .results();
         
         SceneObject tree = treeResults.nearest();
