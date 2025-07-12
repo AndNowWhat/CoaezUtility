@@ -24,6 +24,7 @@ import net.botwithus.tasks.QuestDialogFetcher;
 import net.botwithus.rs3.game.Coordinate;
 import net.botwithus.tasks.BeachActivity;
 import net.botwithus.tasks.BeachEventTask;
+import net.botwithus.tasks.MapNavigatorTask;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Map;
+import java.awt.Point;
 
 public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private final CoaezUtility coaezUtility;
@@ -92,6 +94,11 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private final String[] spotlightHappyHourOptions = {"Dung", "Strength", "Construction", "Hunter", "Ranged", "Cooking", "Farming"};
     private int selectedSpotlightHappyHourIndex = 3;
     
+    // Map Navigator state
+    private int selectedLocationIndex = 0;
+    private String locationSearchText = "";
+    private String[] currentLocationNames = new String[0];
+    
     private boolean guiUsePinkFizz = false;
     private boolean guiUsePurpleLumbridge = false;
     private boolean guiUsePineappletini = false;
@@ -100,8 +107,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private boolean guiUseGeorgesPeachDelight = false;
     private boolean guiUseAHoleInOne = false;
     private boolean guiUsePalmerFarmer = false;
-    private boolean guiUseUglyDuckling = false;
-
+        private boolean guiUseUglyDuckling = false;
+    
+    private boolean isLoadingConfig = false;
+    
     public CoaezUtilityGUI(ScriptConsole scriptConsole, CoaezUtility coaezUtility) {
         super(scriptConsole);
         this.coaezUtility = coaezUtility;
@@ -232,6 +241,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         renderBeachEventTab();
                         ImGui.EndTabItem();
                     }
+                    if (ImGui.BeginTabItem("Map Navigator", 0)) {
+                        renderMapNavigatorTab();
+                        ImGui.EndTabItem();
+                    }
                     /* if (ImGui.BeginTabItem("Smithing", 0)) {
                         renderSmithingTab();
                         ImGui.EndTabItem();
@@ -280,6 +293,18 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             coaezUtility.setBotState(CoaezUtility.BotState.FUNGAL_BOWSTRINGS);
         }
 
+        if (ImGui.Button("Start Soft Clay")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.SOFTCLAY);
+        }
+
+        if (ImGui.Button("Start Limestone")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.LIMESTONE);
+        }
+
+        if (ImGui.Button("Start Limestone Brick")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.LIMESTONE_BRICK);
+        }
+
         if (ImGui.Button("Start Portables")) {
             coaezUtility.setBotState(CoaezUtility.BotState.PORTABLES);
         }
@@ -306,6 +331,16 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
 /*         if (ImGui.Button("Start Penguin Tracking")) {
             coaezUtility.setBotState(CoaezUtility.BotState.PENGUIN_TRACKING);
         } */
+        
+        ImGui.SeparatorText("Navigation");
+        if (ImGui.Button("Start Map Navigator")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.MAP_NAVIGATOR);
+        }
+        
+        ImGui.SeparatorText("Training");
+        if (ImGui.Button("Start Deploy Dummy")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.DEPLOY_DUMMY);
+        }
         
         ImGui.SeparatorText("Invention");
         if (ImGui.Button("Start invention")) {
@@ -1140,6 +1175,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
 
     private void saveConfig() {
         if (coaezUtility == null || coaezUtility.getConfig() == null) return;
+        if (isLoadingConfig) return;
         ScriptConfig config = coaezUtility.getConfig();
 
         config.addProperty("botState", coaezUtility.getBotState().name());
@@ -1233,6 +1269,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (coaezUtility == null || coaezUtility.getConfig() == null) return;
         ScriptConfig config = coaezUtility.getConfig();
 
+        isLoadingConfig = true;
         config.load();
         
 
@@ -1550,6 +1587,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (guiUseUglyDucklingStr != null) {
             guiUseUglyDuckling = Boolean.parseBoolean(guiUseUglyDucklingStr);
         }
+        
+        updateBeachEventSettings();
+        
+        isLoadingConfig = false;
      }
 
     @Override
@@ -1932,6 +1973,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (newBeachActivityIndex != selectedBeachActivityIndex) {
             selectedBeachActivityIndex = newBeachActivityIndex;
             updateBeachEventSettings(); 
+            saveConfig();
         }
         
         ImGui.Separator();
@@ -1942,18 +1984,21 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (newBeachFightClawdia != beachFightClawdia) {
             beachFightClawdia = newBeachFightClawdia;
             updateBeachEventSettings(); 
+            saveConfig();
         }
         
         boolean newBeachUseSpotlight = ImGui.Checkbox("Follow Spotlight", beachUseSpotlight);
         if (newBeachUseSpotlight != beachUseSpotlight) {
             beachUseSpotlight = newBeachUseSpotlight;
             updateBeachEventSettings(); 
+            saveConfig();
         }
         
         boolean newBeachUseBattleship = ImGui.Checkbox("Use Battleship", beachUseBattleship);
         if (newBeachUseBattleship != beachUseBattleship) {
             beachUseBattleship = newBeachUseBattleship;
             updateBeachEventSettings(); 
+            saveConfig();
         }
         
         if (beachUseSpotlight) {
@@ -1962,6 +2007,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 selectedSpotlightHappyHourIndex = newSpotlightHappyHourIndex;
                 beachSpotlightHappyHour = spotlightHappyHourOptions[selectedSpotlightHappyHourIndex];
                 updateBeachEventSettings(); 
+                saveConfig();
             }
         }
         
@@ -1973,54 +2019,63 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (newGuiUsePinkFizz != guiUsePinkFizz) {
             guiUsePinkFizz = newGuiUsePinkFizz;
             updateBeachEventSettings(); 
+            saveConfig();
         }
         
         boolean newGuiUsePurpleLumbridge = ImGui.Checkbox("Purple Lumbridge (Construction/Cooking)", guiUsePurpleLumbridge);
         if (newGuiUsePurpleLumbridge != guiUsePurpleLumbridge) {
             guiUsePurpleLumbridge = newGuiUsePurpleLumbridge;
             updateBeachEventSettings(); 
+            saveConfig();
         }
         
         boolean newGuiUsePineappletini = ImGui.Checkbox("Pineappletini (Hunter/Farming/Fishing)", guiUsePineappletini);
         if (newGuiUsePineappletini != guiUsePineappletini) {
             guiUsePineappletini = newGuiUsePineappletini;
             updateBeachEventSettings(); 
+            saveConfig();
         }
         
         boolean newGuiUseLemonSour = ImGui.Checkbox("Lemon Sour (Dungeoneering)", guiUseLemonSour);
         if (newGuiUseLemonSour != guiUseLemonSour) {
             guiUseLemonSour = newGuiUseLemonSour;
             updateBeachEventSettings(); 
+            saveConfig();
         }
         
         boolean newGuiUseFishermanssFriend = ImGui.Checkbox("Fisherman's Friend (Fishing)", guiUseFishermanssFriend);
         if (newGuiUseFishermanssFriend != guiUseFishermanssFriend) {
             guiUseFishermanssFriend = newGuiUseFishermanssFriend;
             updateBeachEventSettings(); 
+            saveConfig();
         }
         
         boolean newGuiUseGeorgesPeachDelight = ImGui.Checkbox("George's Peach Delight (Construction)", guiUseGeorgesPeachDelight);
         if (newGuiUseGeorgesPeachDelight != guiUseGeorgesPeachDelight) {
             guiUseGeorgesPeachDelight = newGuiUseGeorgesPeachDelight;
             updateBeachEventSettings(); 
+            saveConfig();
         }
         
         boolean newGuiUseAHoleInOne = ImGui.Checkbox("A Hole in One (Dungeoneering)", guiUseAHoleInOne);
         if (newGuiUseAHoleInOne != guiUseAHoleInOne) {
             guiUseAHoleInOne = newGuiUseAHoleInOne;
             updateBeachEventSettings(); 
+            saveConfig();
         }
         
         boolean newGuiUsePalmerFarmer = ImGui.Checkbox("Palmer Farmer (Farming)", guiUsePalmerFarmer);
         if (newGuiUsePalmerFarmer != guiUsePalmerFarmer) {
             guiUsePalmerFarmer = newGuiUsePalmerFarmer;
             updateBeachEventSettings(); 
+            saveConfig();
         }
         
         boolean newGuiUseUglyDuckling = ImGui.Checkbox("Ugly Duckling (Hunter)", guiUseUglyDuckling);
         if (newGuiUseUglyDuckling != guiUseUglyDuckling) {
             guiUseUglyDuckling = newGuiUseUglyDuckling;
             updateBeachEventSettings(); 
+            saveConfig();
         }
         
         ImGui.Separator();
@@ -2067,4 +2122,50 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         }
         ImGui.Text("Use Battleship: " + (beachUseBattleship ? "Yes" : "No"));
     }
+
+    private void renderMapNavigatorTab() {
+        if (coaezUtility == null) return;
+        
+        MapNavigatorTask mapTask = coaezUtility.getMapNavigatorTask();
+        if (mapTask == null) return;
+        
+        ImGui.Text("Location Navigator");
+        ImGui.Separator();
+        
+        // Get available locations
+        if (mapTask.getLocationManager().isInitialized()) {
+            String[] availableLocations = mapTask.getAvailableLocationNames();
+            
+            if (availableLocations.length > 0) {
+                // Location selection combo
+                ImGui.Text("Select Location:");
+                int newLocationIndex = ImGui.Combo("##LocationCombo", selectedLocationIndex, availableLocations);
+                if (newLocationIndex != selectedLocationIndex) {
+                    selectedLocationIndex = newLocationIndex;
+                    ScriptConsole.println("Location selected: " + availableLocations[selectedLocationIndex]);
+                }
+                
+                // Show coordinates for selected location
+                if (selectedLocationIndex >= 0 && selectedLocationIndex < availableLocations.length) {
+                    String selectedLocationName = availableLocations[selectedLocationIndex];
+                    var locationInfo = mapTask.getLocationInfo(selectedLocationName);
+                    if (locationInfo != null) {
+                        Coordinate coord = locationInfo.getCoordinate();
+                        ImGui.Text("Coordinates: " + coord.getX() + ", " + coord.getY() + ", " + coord.getZ());
+                        
+                        // Navigate button
+                        if (ImGui.Button("Navigate to Location")) {
+                            mapTask.navigateToLocation(selectedLocationName);
+                            coaezUtility.setBotState(CoaezUtility.BotState.MAP_NAVIGATOR);
+                        }
+                    }
+                }
+            } else {
+                ImGui.Text("Loading locations...");
+            }
+        } else {
+            ImGui.Text("Initializing location manager...");
+        }
+    }
+    
 }

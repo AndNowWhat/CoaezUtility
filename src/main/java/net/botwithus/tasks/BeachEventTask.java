@@ -8,6 +8,8 @@ import net.botwithus.CoaezUtility;
 import net.botwithus.api.game.hud.Hud;
 import net.botwithus.api.game.hud.inventories.Backpack;
 import net.botwithus.rs3.game.Client;
+import net.botwithus.rs3.game.Coordinate;
+import net.botwithus.rs3.game.Distance;
 import net.botwithus.rs3.game.Item;
 import net.botwithus.rs3.game.queries.builders.characters.NpcQuery;
 import net.botwithus.rs3.game.queries.builders.objects.SceneObjectQuery;
@@ -23,8 +25,10 @@ import net.botwithus.rs3.game.hud.interfaces.Interfaces;
 import net.botwithus.rs3.game.login.LoginManager;
 import net.botwithus.rs3.game.minimenu.MiniMenu;
 import net.botwithus.rs3.game.minimenu.actions.ComponentAction;
+import net.botwithus.rs3.game.movement.Movement;
 import net.botwithus.rs3.game.queries.builders.components.ComponentQuery;
 import net.botwithus.rs3.game.hud.interfaces.Component;
+import net.botwithus.rs3.game.scene.entities.characters.player.Player;
 
 public class BeachEventTask implements Task {
     private final CoaezUtility script;
@@ -760,6 +764,8 @@ public class BeachEventTask implements Task {
             }
         }
     }
+
+    private Coordinate pileOfCoconutsCoordinate = new Coordinate(3172, 3215,0);
     
     private void executePalmTreeFarming() {
         if (!Client.isMember()) {
@@ -767,19 +773,25 @@ public class BeachEventTask implements Task {
             return;
         }
         
-        if (Backpack.isFull() && Backpack.contains("Coconut")) {
+        if (Backpack.isFull() && Backpack.contains("Tropical coconut")) {
             EntityResultSet<SceneObject> pileResults = SceneObjectQuery.newQuery()
                 .name("Pile of coconuts")
                 .hidden(false)
                 .results();
             
             SceneObject pile = pileResults.nearest();
-            if (pile != null) {
+            if (pile != null && pile.distanceTo(Client.getLocalPlayer().getCoordinate()) < 20 && !Client.getLocalPlayer().isMoving()) {
                 ScriptConsole.println("[BeachEventTask] Inventory full, depositing coconuts...");
                 pile.interact("Deposit coconuts");
                 return;
+            } else {
+                ScriptConsole.println("[BeachEventTask] Pile of coconuts is too far, Moving closer");
+                if(!Client.getLocalPlayer().isMoving()) {
+                    Movement.walkTo(pileOfCoconutsCoordinate.getX(), pileOfCoconutsCoordinate.getY(), true);
+                }
+                
             }
-        }
+        } else {
         
         EntityResultSet<SceneObject> treeResults = SceneObjectQuery.newQuery()
             .ids(BeachEventObjects.getPalmTrees())
@@ -792,6 +804,7 @@ public class BeachEventTask implements Task {
                 ScriptConsole.println("[BeachEventTask] Back to chopping trees.");
             }
         }
+    }
     }
     
     private void executeRockPools() {

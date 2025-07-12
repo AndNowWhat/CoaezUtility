@@ -49,6 +49,11 @@ public class CoaezUtility extends LoopingScript {
     private final SheepShearingTask sheepShearingTask;
     private final PenguinTrackingTask penguinTrackingTask;
     private final BeachEventTask beachEventTask;
+    private final SoftClayTask softClayTask;
+    private final LimestoneTask limestoneTask;
+    private final LimestoneBrickTask limestoneBrickTask;
+    private final MapNavigatorTask mapNavigatorTask;
+    private final DeployDummyTask deployDummyTask;
     // GUI reference
     private CoaezUtilityGUI gui;
 
@@ -69,7 +74,12 @@ public class CoaezUtility extends LoopingScript {
         SHEEP_SHEARING,
         PENGUIN_TRACKING,
         BEACH_EVENT,
+        SOFTCLAY,
+        LIMESTONE,
+        LIMESTONE_BRICK,
         QUESTS,
+        MAP_NAVIGATOR,
+        DEPLOY_DUMMY,
         STOPPED
     }
 
@@ -99,6 +109,11 @@ public class CoaezUtility extends LoopingScript {
         this.sheepShearingTask = new SheepShearingTask(this);
         this.penguinTrackingTask = new PenguinTrackingTask(this);
         this.beachEventTask = new BeachEventTask(this);
+        this.softClayTask = new SoftClayTask(this);
+        this.limestoneTask = new LimestoneTask(this);
+        this.limestoneBrickTask = new LimestoneBrickTask(this);
+        this.mapNavigatorTask = new MapNavigatorTask(this);
+        this.deployDummyTask = new DeployDummyTask(this);
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
 
@@ -231,14 +246,32 @@ public class CoaezUtility extends LoopingScript {
                     ScriptConsole.println("Executing beach event task");
                     beachEventTask.execute();
                 }
+                case SOFTCLAY -> {
+                    ScriptConsole.println("Executing soft clay task");
+                    softClayTask.execute();
+                }
+                case LIMESTONE -> {
+                    ScriptConsole.println("Executing limestone task");
+                    limestoneTask.execute();
+                }
+                case LIMESTONE_BRICK -> {
+                    ScriptConsole.println("Executing limestone brick task");
+                    limestoneBrickTask.execute();
+                }
                 case QUESTS -> {
-                    ScriptConsole.println("Quest helper active");
+                    ScriptConsole.println("Executing quests helper");
                     questHelper.execute();
                 }
-                case STOPPED -> {
-                    ScriptConsole.println("Stopping script");
-                    stopScript();
+                case MAP_NAVIGATOR -> {
+                    ScriptConsole.println("Executing map navigator task");
+                    mapNavigatorTask.execute();
                 }
+                case DEPLOY_DUMMY -> {
+                    ScriptConsole.println("Executing deploy dummy task");
+                    deployDummyTask.execute();
+                }
+                case STOPPED -> stopScript();
+                default -> ScriptConsole.println("Unknown bot state: " + botState);
             }
             Execution.delay(random.nextInt(400, 800));
         } catch (Exception e) {
@@ -304,6 +337,26 @@ public class CoaezUtility extends LoopingScript {
 
     public BeachEventTask getBeachEventTask() {
         return beachEventTask;
+    }
+
+    public SoftClayTask getSoftClayTask() {
+        return softClayTask;
+    }
+
+    public LimestoneTask getLimestoneTask() {
+        return limestoneTask;
+    }
+
+    public LimestoneBrickTask getLimestoneBrickTask() {
+        return limestoneBrickTask;
+    }
+
+    public MapNavigatorTask getMapNavigatorTask() {
+        return mapNavigatorTask;
+    }
+
+    public DeployDummyTask getDeployDummyTask() {
+        return deployDummyTask;
     }
 
     /* public SmithingTask getSmithingTask() {
