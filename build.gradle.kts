@@ -51,9 +51,10 @@ dependencies {
     "includeInJar"("net.botwithus.xapi.public:api:1.+")
     implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")
+    implementation("com.google.code.gson:gson:2.10.1")
+    "includeInJar"("com.google.code.gson:gson:2.10.1")
     testImplementation(kotlin("test"))
 }
-
 tasks.test {
     useJUnitPlatform()
 }
