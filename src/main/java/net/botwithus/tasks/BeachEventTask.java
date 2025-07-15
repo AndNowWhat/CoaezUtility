@@ -637,62 +637,78 @@ public class BeachEventTask implements Task {
             }
         }
     }
-    
+
     private void executeSandcastleBuilding() {
         if (!Client.isMember()) {
             ScriptConsole.println("[BeachEventTask] Sandcastle building requires membership, skipping activity");
             return;
         }
-        
-        EntityResultSet<SceneObject> lumbridgeResults = SceneObjectQuery.newQuery()
-            .name("Lumbridge Sandcastle")
-            .option("Build")
-            .results();
-        
-        EntityResultSet<SceneObject> wizardsResults = SceneObjectQuery.newQuery()
-            .name("Wizards' Sandtower")
-            .option("Build")
-            .results();
-        
-        EntityResultSet<SceneObject> pyramidResults = SceneObjectQuery.newQuery()
-            .name("Sand Pyramid")
-            .option("Build")
-            .results();
-        
-        EntityResultSet<SceneObject> exchangeResults = SceneObjectQuery.newQuery()
-            .name("Sand Exchange")
-            .option("Build")
-            .results();
-        
-        // Find the nearest available sandcastle
-        SceneObject sandcastle = null;
-        if (!lumbridgeResults.isEmpty()) {
-            sandcastle = lumbridgeResults.nearest();
-            ScriptConsole.println("[BeachEventTask] Found Lumbridge Sandcastle");
-        } else if (!wizardsResults.isEmpty()) {
-            sandcastle = wizardsResults.nearest();
-            ScriptConsole.println("[BeachEventTask] Found Wizards' Sandtower");
-        } else if (!pyramidResults.isEmpty()) {
-            sandcastle = pyramidResults.nearest();
-            ScriptConsole.println("[BeachEventTask] Found Sand Pyramid");
-        } else if (!exchangeResults.isEmpty()) {
-            sandcastle = exchangeResults.nearest();
-            ScriptConsole.println("[BeachEventTask] Found Sand Exchange");
+
+        LocalPlayer player = Client.getLocalPlayer();
+        if (player == null || player.isMoving()) {
+            ScriptConsole.println("[BeachEventTask] Player is null or moving, waiting...");
+            Execution.delay(600);
+            return;
         }
-        
-        if (sandcastle != null) {
-            ScriptConsole.println("[BeachEventTask] Building sandcastle: " + sandcastle.getName());
-            if (sandcastle.interact("Build")) {
-                ScriptConsole.println("[BeachEventTask] Successfully interacted with sandcastle");
-                Execution.delay(6000);
-            } else {
-                ScriptConsole.println("[BeachEventTask] Failed to interact with sandcastle");
+
+        BeachEventNPCs[] sandcastleNpcs = {
+                BeachEventNPCs.WIZARDS_NPC,
+                BeachEventNPCs.LUMBRIDGE_NPC,
+                BeachEventNPCs.PYRAMID_NPC,
+                BeachEventNPCs.EXCHANGE_NPC
+        };
+        int[][] sandcastleObjectGroups = {
+                BeachEventObjects.getWizardsSandcastles(),
+                BeachEventObjects.getLumbridgeSandcastles(),
+                BeachEventObjects.getPyramidSandcastles(),
+                BeachEventObjects.getExchangeSandcastles()
+        };
+        String[] sandcastleNames = {
+                "Wizards' Sandtower",
+                "Lumbridge Sandcastle",
+                "Sand Pyramid",
+                "Sand Exchange"
+        };
+
+        for (int i = 0; i < sandcastleNpcs.length; i++) {
+            EntityResultSet<Npc> npcResults = NpcQuery.newQuery()
+                    .id(sandcastleNpcs[i].getId())
+                    .results();
+
+            Npc sandcastleNpc = npcResults.nearest();
+            if (sandcastleNpc != null) {
+                ScriptConsole.println("[BeachEventTask] Found " + sandcastleNames[i] + " NPC");
+
+                EntityResultSet<SceneObject> objResults = SceneObjectQuery.newQuery()
+                        .ids(sandcastleObjectGroups[i])
+                        .option("Build")
+                        .results();
+
+                SceneObject sandcastleObj = objResults.nearest();
+                if (sandcastleObj != null) {
+                    ScriptConsole.println("[BeachEventTask] Building " + sandcastleNames[i] + "...");
+
+                    if (Distance.between(player.getCoordinate(), sandcastleObj.getCoordinate()) > 25) {
+                        ScriptConsole.println("[BeachEventTask] Walking to sandcastle...");
+                        Movement.walkTo(sandcastleObj.getCoordinate().getX(), sandcastleObj.getCoordinate().getY(), true);
+                        Execution.delayUntil(5000, () -> Distance.between(player.getCoordinate(), sandcastleObj.getCoordinate()) <= 3);
+                        return;
+                    }
+
+                    if (sandcastleObj.interact("Build")) {
+                        ScriptConsole.println("[BeachEventTask] Started building " + sandcastleNames[i]);
+                        Execution.delay(script.getRandom().nextInt(1200, 3000));
+                        return;
+                    }
+                }
+
+                break;
             }
-        } else if (sandcastle == null) {
-            ScriptConsole.println("[BeachEventTask] No sandcastles found to build");
         }
+
+        ScriptConsole.println("[BeachEventTask] No valid sandcastle building spot found");
     }
-    
+
     private void executeHookADuck() {
         if (!Client.isMember()) {
             ScriptConsole.println("[BeachEventTask] Hook-a-duck requires membership, skipping activity");
