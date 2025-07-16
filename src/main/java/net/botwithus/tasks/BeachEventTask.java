@@ -680,7 +680,7 @@ public class BeachEventTask implements Task {
         LocalPlayer player = Client.getLocalPlayer();
 
         EntityResultSet<Npc> npcResults = NpcQuery.newQuery()
-                .id(npcType.getId())
+                .byType(npcType.getId())
                 .results();
 
         Npc sandcastleNpc = npcResults.nearest();
