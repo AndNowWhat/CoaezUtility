@@ -327,6 +327,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 
         ImGui.SeparatorText("Combat Activities");
         
+        if (ImGui.Button("Start Attack/Deploy Pinata")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.SUMMER_PINATA);
+        }
+
         ImGui.SeparatorText("Minigames & D&Ds");
 /*         if (ImGui.Button("Start Penguin Tracking")) {
             coaezUtility.setBotState(CoaezUtility.BotState.PENGUIN_TRACKING);

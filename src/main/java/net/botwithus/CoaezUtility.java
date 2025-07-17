@@ -55,6 +55,7 @@ public class CoaezUtility extends LoopingScript {
     private final MapNavigatorTask mapNavigatorTask;
     private final DeployDummyTask deployDummyTask;
     private final SandyCluesTask sandyCluesTask;
+    private final SummerPinata summerPinata;
     // GUI reference
     private CoaezUtilityGUI gui;
 
@@ -82,6 +83,7 @@ public class CoaezUtility extends LoopingScript {
         MAP_NAVIGATOR,
         DEPLOY_DUMMY,
         SANDY_CLUES,
+        SUMMER_PINATA,
         STOPPED
     }
 
@@ -117,6 +119,7 @@ public class CoaezUtility extends LoopingScript {
         this.mapNavigatorTask = new MapNavigatorTask(this);
         this.deployDummyTask = new DeployDummyTask(this);
         this.sandyCluesTask = new SandyCluesTask(this);
+        this.summerPinata = new SummerPinata(this);
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
 
@@ -277,6 +280,10 @@ public class CoaezUtility extends LoopingScript {
                     ScriptConsole.println("Executing sandy clues task");
                     sandyCluesTask.execute();
                 }
+                case SUMMER_PINATA -> {
+                    ScriptConsole.println("Executing attack deploy task");
+                    summerPinata.execute();
+                }
                 case STOPPED -> stopScript();
                 default -> ScriptConsole.println("Unknown bot state: " + botState);
             }
@@ -366,8 +373,11 @@ public class CoaezUtility extends LoopingScript {
         return deployDummyTask;
     }
 
+    public SummerPinata getSummerPinata() {
+        return summerPinata;
+    }
+
     /* public SmithingTask getSmithingTask() {
         return smithingTask;
     } */
 }
-
