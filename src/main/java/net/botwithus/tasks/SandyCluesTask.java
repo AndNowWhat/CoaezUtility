@@ -47,7 +47,7 @@ public class SandyCluesTask implements Task {
     private static final Coordinate LIFEGUARD_COORD = new Coordinate(3170, 3252, 0);
     private static final Coordinate PALMER_COORD = new Coordinate(3154, 3227, 0);
     private static final Coordinate FOREMAN_COORD = new Coordinate(3158, 3227, 0);
-    private static final Coordinate FLO_COORD = new Coordinate(3166, 3217, 0);
+    private static final Coordinate FLO_COORD = new Coordinate(3164, 3215, 0);
     private static final Coordinate SHELDON_COORD = new Coordinate(3170, 3252, 0);
     private static final Coordinate WELLINGTON_COORD = new Coordinate(3180, 3241, 0);
     private static final Coordinate COCONUTS_COORD = new Coordinate(3169, 3220, 0);
@@ -182,7 +182,7 @@ public class SandyCluesTask implements Task {
             double distance = currentPos.distanceTo(coord);
             ScriptConsole.println("[SandyCluesTask] Current position: " + currentPos + ", Target: " + coord + ", Distance: " + distance);
 
-            if (distance > 20) {
+            if (distance > 15) {
                 int randomX = coord.getX() + script.getRandom().nextInt(-5, 6);
                 int randomY = coord.getY() + script.getRandom().nextInt(-5, 6);
                 Coordinate randomCoord = new Coordinate(randomX, randomY, coord.getZ());
@@ -377,7 +377,7 @@ public class SandyCluesTask implements Task {
             ScriptConsole.println("[SandyCluesTask] Found Sheldon NPC, attempting to interact with Shop");
             if (sheldon.interact("Open Store")) {
                 ScriptConsole.println("[SandyCluesTask] Interacted with Sheldon shop, waiting for shop dialog");
-                if (Execution.delayUntil(20000, this::isShopInteractDialogOpen)) {
+                if (Execution.delayUntil(10000, this::isShopInteractDialogOpen)) {
                     ScriptConsole.println("[SandyCluesTask] Shop dialog opened, selecting option");
                     MiniMenu.interact(ComponentAction.DIALOGUE.getType(), 0, -1, 77725704);
                     Execution.delay(600);
