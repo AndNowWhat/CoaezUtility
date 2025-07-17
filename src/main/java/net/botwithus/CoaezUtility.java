@@ -54,6 +54,7 @@ public class CoaezUtility extends LoopingScript {
     private final LimestoneBrickTask limestoneBrickTask;
     private final MapNavigatorTask mapNavigatorTask;
     private final DeployDummyTask deployDummyTask;
+    private final SandyCluesTask sandyCluesTask;
     // GUI reference
     private CoaezUtilityGUI gui;
 
@@ -80,6 +81,7 @@ public class CoaezUtility extends LoopingScript {
         QUESTS,
         MAP_NAVIGATOR,
         DEPLOY_DUMMY,
+        SANDY_CLUES,
         STOPPED
     }
 
@@ -114,6 +116,7 @@ public class CoaezUtility extends LoopingScript {
         this.limestoneBrickTask = new LimestoneBrickTask(this);
         this.mapNavigatorTask = new MapNavigatorTask(this);
         this.deployDummyTask = new DeployDummyTask(this);
+        this.sandyCluesTask = new SandyCluesTask(this);
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
 
@@ -270,6 +273,10 @@ public class CoaezUtility extends LoopingScript {
                     ScriptConsole.println("Executing deploy dummy task");
                     deployDummyTask.execute();
                 }
+                case SANDY_CLUES -> {
+                    ScriptConsole.println("Executing sandy clues task");
+                    sandyCluesTask.execute();
+                }
                 case STOPPED -> stopScript();
                 default -> ScriptConsole.println("Unknown bot state: " + botState);
             }
@@ -363,3 +370,4 @@ public class CoaezUtility extends LoopingScript {
         return smithingTask;
     } */
 }
+

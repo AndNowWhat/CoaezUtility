@@ -359,6 +359,11 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 coaezUtility.getQuestHelper().initializeQuestDisplay();
             }
         }
+
+        ImGui.SeparatorText("Beach Event");
+        if (ImGui.Button("Start Sandy Clues")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.SANDY_CLUES);
+        }
     }
     
     private void renderAlchemyTab() {
@@ -1067,7 +1072,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 selectedCrafterOptionIndex = 0;
                 selectedCrafterGroupIndex = 0;
                 selectedCrafterProductIndex = 0;
-                // Clear sawmill state (selectedSawmillPlankIndex is fine as is, used by GUI)
+                // Clear sawmill state (selectedSawmillPlankIndex is fine, used by GUI)
                  break;
             case SAWMILL:
                 PortableSawmill sawmill = new PortableSawmill(coaezUtility);
@@ -2169,3 +2174,4 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     }
     
 }
+
