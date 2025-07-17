@@ -183,8 +183,8 @@ public class SandyCluesTask implements Task {
             ScriptConsole.println("[SandyCluesTask] Current position: " + currentPos + ", Target: " + coord + ", Distance: " + distance);
 
             if (distance > 15) {
-                int randomX = coord.getX() + script.getRandom().nextInt(-5, 6);
-                int randomY = coord.getY() + script.getRandom().nextInt(-5, 6);
+                int randomX = coord.getX() + script.getRandom().nextInt(-1, 2);
+                int randomY = coord.getY() + script.getRandom().nextInt(-1, 2);
                 Coordinate randomCoord = new Coordinate(randomX, randomY, coord.getZ());
 
                 ScriptConsole.println("[SandyCluesTask] Attempting to walk to randomized coordinate: " + randomCoord);
