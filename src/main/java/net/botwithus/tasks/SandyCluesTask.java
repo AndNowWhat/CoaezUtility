@@ -206,7 +206,7 @@ public class SandyCluesTask implements Task {
     /**
      * Walks to a coordinate using Bresenham line algorithm for pathfinding
      * @param coordinate The destination coordinate
-     * @param minimap Whether to use minimap for walking (currently ignored, uses MiniMenu)
+     * @param minimap Whether to use minimap for walking (always true)
      * @param stepSize Maximum step size for each movement
      * @return true if walking was initiated successfully
      */
@@ -229,13 +229,15 @@ public class SandyCluesTask implements Task {
         ScriptConsole.println("[SandyCluesTask] bresenhamWalkTo - dx: " + dx + ", dy: " + dy + ", distance: " + distance + ", stepSize: " + stepSize);
 
         if (distance > stepSize) {
+            ScriptConsole.println("[SandyCluesTask] Distance exceeds step size, taking step");
             int stepX = currentCoordinate.getX() + dx * stepSize / distance;
             int stepY = currentCoordinate.getY() + dy * stepSize / distance;
-            ScriptConsole.println("[SandyCluesTask] Taking step to: " + stepX + ", " + stepY);
-            return moveToCoordinate(stepX, stepY, minimap);
+            Movement.walkTo(stepX, stepY, true);
+            return true;
         } else {
             ScriptConsole.println("[SandyCluesTask] Walking directly to destination: " + coordinate.getX() + ", " + coordinate.getY());
-            return moveToCoordinate(coordinate.getX(), coordinate.getY(), minimap);
+            Movement.walkTo(coordinate.getX(), coordinate.getY(), true);
+            return true;
         }
     }
 
