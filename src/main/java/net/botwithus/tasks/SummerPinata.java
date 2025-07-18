@@ -37,7 +37,14 @@ public class SummerPinata implements Task {
             return;
         }
 
-        PathingEntity<?> currentTarget = player.getTarget();
+        if(!Backpack.contains(53329)){
+            ScriptConsole.println("[SummerPinataTask] Summer piñata not found in backpack, stopping...");
+            script.setActive(false);
+            return;
+        }
+
+
+            PathingEntity<?> currentTarget = player.getTarget();
         if (currentTarget != null) {
             ScriptConsole.println("[SummerPinataTask] Player already has target: " + currentTarget.getName());
             Execution.delay(1000);
