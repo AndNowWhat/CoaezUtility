@@ -44,7 +44,7 @@ public class SummerPinata implements Task {
         }
 
 
-            PathingEntity<?> currentTarget = player.getTarget();
+        PathingEntity<?> currentTarget = player.getTarget();
         if (currentTarget != null) {
             ScriptConsole.println("[SummerPinataTask] Player already has target: " + currentTarget.getName());
             Execution.delay(1000);
@@ -68,14 +68,6 @@ public class SummerPinata implements Task {
             }
         } else {
             if(Backpack.contains(53329)){
-                Pattern summerPinataPattern = Pattern.compile("Summer piñata", Pattern.CASE_INSENSITIVE);
-                ScriptConsole.println("[SummerPinataTask] Deploying Summer piñata from backpack");
-                ResultSet<Component> pinata = ComponentQuery.newQuery(1430).componentIndex(168).itemName(summerPinataPattern).option("Deploy").results();
-                if(pinata.isEmpty()){
-                    ScriptConsole.println("[SummerPinataTask] No Summer piñata found in backpack, waiting...");
-                    Execution.delay(1200);
-                } else {
-                    ScriptConsole.println("[SummerPinataTask] Found Summer piñata in backpack component " + pinata.first() + ", deploying...");
                     if(MiniMenu.interact(ComponentAction.COMPONENT.getType(), 1, 0, 96534533)){
                         ScriptConsole.println("[SummerPinataTask] Successfully deployed Summer piñata");
                         Execution.delayUntil(1200, () -> {
@@ -94,4 +86,3 @@ public class SummerPinata implements Task {
 
         }
     }
-}
