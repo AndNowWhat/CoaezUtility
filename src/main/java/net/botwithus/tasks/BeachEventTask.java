@@ -32,20 +32,22 @@ import net.botwithus.rs3.game.scene.entities.characters.player.Player;
 
 public class BeachEventTask implements Task {
     private final CoaezUtility script;
-    
+
+    private boolean isWeekend = false;
+
     // Cached objects
     private SceneObject cachedDungeoneeringHole;
     private SceneObject cachedCoconutShy;
     private SceneObject cachedBarbeque;
     private SceneObject cachedHookADuck;
     private SceneObject cachedBodybuilding;
-    
+
     // Beach event constants
     private static final int BEACH_TEMP_VARBIT = 28441;
     private static final int HAPPY_HOUR_VARBIT = 33485;
     private static final int SPOTLIGHT_ACTIVITY_VARBIT = 28460;
     private static final int MAX_BEACH_TEMP = 1500;
-    
+
     // Configuration
     private BeachActivity selectedActivity = null;
     private boolean useCocktails = false;
@@ -53,7 +55,7 @@ public class BeachEventTask implements Task {
     private boolean fightClawdia = true;
     private boolean useSpotlight = false;
     private String spotlightHappyHour = "Hunter";
-    
+
     // Individual cocktail settings
     private boolean usePinkFizz = false;
     private boolean usePurpleLumbridge = false;
@@ -64,75 +66,120 @@ public class BeachEventTask implements Task {
     private boolean useAHoleInOne = false;
     private boolean usePalmerFarmer = false;
     private boolean useUglyDuckling = false;
-    
+
     // State
     private boolean canDeployShip = true;
     private int failCount = 0;
     private String lastBattleshipMessage = "";
-    
+
     // State for bodybuilding
     private int lastIvanAnimation = -1;
     private long lastAnimationChangeTime = 0;
-    
+
     public BeachEventTask(CoaezUtility script) {
         this.script = script;
     }
-    
+
     public void setSelectedActivity(BeachActivity activity) {
         this.selectedActivity = activity;
     }
-    
+
     public BeachActivity getSelectedActivity() {
         return selectedActivity;
     }
-    
+
     public void setUseCocktails(boolean useCocktails) {
         this.useCocktails = useCocktails;
     }
-    
+
     public void setUseBattleship(boolean useBattleship) {
         this.useBattleship = useBattleship;
     }
-    
+
     public void setFightClawdia(boolean fightClawdia) {
         this.fightClawdia = fightClawdia;
     }
-    
+
     public void setUseSpotlight(boolean useSpotlight) {
         this.useSpotlight = useSpotlight;
     }
-    
+
     public void setSpotlightHappyHour(String spotlightHappyHour) {
         this.spotlightHappyHour = spotlightHappyHour;
     }
-    
-    public boolean isUsePinkFizz() { return usePinkFizz; }
-    public void setUsePinkFizz(boolean usePinkFizz) { this.usePinkFizz = usePinkFizz; }
-    
-    public boolean isUsePurpleLumbridge() { return usePurpleLumbridge; }
-    public void setUsePurpleLumbridge(boolean usePurpleLumbridge) { this.usePurpleLumbridge = usePurpleLumbridge; }
-    
-    public boolean isUsePineappletini() { return usePineappletini; }
-    public void setUsePineappletini(boolean usePineappletini) { this.usePineappletini = usePineappletini; }
-    
-    public boolean isUseLemonSour() { return useLemonSour; }
-    public void setUseLemonSour(boolean useLemonSour) { this.useLemonSour = useLemonSour; }
-    
-    public boolean isUseFishermanssFriend() { return useFishermanssFriend; }
-    public void setUseFishermanssFriend(boolean useFishermanssFriend) { this.useFishermanssFriend = useFishermanssFriend; }
-    
-    public boolean isUseGeorgesPeachDelight() { return useGeorgesPeachDelight; }
-    public void setUseGeorgesPeachDelight(boolean useGeorgesPeachDelight) { this.useGeorgesPeachDelight = useGeorgesPeachDelight; }
-    
-    public boolean isUseAHoleInOne() { return useAHoleInOne; }
-    public void setUseAHoleInOne(boolean useAHoleInOne) { this.useAHoleInOne = useAHoleInOne; }
-    
-    public boolean isUsePalmerFarmer() { return usePalmerFarmer; }
-    public void setUsePalmerFarmer(boolean usePalmerFarmer) { this.usePalmerFarmer = usePalmerFarmer; }
-    
-    public boolean isUseUglyDuckling() { return useUglyDuckling; }
-    public void setUseUglyDuckling(boolean useUglyDuckling) { this.useUglyDuckling = useUglyDuckling; }
-    
+
+    public boolean isUsePinkFizz() {
+        return usePinkFizz;
+    }
+
+    public void setUsePinkFizz(boolean usePinkFizz) {
+        this.usePinkFizz = usePinkFizz;
+    }
+
+    public boolean isUsePurpleLumbridge() {
+        return usePurpleLumbridge;
+    }
+
+    public void setUsePurpleLumbridge(boolean usePurpleLumbridge) {
+        this.usePurpleLumbridge = usePurpleLumbridge;
+    }
+
+    public boolean isUsePineappletini() {
+        return usePineappletini;
+    }
+
+    public void setUsePineappletini(boolean usePineappletini) {
+        this.usePineappletini = usePineappletini;
+    }
+
+    public boolean isUseLemonSour() {
+        return useLemonSour;
+    }
+
+    public void setUseLemonSour(boolean useLemonSour) {
+        this.useLemonSour = useLemonSour;
+    }
+
+    public boolean isUseFishermanssFriend() {
+        return useFishermanssFriend;
+    }
+
+    public void setUseFishermanssFriend(boolean useFishermanssFriend) {
+        this.useFishermanssFriend = useFishermanssFriend;
+    }
+
+    public boolean isUseGeorgesPeachDelight() {
+        return useGeorgesPeachDelight;
+    }
+
+    public void setUseGeorgesPeachDelight(boolean useGeorgesPeachDelight) {
+        this.useGeorgesPeachDelight = useGeorgesPeachDelight;
+    }
+
+    public boolean isUseAHoleInOne() {
+        return useAHoleInOne;
+    }
+
+    public void setUseAHoleInOne(boolean useAHoleInOne) {
+        this.useAHoleInOne = useAHoleInOne;
+    }
+
+    public boolean isUsePalmerFarmer() {
+        return usePalmerFarmer;
+    }
+
+    public void setUsePalmerFarmer(boolean usePalmerFarmer) {
+        this.usePalmerFarmer = usePalmerFarmer;
+    }
+
+    public boolean isUseUglyDuckling() {
+        return useUglyDuckling;
+    }
+
+    public void setUseUglyDuckling(boolean useUglyDuckling) {
+        this.useUglyDuckling = useUglyDuckling;
+    }
+
     @Override
     public void execute() {
         LocalPlayer player = Client.getLocalPlayer();
@@ -141,7 +188,7 @@ public class BeachEventTask implements Task {
             Execution.delay(1200);
             return;
         }
-        
+
         // Check if player has headbar ID 13 (indicating already interacting)
         if (player.getHeadbars().stream().anyMatch(headbar -> headbar.getId() == 13)) {
             ScriptConsole.println("[BeachEventTask] Player has active headbar ID 13, already interacting...");
@@ -151,11 +198,10 @@ public class BeachEventTask implements Task {
         if (shouldDrinkCocktails()) {
             drinkSelectedCocktails();
             Execution.delay(1200);
-            return; 
+            return;
         }
-                
 
-        
+
         ScriptConsole.println("[BeachEventTask] Execute called - Selected activity: " + (selectedActivity != null ? selectedActivity.getName() : "NULL"));
 
         if (player.getAnimationId() != -1 && selectedActivity != BeachActivity.BODY_BUILDING) {
@@ -163,47 +209,47 @@ public class BeachEventTask implements Task {
             Execution.delay(script.getRandom().nextInt(1200, 4000));
             return;
         }
-        
+
         if (failCount > 4) {
             ScriptConsole.println("[BeachEventTask] Too many failures, stopping...");
             return;
         }
-        
+
         int beachTemp = VarManager.getVarbitValue(BEACH_TEMP_VARBIT);
         int happyHour = VarManager.getVarbitValue(HAPPY_HOUR_VARBIT);
         int spotlightActivity = VarManager.getVarbitValue(SPOTLIGHT_ACTIVITY_VARBIT);
-        
-        ScriptConsole.println("[BeachEventTask] Beach temp: " + beachTemp + "/" + MAX_BEACH_TEMP + 
-                            ", Happy hour: " + (happyHour == 1 ? "Yes" : "No") + 
-                            ", Spotlight: " + BeachActivity.getById(spotlightActivity));
-        
+
+        ScriptConsole.println("[BeachEventTask] Beach temp: " + beachTemp + "/" + MAX_BEACH_TEMP +
+                ", Happy hour: " + (happyHour == 1 ? "Yes" : "No") +
+                ", Spotlight: " + BeachActivity.getById(spotlightActivity));
+
         if (useSpotlight) {
             updateActivityFromSpotlight(spotlightActivity, happyHour == 1);
         }
-        
+
         if (!eatIceCream(beachTemp, happyHour == 1)) {
             return;
         }
-        
-        
+
+
         if (fightClawdia && handleClawdia()) {
             return;
         }
-        
+
         if (useBattleship) {
             handleBattleship();
         }
-        
+
         executeActivity();
-        
+
         Execution.delay(script.getRandom().nextInt(300, 600));
     }
-    
+
     private void updateActivityFromSpotlight(int spotlightActivity, boolean isHappyHour) {
-        ScriptConsole.println("[BeachEventTask] Spotlight update - Activity ID: " + spotlightActivity + 
-                             ", Is Happy Hour: " + isHappyHour + 
-                             ", Happy Hour Preference: " + spotlightHappyHour);
-        
+        ScriptConsole.println("[BeachEventTask] Spotlight update - Activity ID: " + spotlightActivity +
+                ", Is Happy Hour: " + isHappyHour +
+                ", Happy Hour Preference: " + spotlightHappyHour);
+
         if (isHappyHour) {
             ScriptConsole.println("[BeachEventTask] Happy hour active, switching to preference: " + spotlightHappyHour);
             switch (spotlightHappyHour) {
@@ -250,9 +296,9 @@ public class BeachEventTask implements Task {
             BeachActivity spotlightBeachActivity = BeachActivity.getById(spotlightActivity);
             ScriptConsole.println("[BeachEventTask] Normal time, following spotlight activity: " + spotlightBeachActivity);
             if (spotlightBeachActivity != null) {
-                if (!Client.isMember() && (spotlightBeachActivity == BeachActivity.HOOK_A_DUCK || 
-                                           spotlightBeachActivity == BeachActivity.SANDCASTLE_BUILDING || 
-                                           spotlightBeachActivity == BeachActivity.PALM_TREE_FARMING)) {
+                if (!Client.isMember() && (spotlightBeachActivity == BeachActivity.HOOK_A_DUCK ||
+                        spotlightBeachActivity == BeachActivity.SANDCASTLE_BUILDING ||
+                        spotlightBeachActivity == BeachActivity.PALM_TREE_FARMING)) {
                     ScriptConsole.println("[BeachEventTask] Spotlight activity " + spotlightBeachActivity + " requires membership, switching to default activity");
                     selectedActivity = BeachActivity.DUNGEONEERING_HOLE;
                 } else {
@@ -263,17 +309,23 @@ public class BeachEventTask implements Task {
                 ScriptConsole.println("[BeachEventTask] Warning: Could not find activity for spotlight ID " + spotlightActivity);
             }
         }
-        
+
         ScriptConsole.println("[BeachEventTask] Final selected activity: " + selectedActivity);
     }
-    
+
     private boolean eatIceCream(int beachTemp, boolean isHappyHour) {
+
+        if (isWeekend) {
+            ScriptConsole.println("[BeachEventTask] Weekend mode enabled, skipping heat check");
+            return true;
+        }
+
         // Check if we have any temperature-preventing cocktail buffs active
         if (hasTemperaturePreventingBuff()) {
             ScriptConsole.println("[BeachEventTask] Temperature-preventing cocktail buff active, skipping ice cream");
             return true;
         }
-        
+
         if (beachTemp >= MAX_BEACH_TEMP && !isHappyHour) {
             ScriptConsole.println("[BeachEventTask] Beach temp at max (" + beachTemp + "), need to eat ice cream!");
             if (Backpack.contains("Ice cream")) {
@@ -281,17 +333,17 @@ public class BeachEventTask implements Task {
                     boolean brainFreezeOccurred = Execution.delayUntil(3000, () -> {
                         if (Interfaces.isOpen(1189)) {
                             Component brainFreezeComponent = ComponentQuery.newQuery(1189)
-                                .componentIndex(3)
-                                .results()
-                                .first();
-                            
+                                    .componentIndex(3)
+                                    .results()
+                                    .first();
+
                             if (brainFreezeComponent != null && brainFreezeComponent.getText() != null) {
                                 return brainFreezeComponent.getText().contains("BRAIN FREEZE!");
                             }
                         }
                         return false;
                     });
-                    
+
                     if (brainFreezeOccurred) {
                         ScriptConsole.println("[BeachEventTask] BRAIN FREEZE! occurred - stopping script");
                         LoginManager.setAutoLogin(false);
@@ -299,7 +351,7 @@ public class BeachEventTask implements Task {
                         script.setActive(false);
                         return false;
                     }
-                    
+
                     Execution.delayUntil(5000, () -> VarManager.getVarbitValue(BEACH_TEMP_VARBIT) < MAX_BEACH_TEMP);
                     return true;
                 }
@@ -310,7 +362,7 @@ public class BeachEventTask implements Task {
         }
         return true;
     }
-    
+
     private boolean hasTemperaturePreventingBuff() {
         // Check for temperature-preventing cocktail buffs using their specific varcs
         // A Hole in One (Dungeoneering) - varc 6925
@@ -319,43 +371,43 @@ public class BeachEventTask implements Task {
             ScriptConsole.println("[BeachEventTask] A Hole in One buff active, remaining timer: " + remainingTimer);
             return true;
         }
-        
+
         // Ugly Duckling (Hook a Duck) - varc 6926
         if ((VarManager.getVarc(6926) - Client.getClientCycle()) > 0) {
             int remainingTimer = VarManager.getVarc(6926) - Client.getClientCycle();
             ScriptConsole.println("[BeachEventTask] Ugly Duckling buff active, remaining timer: " + remainingTimer);
             return true;
         }
-        
+
         // Palmer Farmer (Palm Tree Farming) - varc 6927
         if ((VarManager.getVarc(6927) - Client.getClientCycle()) > 0) {
             int remainingTimer = VarManager.getVarc(6927) - Client.getClientCycle();
             ScriptConsole.println("[BeachEventTask] Palmer Farmer buff active, remaining timer: " + remainingTimer);
             return true;
         }
-        
+
         // Fisherman's Friend (Rock Pools) - varc 6928
         if ((VarManager.getVarc(6928) - Client.getClientCycle()) > 0) {
             int remainingTimer = VarManager.getVarc(6928) - Client.getClientCycle();
             ScriptConsole.println("[BeachEventTask] Fisherman's Friend buff active, remaining timer: " + remainingTimer);
             return true;
         }
-        
+
         return false;
     }
-    
+
     private boolean handleClawdia() {
         EntityResultSet<Npc> clawdiaResults = NpcQuery.newQuery()
-            .name("Clawdia")
-            .results();
-        
+                .name("Clawdia")
+                .results();
+
         Npc clawdia = clawdiaResults.nearest();
-        
+
         if (clawdia != null) {
             ScriptConsole.println("[BeachEventTask] Clawdia is present! Prioritizing fight over other activities.");
-            
+
             PathingEntity<?> currentTarget = Client.getLocalPlayer().getTarget();
-            
+
             if (currentTarget == null) {
                 LocalPlayer player = Client.getLocalPlayer();
                 if (player != null) {
@@ -367,30 +419,30 @@ public class BeachEventTask implements Task {
             } else {
                 ScriptConsole.println("[BeachEventTask] Already fighting Clawdia, continuing combat...");
             }
-            
+
             return true;
         }
-        
+
         return false;
     }
-    
+
     private void handleBattleship() {
         if (!Backpack.contains(33769)) {
             ScriptConsole.println("[BeachEventTask] No battleship in inventory");
             return;
         }
-        
+
         if (!canDeployShip) {
             ScriptConsole.println("[BeachEventTask] Ship already deployed, waiting for it to die");
             return;
         }
-        
+
         if (lastBattleshipMessage.isEmpty()) {
             ScriptConsole.println("[BeachEventTask] No battleship message, deploying default aggressive ship");
             if (Backpack.interact("Toy royal battleship", "Deploy")) {
-                boolean interfaceOpened = Execution.delayUntil(3000, () -> 
-                    Interfaces.isOpen(751));
-                
+                boolean interfaceOpened = Execution.delayUntil(3000, () ->
+                        Interfaces.isOpen(751));
+
                 if (interfaceOpened) {
                     ScriptConsole.println("[BeachEventTask] Deploying default aggressive ship");
                     MiniMenu.interact(ComponentAction.DIALOGUE.getType(), 0, -1, 49217602);
@@ -401,13 +453,13 @@ public class BeachEventTask implements Task {
             }
             return;
         }
-        
+
         ScriptConsole.println("[BeachEventTask] Deploying battleship based on message: " + lastBattleshipMessage);
-        
+
         if (Backpack.interact("Toy royal battleship", "Deploy")) {
-            boolean interfaceOpened = Execution.delayUntil(3000, () -> 
-                Interfaces.isOpen(751));
-            
+            boolean interfaceOpened = Execution.delayUntil(3000, () ->
+                    Interfaces.isOpen(751));
+
             if (interfaceOpened) {
                 if (lastBattleshipMessage.contains("Our accuracy penetrated their defences!")) {
                     ScriptConsole.println("[BeachEventTask] Deploying aggressive ship");
@@ -419,7 +471,7 @@ public class BeachEventTask implements Task {
                     ScriptConsole.println("[BeachEventTask] Deploying defensive ship");
                     MiniMenu.interact(ComponentAction.DIALOGUE.getType(), 0, -1, 49217594);
                 }
-                
+
                 lastBattleshipMessage = "";
                 canDeployShip = false;
                 Execution.delay(1200);
@@ -428,13 +480,13 @@ public class BeachEventTask implements Task {
             }
         }
     }
-    
+
     private void executeActivity() {
         if (selectedActivity == null) {
             ScriptConsole.println("[BeachEventTask] No activity selected! Please configure an activity in the GUI.");
             return;
         }
-        
+
 
         switch (selectedActivity) {
             case DUNGEONEERING_HOLE:
@@ -465,19 +517,19 @@ public class BeachEventTask implements Task {
                 ScriptConsole.println("[BeachEventTask] Unknown activity: " + selectedActivity);
         }
     }
-    
+
     private boolean shouldDrinkCocktails() {
-        if (!usePinkFizz && !usePurpleLumbridge && !usePineappletini && !useLemonSour && 
-            !useFishermanssFriend && !useGeorgesPeachDelight && !useAHoleInOne && 
-            !usePalmerFarmer && !useUglyDuckling) {
+        if (!usePinkFizz && !usePurpleLumbridge && !usePineappletini && !useLemonSour &&
+                !useFishermanssFriend && !useGeorgesPeachDelight && !useAHoleInOne &&
+                !usePalmerFarmer && !useUglyDuckling) {
             return false;
         }
-        
+
         List<Item> backpackItems = Backpack.getItems();
         if (backpackItems == null || backpackItems.isEmpty()) {
             return false;
         }
-        
+
         List<Integer> enabledCocktailIds = new ArrayList<>();
         if (usePinkFizz) enabledCocktailIds.add(BeachEventItems.PINK_FIZZ.getId());
         if (usePurpleLumbridge) enabledCocktailIds.add(BeachEventItems.PURPLE_LUMBRIDGE.getId());
@@ -488,45 +540,45 @@ public class BeachEventTask implements Task {
         if (useAHoleInOne) enabledCocktailIds.add(BeachEventItems.A_HOLE_IN_ONE.getId());
         if (usePalmerFarmer) enabledCocktailIds.add(BeachEventItems.PALMER_FARMER.getId());
         if (useUglyDuckling) enabledCocktailIds.add(BeachEventItems.UGLY_DUCKLING.getId());
-        
+
         for (Item item : backpackItems) {
             if (item != null && enabledCocktailIds.contains(item.getId()) && !hasBuffActive(item.getId())) {
                 return true;
             }
         }
-        
+
         return false;
     }
-    
+
     private void executeDungeoneering() {
         if (cachedDungeoneeringHole == null) {
             EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery()
-                .name("Dungeoneering hole")
-                .option("Dungeoneer")
-                .results();
+                    .name("Dungeoneering hole")
+                    .option("Dungeoneer")
+                    .results();
             cachedDungeoneeringHole = results.nearest();
         }
-        
+
         if (cachedDungeoneeringHole != null) {
             ScriptConsole.println("[BeachEventTask] Interacting with dungeoneering hole...");
             if (cachedDungeoneeringHole.interact("Dungeoneer")) {
             }
         }
     }
-    
+
     private void executeBodybuilding() {
         if (cachedBodybuilding == null) {
             EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery()
-                .name("Body building podium")
-                .option("Workout")
-                .results();
+                    .name("Body building podium")
+                    .option("Workout")
+                    .results();
             cachedBodybuilding = results.nearest();
         }
-        
+
         if (cachedBodybuilding != null) {
             boolean workoutInterfaceOpen = Interfaces.isOpen(796);
             ScriptConsole.println("[BeachEventTask] Workout interface 796 open: " + workoutInterfaceOpen);
-            
+
             if (!workoutInterfaceOpen) {
                 ScriptConsole.println("[BeachEventTask] Workout interface not open, interacting with platform...");
                 if (cachedBodybuilding.interact("Workout")) {
@@ -534,24 +586,24 @@ public class BeachEventTask implements Task {
                 }
                 return;
             }
-            
+
             EntityResultSet<Npc> ivanResults = NpcQuery.newQuery()
-                .name("Ivan")
-                .results();
-            
+                    .name("Ivan")
+                    .results();
+
             Npc ivan = ivanResults.nearest();
             if (ivan != null) {
                 int currentIvanAnimation = ivan.getAnimationId();
                 long currentTime = System.currentTimeMillis();
-                
-                ScriptConsole.println("[BeachEventTask] Ivan found - Animation: " + currentIvanAnimation + 
-                                    ", Last: " + lastIvanAnimation + 
-                                    ", Time since change: " + (currentTime - lastAnimationChangeTime) + "ms");
-                
+
+                ScriptConsole.println("[BeachEventTask] Ivan found - Animation: " + currentIvanAnimation +
+                        ", Last: " + lastIvanAnimation +
+                        ", Time since change: " + (currentTime - lastAnimationChangeTime) + "ms");
+
                 // Only consider it an animation change if both old and new animations are not -1 (not idle)
-                if (currentIvanAnimation != lastIvanAnimation && 
-                    currentIvanAnimation != -1 && 
-                    lastIvanAnimation != -1) {
+                if (currentIvanAnimation != lastIvanAnimation &&
+                        currentIvanAnimation != -1 &&
+                        lastIvanAnimation != -1) {
                     lastIvanAnimation = currentIvanAnimation;
                     lastAnimationChangeTime = currentTime;
                     ScriptConsole.println("[BeachEventTask] Ivan animation changed to: " + currentIvanAnimation + " (meaningful change)");
@@ -559,19 +611,19 @@ public class BeachEventTask implements Task {
                     lastIvanAnimation = currentIvanAnimation;
                     ScriptConsole.println("[BeachEventTask] Ivan started animating: " + currentIvanAnimation + " (initial animation)");
                 }
-                
+
                 LocalPlayer player = Client.getLocalPlayer();
                 if (player != null) {
                     int playerAnimation = player.getAnimationId();
-                    ScriptConsole.println("[BeachEventTask] Player animation: " + playerAnimation + 
-                                        ", Ivan animation: " + currentIvanAnimation);
-                    
+                    ScriptConsole.println("[BeachEventTask] Player animation: " + playerAnimation +
+                            ", Ivan animation: " + currentIvanAnimation);
+
 
                     boolean shouldSwitch = currentIvanAnimation != -1 && (
-                        (currentTime - lastAnimationChangeTime <= 5000) || 
-                        (playerAnimation != currentIvanAnimation)
+                            (currentTime - lastAnimationChangeTime <= 5000) ||
+                                    (playerAnimation != currentIvanAnimation)
                     );
-                    
+
                     if (shouldSwitch) {
                         switch (currentIvanAnimation) {
                             case 26552: // Curl
@@ -619,9 +671,9 @@ public class BeachEventTask implements Task {
                 ScriptConsole.println("[BeachEventTask] Ivan not found! Searching for Ivan NPC...");
                 // Try to find Ivan with ID instead
                 EntityResultSet<Npc> ivanByIdResults = NpcQuery.newQuery()
-                    .id(BeachEventNPCs.IVAN.getId())
-                    .results();
-                
+                        .id(BeachEventNPCs.IVAN.getId())
+                        .results();
+
                 Npc ivanById = ivanByIdResults.nearest();
                 if (ivanById != null) {
                     ScriptConsole.println("[BeachEventTask] Found Ivan by ID: " + ivanById.getName() + " (ID: " + ivanById.getId() + ")");
@@ -727,14 +779,14 @@ public class BeachEventTask implements Task {
             ScriptConsole.println("[BeachEventTask] Hook-a-duck requires membership, skipping activity");
             return;
         }
-        
+
         if (cachedHookADuck == null) {
             EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery()
-                .id(BeachEventObjects.HOOK_A_DUCK.getId())
-                .results();
+                    .id(BeachEventObjects.HOOK_A_DUCK.getId())
+                    .results();
             cachedHookADuck = results.nearest();
         }
-        
+
         if (cachedHookADuck != null) {
             ScriptConsole.println("[BeachEventTask] Playing hook-a-duck...");
             if (cachedHookADuck.interact("Play")) {
@@ -742,15 +794,15 @@ public class BeachEventTask implements Task {
             }
         }
     }
-    
+
     private void executeCoconutShy() {
         if (cachedCoconutShy == null) {
             EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery()
-                .id(BeachEventObjects.COCONUT_SKY.getId())
-                .results();
+                    .id(BeachEventObjects.COCONUT_SKY.getId())
+                    .results();
             cachedCoconutShy = results.nearest();
         }
-        
+
         if (cachedCoconutShy != null) {
             ScriptConsole.println("[BeachEventTask] Playing coconut shy...");
             if (cachedCoconutShy.interact("Play")) {
@@ -759,16 +811,16 @@ public class BeachEventTask implements Task {
             }
         }
     }
-    
+
     private void executeBarbeques() {
         LocalPlayer player = Client.getLocalPlayer();
         if (player != null && player.getAnimationId() == -1) {
             // Player is not animating, try to interact with grill
             EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery()
-                .name("Grill")
-                .option("Use")
-                .results();
-            
+                    .name("Grill")
+                    .option("Use")
+                    .results();
+
             SceneObject grill = results.nearest();
             if (grill != null) {
                 ScriptConsole.println("[BeachEventTask] Player not animating, interacting with grill...");
@@ -778,14 +830,14 @@ public class BeachEventTask implements Task {
                 return;
             }
         }
-        
+
         if (cachedBarbeque == null) {
             EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery()
-                .id(BeachEventObjects.BARBEQUE_GRILL.getId())
-                .results();
+                    .id(BeachEventObjects.BARBEQUE_GRILL.getId())
+                    .results();
             cachedBarbeque = results.nearest();
         }
-        
+
         if (cachedBarbeque != null) {
             ScriptConsole.println("[BeachEventTask] Using barbeque...");
             if (cachedBarbeque.interact("Cook")) {
@@ -794,20 +846,20 @@ public class BeachEventTask implements Task {
         }
     }
 
-    private Coordinate pileOfCoconutsCoordinate = new Coordinate(3172, 3215,0);
-    
+    private Coordinate pileOfCoconutsCoordinate = new Coordinate(3172, 3215, 0);
+
     private void executePalmTreeFarming() {
         if (!Client.isMember()) {
             ScriptConsole.println("[BeachEventTask] Palm tree farming requires membership, skipping activity");
             return;
         }
-        
+
         if (Backpack.isFull() && Backpack.contains("Tropical coconut")) {
             EntityResultSet<SceneObject> pileResults = SceneObjectQuery.newQuery()
-                .name("Pile of coconuts")
-                .hidden(false)
-                .results();
-            
+                    .name("Pile of coconuts")
+                    .hidden(false)
+                    .results();
+
             SceneObject pile = pileResults.nearest();
             if (pile != null && pile.distanceTo(Client.getLocalPlayer().getCoordinate()) < 20 && !Client.getLocalPlayer().isMoving()) {
                 ScriptConsole.println("[BeachEventTask] Inventory full, depositing coconuts...");
@@ -815,33 +867,33 @@ public class BeachEventTask implements Task {
                 return;
             } else {
                 ScriptConsole.println("[BeachEventTask] Pile of coconuts is too far, Moving closer");
-                if(!Client.getLocalPlayer().isMoving()) {
+                if (!Client.getLocalPlayer().isMoving()) {
                     Movement.walkTo(pileOfCoconutsCoordinate.getX(), pileOfCoconutsCoordinate.getY(), true);
                 }
-                
+
             }
         } else {
-        
-        EntityResultSet<SceneObject> treeResults = SceneObjectQuery.newQuery()
-            .ids(BeachEventObjects.getPalmTrees())
-            .hidden(false)
-            .results();
-        
-        SceneObject tree = treeResults.nearest();
-        if (tree != null) {
-            ScriptConsole.println("[BeachEventTask] Chopping palm tree...");
-            if (tree.interact("Pick coconut")) {
-                ScriptConsole.println("[BeachEventTask] Back to chopping trees.");
+
+            EntityResultSet<SceneObject> treeResults = SceneObjectQuery.newQuery()
+                    .ids(BeachEventObjects.getPalmTrees())
+                    .hidden(false)
+                    .results();
+
+            SceneObject tree = treeResults.nearest();
+            if (tree != null) {
+                ScriptConsole.println("[BeachEventTask] Chopping palm tree...");
+                if (tree.interact("Pick coconut")) {
+                    ScriptConsole.println("[BeachEventTask] Back to chopping trees.");
+                }
             }
         }
     }
-    }
-    
+
     private void executeRockPools() {
-        
+
         if (Backpack.isFull() && Backpack.contains(35106)) {
             EntityResultSet<Npc> results = NpcQuery.newQuery().name("Wellington").option("Hand in fish").results();
-            
+
             Npc wellington = results.nearest();
             if (wellington != null) {
                 ScriptConsole.println("[BeachEventTask] Inventory full, depositing fish...");
@@ -849,9 +901,9 @@ public class BeachEventTask implements Task {
                 return;
             }
         }
-        
+
         EntityResultSet<Npc> results = NpcQuery.newQuery().name("Fishing spot").option("Catch").results();
-        
+
         Npc fishingSpot = results.nearest();
         if (fishingSpot != null) {
             ScriptConsole.println("[BeachEventTask] Fishing at rock pools...");
@@ -860,13 +912,13 @@ public class BeachEventTask implements Task {
             }
         }
     }
-    
+
     private void drinkSelectedCocktails() {
         List<Item> backpackItems = Backpack.getItems();
         if (backpackItems == null || backpackItems.isEmpty()) {
             return;
         }
-        
+
         List<Integer> enabledCocktailIds = new ArrayList<>();
         if (usePinkFizz) enabledCocktailIds.add(BeachEventItems.PINK_FIZZ.getId());
         if (usePurpleLumbridge) enabledCocktailIds.add(BeachEventItems.PURPLE_LUMBRIDGE.getId());
@@ -877,7 +929,7 @@ public class BeachEventTask implements Task {
         if (useAHoleInOne) enabledCocktailIds.add(BeachEventItems.A_HOLE_IN_ONE.getId());
         if (usePalmerFarmer) enabledCocktailIds.add(BeachEventItems.PALMER_FARMER.getId());
         if (useUglyDuckling) enabledCocktailIds.add(BeachEventItems.UGLY_DUCKLING.getId());
-        
+
         for (Item item : backpackItems) {
             if (item != null && enabledCocktailIds.contains(item.getId()) && !hasBuffActive(item.getId())) {
                 ScriptConsole.println("[BeachEventTask] Drinking cocktail: " + item.getName() + " from slot " + item.getSlot());
@@ -891,7 +943,7 @@ public class BeachEventTask implements Task {
             }
         }
     }
-    
+
     private boolean hasBuffActive(int itemId) {
         int varcValue;
         int remainingTimer;
@@ -946,18 +998,27 @@ public class BeachEventTask implements Task {
                 return false;
         }
     }
-    
+
     public void handleBattleshipMessage(String message) {
         if (message.contains("Our accuracy penetrated their defences!") ||
-            message.contains("Our defences withstood their aggression!") ||
-            message.contains("Our aggression overcame their accuracy!")) {
+                message.contains("Our defences withstood their aggression!") ||
+                message.contains("Our aggression overcame their accuracy!")) {
             lastBattleshipMessage = message;
             ScriptConsole.println("[BeachEventTask] Battleship message received: " + message);
         }
-        
+
         if (message.contains("battleship was defeated")) {
             canDeployShip = true;
             ScriptConsole.println("[BeachEventTask] Ship is dead, can deploy new ship");
         }
     }
-} 
+
+    public void setIsWeekend(boolean isWeekend) {
+        this.isWeekend = isWeekend;
+    }
+
+    public boolean getIsWeekend() {
+        return this.isWeekend;
+
+    }
+}

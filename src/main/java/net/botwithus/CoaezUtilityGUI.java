@@ -90,6 +90,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private boolean beachFightClawdia = true;
     private boolean beachUseSpotlight = false;
     private boolean beachUseBattleship = false;
+    private boolean beachIsWeekend = false;
     private String beachSpotlightHappyHour = "Hunter";
     private final String[] spotlightHappyHourOptions = {"Dung", "Strength", "Construction", "Hunter", "Ranged", "Cooking", "Farming"};
     private int selectedSpotlightHappyHourIndex = 3;
@@ -107,7 +108,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private boolean guiUseGeorgesPeachDelight = false;
     private boolean guiUseAHoleInOne = false;
     private boolean guiUsePalmerFarmer = false;
-        private boolean guiUseUglyDuckling = false;
+    private boolean guiUseUglyDuckling = false;
     
     private boolean isLoadingConfig = false;
     
@@ -1257,6 +1258,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         config.addProperty("beachFightClawdia", String.valueOf(beachFightClawdia));
         config.addProperty("beachUseSpotlight", String.valueOf(beachUseSpotlight));
         config.addProperty("beachUseBattleship", String.valueOf(beachUseBattleship));
+        config.addProperty("beachIsWeekend", String.valueOf(beachIsWeekend));
         config.addProperty("beachSpotlightHappyHour", beachSpotlightHappyHour);
         config.addProperty("selectedSpotlightHappyHourIndex", String.valueOf(selectedSpotlightHappyHourIndex));
         
@@ -1526,6 +1528,11 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             beachUseBattleship = Boolean.parseBoolean(beachUseBattleshipStr);
         }
         
+        String beachIsWeekendStr = config.getProperty("beachIsWeekend");
+        if (beachIsWeekendStr != null) {
+            beachIsWeekend = Boolean.parseBoolean(beachIsWeekendStr);
+        }
+
         String beachSpotlightHappyHourStr = config.getProperty("beachSpotlightHappyHour");
         if (beachSpotlightHappyHourStr != null) {
             beachSpotlightHappyHour = beachSpotlightHappyHourStr;
@@ -1946,6 +1953,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             beachTask.setFightClawdia(beachFightClawdia);
             beachTask.setUseSpotlight(beachUseSpotlight);
             beachTask.setUseBattleship(beachUseBattleship);
+            beachTask.setIsWeekend(beachIsWeekend);
             beachTask.setSpotlightHappyHour(beachSpotlightHappyHour);
             
             // Apply individual cocktail settings
@@ -1977,7 +1985,8 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         String[] beachActivityNames = Arrays.stream(beachActivities)
             .map(activity -> activity.getName())
             .toArray(String[]::new);
-        
+
+
         int newBeachActivityIndex = ImGui.Combo("Select Beach Activity", selectedBeachActivityIndex, beachActivityNames);
         if (newBeachActivityIndex != selectedBeachActivityIndex) {
             selectedBeachActivityIndex = newBeachActivityIndex;
@@ -2009,7 +2018,14 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             updateBeachEventSettings(); 
             saveConfig();
         }
-        
+
+        boolean newBeachIsWeekend = ImGui.Checkbox("Is Weekend", beachIsWeekend);
+        if (newBeachIsWeekend != beachIsWeekend) {
+            beachIsWeekend = newBeachIsWeekend;
+            updateBeachEventSettings();
+            saveConfig();
+        }
+
         if (beachUseSpotlight) {
             int newSpotlightHappyHourIndex = ImGui.Combo("Happy Hour Preference", selectedSpotlightHappyHourIndex, spotlightHappyHourOptions);
             if (newSpotlightHappyHourIndex != selectedSpotlightHappyHourIndex) {
