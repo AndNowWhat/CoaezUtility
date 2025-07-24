@@ -111,6 +111,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     
     private boolean isLoadingConfig = false;
     
+    // Add fields to store window size and position
+    private float consoleWindowWidth = 600;
+    private float consoleWindowHeight = 300;
+    private float consoleWindowPosX = 100;
+    private float consoleWindowPosY = 100;
+
     public CoaezUtilityGUI(ScriptConsole scriptConsole, CoaezUtility coaezUtility) {
         super(scriptConsole);
         this.coaezUtility = coaezUtility;
@@ -317,6 +323,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             coaezUtility.setBotState(CoaezUtility.BotState.PORTABLES);
         }
 
+        if (ImGui.Button("Start Beer Crafting")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.BEER_CRAFTING);
+        }
+
 /*         if (ImGui.Button("Start Smithing")) {
             coaezUtility.setBotState(CoaezUtility.BotState.SMITHING);
         } */
@@ -382,6 +392,16 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             coaezUtility.setBotState(CoaezUtility.BotState.NPC_LOGGER);
         }
 
+        if (ImGui.Button("Start Winter Sq'irkjuice")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.WINTER_SQIRKJUICE);
+        }
+        
+        if (ImGui.Button("Turn In Sq'irkjuice")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.TURN_IN_SQIRKJUICE);
+        }
+        
+        ImGui.Separator();
+    
     }
     
     private void renderAlchemyTab() {
@@ -2288,5 +2308,35 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         
     }
     
+    @Override
+    public void drawScriptConsole() {
+        String windowId = "Script Console##CoaezUtility";
+
+        if (ImGui.Begin(windowId, ImGuiWindowFlag.None.getValue())) {
+            if (ImGui.Button("Clear")) {
+                coaezUtility.getConsole().clear();
+            }
+
+            ImGui.SameLine();
+            coaezUtility.getConsole().setScrollToBottom(ImGui.Checkbox("Scroll to bottom", coaezUtility.getConsole().isScrollToBottom()));
+
+            if (ImGui.BeginChild("##console_lines", -1.0F, -1.0F, true, 0)) {
+                for (int i = 0; i < 200; ++i) {
+                    int lineIndex = (coaezUtility.getConsole().getLineIndex() + i) % 200;
+                    if (coaezUtility.getConsole().getConsoleLines()[lineIndex] != null) {
+                        ImGui.Text("%s", coaezUtility.getConsole().getConsoleLines()[lineIndex]);
+                    }
+                }
+
+                if (coaezUtility.getConsole().isScrollToBottom()) {
+                    ImGui.SetScrollHereY(1.0F);
+                }
+
+                ImGui.EndChild();
+            }
+        }
+
+        ImGui.End();
+    }
 }
 

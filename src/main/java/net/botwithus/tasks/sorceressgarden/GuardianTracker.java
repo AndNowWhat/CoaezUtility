@@ -17,6 +17,7 @@ import net.botwithus.rs3.script.ScriptConsole;
 import net.botwithus.tasks.sorceressgarden.models.Guardian;
 import net.botwithus.tasks.sorceressgarden.models.GuardianPosition;
 import net.botwithus.tasks.sorceressgarden.models.GuardianRequirement;
+import net.botwithus.tasks.sorceressgarden.models.NPCDirection;
 import net.botwithus.tasks.sorceressgarden.models.NPCDirection.Direction;
 
 /**
@@ -26,9 +27,10 @@ public class GuardianTracker {
     private final CoaezUtility script;
     private final Map<Integer, Guardian> activeGuardians;
     private final List<Coordinate> guardianPositions;
-    private final double SAFE_DISTANCE = 3.0; // Minimum safe distance from guardians
-    private final int UPDATE_INTERVAL = 100; // Update interval in milliseconds (increased to reduce spam)
+    private final double SAFE_DISTANCE = 3.0; 
+    private final int UPDATE_INTERVAL = 100;
     private long lastUpdateTime;
+    private final Map<Integer, Coordinate> previousPositions = new ConcurrentHashMap<>();
     
     public GuardianTracker(CoaezUtility script) {
         this.script = script;
@@ -43,15 +45,20 @@ public class GuardianTracker {
     public void updateGuardianPositions(Area gardenArea) {
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastUpdateTime < UPDATE_INTERVAL) {
-            return; // Don't update too frequently
+            return;
         }
         
         guardianPositions.clear();
         
         for (Guardian guardian : activeGuardians.values()) {
+            Coordinate oldPosition = guardian.getCurrentPosition();
             updateGuardian(guardian, gardenArea);
             if (guardian.getCurrentPosition() != null) {
                 guardianPositions.add(guardian.getCurrentPosition());
+                // Track previous position for movement direction
+                if (oldPosition != null) {
+                    previousPositions.put(guardian.getId(), oldPosition);
+                }
             }
         }
         
@@ -85,17 +92,10 @@ public class GuardianTracker {
         if (npc != null) {
             Coordinate oldPosition = guardian.getCurrentPosition();
             guardian.setCurrentPosition(npc.getServerCoordinate());
-            guardian.setRotation(npc.getDirection1(), npc.getDirection2());
-            
-            if (npc.isMoving()) {
-                guardian.setState(Guardian.GuardianState.MOVING);
-            } else {
-                guardian.setState(Guardian.GuardianState.PATROLLING);
-            }
             
             if (oldPosition != null && oldPosition.distanceTo(npc.getServerCoordinate()) > 2.0) {
                 ScriptConsole.println("Guardian " + guardian.getId() + " moved from " + oldPosition + 
-                    " to " + npc.getServerCoordinate() + " (facing " + guardian.getCurrentDirection() + ")");
+                    " to " + npc.getServerCoordinate());
             }
         } else {
             ScriptConsole.println("Guardian " + guardian.getId() + " not found in game world");
@@ -138,10 +138,6 @@ public class GuardianTracker {
                 if (distance < SAFE_DISTANCE) {
                     return false;
                 }
-                
-                if (isGuardianMovingTowards(guardian, targetPosition)) {
-                    return false;
-                }
             }
         }
         
@@ -149,41 +145,26 @@ public class GuardianTracker {
     }
     
     /**
-     * Check if a guardian is moving towards a specific position
+     * Check if a guardian is at a specific position
      */
-    private boolean isGuardianMovingTowards(Guardian guardian, Coordinate targetPosition) {
-        if (guardian.getCurrentPosition() == null || targetPosition == null) {
-            return false;
-        }
-        
-        return guardian.isFacing(targetPosition) && 
-               guardian.getCurrentPosition().distanceTo(targetPosition) < SAFE_DISTANCE * 2;
-    }
-    
-    /**
-     * Check if a guardian is at a specific position and direction
-     */
-    public boolean isGuardianAtPositionAndDirection(int guardianId, Coordinate position, float direction1, float direction2, double tolerance) {
+    public boolean isGuardianAtPosition(int guardianId, Coordinate position, double tolerance) {
         Guardian guardian = activeGuardians.get(guardianId);
         if (guardian == null) return false;
         
         if (guardian.getCurrentPosition() == null || position == null) return false;
-        if (guardian.getCurrentPosition().distanceTo(position) > tolerance) return false;
-        
-        float directionDiff = Math.abs(guardian.getDirection1() - direction1);
-        return directionDiff <= tolerance;
+        return guardian.getCurrentPosition().distanceTo(position) <= tolerance;
     }
     
     /**
-     * Wait until a guardian reaches a specific position and direction
+     * Wait until a guardian reaches a specific position
      */
-    public boolean waitForGuardianPosition(int guardianId, Coordinate position, float direction1, float direction2, long timeoutMs, Area gardenArea) {
+    public boolean waitForGuardianPosition(int guardianId, Coordinate position, long timeoutMs, Area gardenArea) {
         long startTime = System.currentTimeMillis();
         
         while (System.currentTimeMillis() - startTime < timeoutMs) {
             updateGuardianPositions(gardenArea);
             
-            if (isGuardianAtPositionAndDirection(guardianId, position, direction1, direction2, 1.0)) {
+            if (isGuardianAtPosition(guardianId, position, 1.0)) {
                 return true;
             }
             
@@ -194,7 +175,7 @@ public class GuardianTracker {
     }
     
     /**
-     * Wait for a guardian to reach a specific position and direction using GuardianPosition
+     * Wait for a guardian to reach a specific position using GuardianPosition
      */
     public boolean waitForGuardianPosition(GuardianPosition guardianPosition, long timeoutMs, Area gardenArea) {
         Guardian guardian = activeGuardians.get(guardianPosition.getGuardianId());
@@ -211,7 +192,27 @@ public class GuardianTracker {
                 continue;
             }
             
-            if (guardian.isFacingDirection(guardianPosition.getDirection())) {
+            // Check movement direction if required
+            if (guardianPosition.getMovingDirection() != null) {
+                Coordinate prev = previousPositions.get(guardian.getId());
+                Coordinate curr = guardian.getCurrentPosition();
+                if (prev != null && curr != null) {
+                    int dx = curr.getX() - prev.getX();
+                    int dy = curr.getY() - prev.getY();
+                    Direction required = guardianPosition.getMovingDirection();
+                    boolean movingCorrect = false;
+                    switch (required) {
+                        case NORTH: movingCorrect = (dy > 0); break;
+                        case SOUTH: movingCorrect = (dy < 0); break;
+                        case EAST:  movingCorrect = (dx > 0); break;
+                        case WEST:  movingCorrect = (dx < 0); break;
+                        default: break;
+                    }
+                    if (movingCorrect) {
+                        return true;
+                    }
+                }
+            } else {
                 return true;
             }
             
@@ -261,22 +262,40 @@ public class GuardianTracker {
                     break;
                 }
                 
-                // Check direction
-                Direction currentDirection = guardian.getCurrentDirection();
-                Direction targetDirection = guardianPosition.getDirection();
-                ScriptConsole.println("Guardian " + guardianPosition.getGuardianId() + 
-                    " direction check: current=" + (currentDirection != null ? currentDirection : "UNKNOWN") + 
-                    ", target=" + targetDirection + ", isFacing=" + guardian.isFacingDirection(targetDirection));
-                if (!guardian.isFacingDirection(targetDirection)) {
-                    ScriptConsole.println("Guardian " + guardianPosition.getGuardianId() + 
-                        " facing " + (currentDirection != null ? currentDirection : "UNKNOWN") + 
-                        " but needs to face " + targetDirection);
-                    allGuardiansInPosition = false;
-                    break;
+                // Check movement direction if required
+                if (guardianPosition.getMovingDirection() != null) {
+                    Coordinate prev = previousPositions.get(guardian.getId());
+                    Coordinate curr = guardian.getCurrentPosition();
+                    if (prev != null && curr != null) {
+                        int dx = curr.getX() - prev.getX();
+                        int dy = curr.getY() - prev.getY();
+                        Direction required = guardianPosition.getMovingDirection();
+                        boolean movingCorrect = false;
+                        switch (required) {
+                            case NORTH: movingCorrect = (dy > 0); break;
+                            case SOUTH: movingCorrect = (dy < 0); break;
+                            case EAST:  movingCorrect = (dx > 0); break;
+                            case WEST:  movingCorrect = (dx < 0); break;
+                            default: break;
+                        }
+                        if (!movingCorrect) {
+                            ScriptConsole.println("Guardian " + guardianPosition.getGuardianId() + 
+                                " is not moving " + required + " (dx=" + dx + ", dy=" + dy + ")");
+                            allGuardiansInPosition = false;
+                            break;
+                        }
+                        ScriptConsole.println("Guardian " + guardianPosition.getGuardianId() + 
+                            " is moving " + required + " ✓");
+                    } else {
+                        ScriptConsole.println("Guardian " + guardianPosition.getGuardianId() + 
+                            " movement direction check failed - missing previous position");
+                        allGuardiansInPosition = false;
+                        break;
+                    }
                 }
                 
                 ScriptConsole.println("Guardian " + guardianPosition.getGuardianId() + 
-                    " is in correct position and direction ✓");
+                    " is in correct position ✓");
             }
             
             if (allGuardiansInPosition) {
@@ -308,6 +327,7 @@ public class GuardianTracker {
             updateGuardianPositions(gardenArea);
             
             boolean allGuardiansInPosition = true;
+            OUTER:
             for (GuardianRequirement guardianRequirement : guardianRequirements) {
                 if (guardianRequirement.getType() == GuardianRequirement.RequirementType.MIN_DISTANCE) {
                     Guardian guardian = getGuardianById(guardianRequirement.getGuardianId());
@@ -329,112 +349,176 @@ public class GuardianTracker {
                     allGuardiansInPosition = false;
                     break;
                 }
-                
-                if (guardianRequirement.getType() == GuardianRequirement.RequirementType.EXACT_POSITION) {
-                    // Check exact position and direction
-                    if (guardian.getCurrentPosition() == null) {
-                        ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + " position is null");
-                        allGuardiansInPosition = false;
-                        break;
-                    }
-                    
-                    double distance = guardian.getCurrentPosition().distanceTo(guardianRequirement.getExactPosition());
-                    ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + 
-                        " distance check: " + String.format("%.2f", distance) + " (max: " + guardianRequirement.getTolerance() + ")");
-                    
-                    if (distance > guardianRequirement.getTolerance()) {
-                        ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + 
-                            " at " + guardian.getCurrentPosition() + 
-                            " but needs to be at " + guardianRequirement.getExactPosition() + 
-                            " (distance: " + String.format("%.2f", distance) + ")");
-                        allGuardiansInPosition = false;
-                        break;
-                    }
-                    
-                    Direction currentDirection = guardian.getCurrentDirection();
-                    Direction targetDirection = guardianRequirement.getExactDirection();
-                    ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + 
-                        " direction check: current=" + (currentDirection != null ? currentDirection : "UNKNOWN") + 
-                        ", target=" + targetDirection + ", isFacing=" + guardian.isFacingDirection(targetDirection));
-                    
-                    if (!guardian.isFacingDirection(targetDirection)) {
-                        ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + 
-                            " facing " + (currentDirection != null ? currentDirection : "UNKNOWN") + 
-                            " but needs to face " + targetDirection);
-                        allGuardiansInPosition = false;
-                        break;
-                    }
-                    
-                    ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + 
-                        " meets EXACT_POSITION requirement ✓");
-                        
-                } else if (guardianRequirement.getType() == GuardianRequirement.RequirementType.MULTIPLE_POSITIONS) {
-                    // Check that guardian is at ANY of the valid positions with correct direction
-                    if (guardian.getCurrentPosition() == null) {
-                        ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + " position is null");
-                        allGuardiansInPosition = false;
-                        break;
-                    }
-                    
-                    boolean isAtValidPosition = false;
-                    Direction currentDirection = guardian.getCurrentDirection();
-                    
-                    for (GuardianPosition validPos : guardianRequirement.getValidPositions()) {
-                        double distance = guardian.getCurrentPosition().distanceTo(validPos.getPosition());
-                        ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + 
-                            " checking position " + validPos.getPosition() + 
-                            " (distance: " + String.format("%.2f", distance) + ", max: " + guardianRequirement.getTolerance() + ")");
-                        
-                        if (distance <= guardianRequirement.getTolerance()) {
-                            ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + 
-                                " direction check: current=" + (currentDirection != null ? currentDirection : "UNKNOWN") + 
-                                ", target=" + validPos.getDirection() + ", isFacing=" + guardian.isFacingDirection(validPos.getDirection()));
-                            
-                            if (guardian.isFacingDirection(validPos.getDirection())) {
-                                ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + 
-                                    " meets MULTIPLE_POSITIONS requirement at " + validPos.getPosition() + " facing " + validPos.getDirection() + " ✓");
-                                isAtValidPosition = true;
-                                break;
+                if (null != guardianRequirement.getType()) {
+                    switch (guardianRequirement.getType()) {
+                        case EXACT_POSITION -> {
+                            // Check exact position
+                            if (guardian.getCurrentPosition() == null) {
+                                ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + " position is null");
+                                allGuardiansInPosition = false;
+                                break OUTER;
+                            }
+                            double distance = guardian.getCurrentPosition().distanceTo(guardianRequirement.getExactPosition());
+                            ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() +
+                                    " distance check: " + String.format("%.2f", distance) + " (max: " + guardianRequirement.getTolerance() + ")");
+                            if (distance > guardianRequirement.getTolerance()) {
+                                ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() +
+                                        " at " + guardian.getCurrentPosition() +
+                                        " but needs to be at " + guardianRequirement.getExactPosition() +
+                                        " (distance: " + String.format("%.2f", distance) + ")");
+                                allGuardiansInPosition = false;
+                                break OUTER;
+                            }
+                            if (guardianRequirement.getExactDirection() != null) {
+                                Coordinate prev = previousPositions.get(guardian.getId());
+                                Coordinate curr = guardian.getCurrentPosition();
+                                if (prev != null && curr != null) {
+                                    int dx = curr.getX() - prev.getX();
+                                    int dy = curr.getY() - prev.getY();
+                                    boolean movingCorrect = false;
+                                    switch (guardianRequirement.getExactDirection()) {
+                                        case EAST -> movingCorrect = (dx > 0);
+                                        case WEST -> movingCorrect = (dx < 0);
+                                        case NORTH -> movingCorrect = (dy < 0);
+                                        case SOUTH -> movingCorrect = (dy > 0);
+                                        case NORTH_EAST -> movingCorrect = (dx > 0 && dy < 0);
+                                        case NORTH_WEST -> movingCorrect = (dx < 0 && dy < 0);
+                                        case SOUTH_EAST -> movingCorrect = (dx > 0 && dy > 0);
+                                        case SOUTH_WEST -> movingCorrect = (dx < 0 && dy > 0);
+                                        default -> throw new IllegalArgumentException("Unexpected value: " + guardianRequirement.getExactDirection());
+                                    }       if (!movingCorrect) {
+                                        ScriptConsole.println("Guardian " + guardian.getId() + " is not moving " + guardianRequirement.getExactDirection() + " (dx=" + dx + ", dy=" + dy + ")");
+                                        allGuardiansInPosition = false;
+                                        break OUTER;
+                                    }
+                                }
+                            }
+                            ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() +
+                                    " meets EXACT_POSITION requirement ✓");
+                        }
+                        case MULTIPLE_POSITIONS -> {
+                            // Check that guardian is at ANY of the valid positions
+                            if (guardian.getCurrentPosition() == null) {
+                                ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + " position is null");
+                                allGuardiansInPosition = false;
+                                break OUTER;
+                            }
+                            boolean isAtValidPosition = false;
+                            for (GuardianPosition validPos : guardianRequirement.getValidPositions()) {
+                                double distance = guardian.getCurrentPosition().distanceTo(validPos.getPosition());
+                                ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() +
+                                        " checking position " + validPos.getPosition() +
+                                        " (distance: " + String.format("%.2f", distance) + ", max: " + guardianRequirement.getTolerance() + ")");
+                                
+                                if (distance <= guardianRequirement.getTolerance()) {
+                                    // Check movement direction if required
+                                    if (validPos.getMovingDirection() != null) {
+                                        Coordinate prev = previousPositions.get(guardian.getId());
+                                        Coordinate curr = guardian.getCurrentPosition();
+                                        if (prev != null && curr != null) {
+                                            int dx = curr.getX() - prev.getX();
+                                            int dy = curr.getY() - prev.getY();
+                                            Direction required = validPos.getMovingDirection();
+                                            boolean movingCorrect = false;
+                                            switch (required) {
+                                                case NORTH: movingCorrect = (dy > 0); break;
+                                                case SOUTH: movingCorrect = (dy < 0); break;
+                                                case EAST:  movingCorrect = (dx > 0); break;
+                                                case WEST:  movingCorrect = (dx < 0); break;
+                                                default: break;
+                                            }
+                                            if (movingCorrect) {
+                                                ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() +
+                                                        " meets MULTIPLE_POSITIONS requirement at " + validPos.getPosition() +
+                                                        " moving " + validPos.getMovingDirection() + " ✓");
+                                                isAtValidPosition = true;
+                                                break;
+                                            } else {
+                                                ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() +
+                                                        " at correct position but not moving " + validPos.getMovingDirection() +
+                                                        " (dx=" + dx + ", dy=" + dy + ")");
+                                            }
+                                        } else {
+                                            ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() +
+                                                    " movement direction check failed - missing previous position");
+                                        }
+                                    } else {
+                                        ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() +
+                                                " meets MULTIPLE_POSITIONS requirement at " + validPos.getPosition() + " ✓");
+                                        isAtValidPosition = true;
+                                        break;
+                                    }
+                                }
+                            }       if (!isAtValidPosition) {
+                                ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() +
+                                        " at " + guardian.getCurrentPosition() +
+                                        " but needs to be at ANY of: " + guardianRequirement.getValidPositions());
+                                allGuardiansInPosition = false;
+                                break OUTER;
                             }
                         }
-                    }
-                    
-                    if (!isAtValidPosition) {
-                        ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + 
-                            " at " + guardian.getCurrentPosition() + " facing " + (currentDirection != null ? currentDirection : "UNKNOWN") + 
-                            " but needs to be at ANY of: " + guardianRequirement.getValidPositions());
-                        allGuardiansInPosition = false;
-                        break;
-                    }
-                        
-                } else if (guardianRequirement.getType() == GuardianRequirement.RequirementType.AVOID_POSITIONS) {
-                    // Check that guardian is NOT at any of the avoid positions
-                    if (guardian.getCurrentPosition() == null) {
-                        ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + " position is null");
-                        allGuardiansInPosition = false;
-                        break;
-                    }
-                    
-                    boolean isAtAvoidPosition = false;
-                    for (Coordinate avoidPos : guardianRequirement.getAvoidPositions()) {
-                        double distance = guardian.getCurrentPosition().distanceTo(avoidPos);
-                        if (distance <= guardianRequirement.getTolerance()) {
-                            ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + 
-                                " at " + guardian.getCurrentPosition() + 
-                                " but should NOT be at " + avoidPos + 
-                                " (distance: " + String.format("%.2f", distance) + ")");
-                            isAtAvoidPosition = true;
-                            break;
+                        case AVOID_POSITIONS -> {
+                            if (guardian.getCurrentPosition() == null) {
+                                ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + " position is null");
+                                allGuardiansInPosition = false;
+                                break OUTER;
+                            }
+                            boolean isAtAvoidPosition = false;
+                            for (Coordinate avoidPos : guardianRequirement.getAvoidPositions()) {
+                                double distance = guardian.getCurrentPosition().distanceTo(avoidPos);
+                                if (distance <= guardianRequirement.getTolerance()) {
+                                    ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() +
+                                            " at " + guardian.getCurrentPosition() +
+                                            " but should NOT be at " + avoidPos +
+                                            " (distance: " + String.format("%.2f", distance) + ")");
+                                    isAtAvoidPosition = true;
+                                    break;
+                                }
+                            }       if (isAtAvoidPosition) {
+                                allGuardiansInPosition = false;
+                                break OUTER;
+                            }
+                            ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() +
+                                    " meets AVOID_POSITIONS requirement ✓");
+                        }
+                        case MOVING_DIRECTION -> {
+                            Coordinate prev = previousPositions.get(guardian.getId());
+                            Coordinate curr = guardian.getCurrentPosition();
+                            if (prev == null || curr == null) {
+                                allGuardiansInPosition = false;
+                                break OUTER;
+                            }
+                            int dx = curr.getX() - prev.getX();
+                            int dy = curr.getY() - prev.getY();
+                            NPCDirection.Direction required = guardianRequirement.getMovingDirection();
+                            boolean movingCorrect = false;
+                             switch (required) {
+                                case NORTH -> movingCorrect = (dy > 0);
+                                case SOUTH -> movingCorrect = (dy < 0);
+                                case EAST -> movingCorrect = (dx > 0);
+                                case WEST -> movingCorrect = (dx < 0);
+                                default -> throw new IllegalArgumentException("Unexpected value: " + required);
+                            }
+                            if (guardianRequirement.isAvoidDirection()) {
+                                if (movingCorrect) {
+                                    ScriptConsole.println("Guardian " + guardian.getId() + " is moving " + required + " but should NOT be!");
+                                    allGuardiansInPosition = false;
+                                    break OUTER;
+                                } else {
+                                    ScriptConsole.println("Guardian " + guardian.getId() + " is NOT moving " + required + " ✓");
+                                }
+                            } else {
+                                if (!movingCorrect) {
+                                    ScriptConsole.println("Guardian " + guardian.getId() + " is not moving " + required + " (dx=" + dx + ", dy=" + dy + ")");
+                                    allGuardiansInPosition = false;
+                                    break OUTER;
+                                }
+                                ScriptConsole.println("Guardian " + guardian.getId() + " is moving " + required + " ✓");
+                            }
+                        }
+                        default -> {
                         }
                     }
-                    
-                    if (isAtAvoidPosition) {
-                        allGuardiansInPosition = false;
-                        break;
-                    }
-                    
-                    ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() + 
-                        " meets AVOID_POSITIONS requirement ✓");
                 }
             }
             
@@ -448,7 +532,7 @@ public class GuardianTracker {
                 ScriptConsole.println("Still waiting for guardian requirements... (" + (elapsed / 1000) + "s elapsed)");
             }
             
-            Execution.delay(200); // Increased delay to reduce spam
+            Execution.delay(200);
         }
         
         ScriptConsole.println("Timeout waiting for guardian requirements after " + (timeoutMs / 1000) + " seconds");
@@ -480,14 +564,6 @@ public class GuardianTracker {
      */
     public List<Coordinate> getGuardianPositions() {
         return new ArrayList<>(guardianPositions);
-    }
-    
-    /**
-     * Check if any guardian is in an alert state
-     */
-    public boolean isAnyGuardianAlerted() {
-        return activeGuardians.values().stream()
-            .anyMatch(guardian -> guardian.getState() == Guardian.GuardianState.ALERTED);
     }
     
     /**

@@ -1,23 +1,47 @@
 package net.botwithus;
 
-import java.util.List;
+import java.util.Random;
 
 import net.botwithus.internal.scripts.ScriptDefinition;
+import net.botwithus.model.Alchemy;
+import net.botwithus.model.Disassembly;
+import net.botwithus.model.POSD;
 import net.botwithus.rs3.events.impl.ChatMessageEvent;
 import net.botwithus.rs3.game.Client;
 import net.botwithus.rs3.game.scene.entities.characters.player.LocalPlayer;
 import net.botwithus.rs3.script.Execution;
 import net.botwithus.rs3.script.LoopingScript;
-import net.botwithus.rs3.script.config.ScriptConfig;
-import net.botwithus.tasks.*;
-import net.botwithus.tasks.sorceressgarden.SorceressGardenTask;
-import net.botwithus.model.Alchemy;
-import net.botwithus.model.Disassembly;
-import net.botwithus.model.POSD;
-
-import java.util.Random;
-
 import net.botwithus.rs3.script.ScriptConsole;
+import net.botwithus.rs3.script.config.ScriptConfig;
+import net.botwithus.tasks.AlchemyTask;
+import net.botwithus.tasks.BeachEventTask;
+import net.botwithus.tasks.BeerCraftingTask;
+import net.botwithus.tasks.DeployDummyTask;
+import net.botwithus.tasks.DisassemblyTask;
+import net.botwithus.tasks.DrinkPerfectPlusJujuTask;
+import net.botwithus.tasks.EnchantingTask;
+import net.botwithus.tasks.FungalBowstrings;
+import net.botwithus.tasks.GemCraftingTask;
+import net.botwithus.tasks.InventionTask;
+import net.botwithus.tasks.LimestoneBrickTask;
+import net.botwithus.tasks.LimestoneTask;
+import net.botwithus.tasks.MapNavigatorTask;
+import net.botwithus.tasks.NPCLoggerTask;
+import net.botwithus.tasks.POSDTask;
+import net.botwithus.tasks.PenguinTrackingTask;
+import net.botwithus.tasks.PortableTask;
+import net.botwithus.tasks.PowderOfBurialsTask;
+import net.botwithus.tasks.QuestHelper;
+import net.botwithus.tasks.SandyCluesTask;
+import net.botwithus.tasks.ScreenMeshTask;
+import net.botwithus.tasks.SheepShearingTask;
+import net.botwithus.tasks.SiftSoilTask;
+import net.botwithus.tasks.SoftClayTask;
+import net.botwithus.tasks.SouthFeldipeHillsTeleportTask;
+import net.botwithus.tasks.SummerPinata;
+import net.botwithus.tasks.TurnInSqirkjuiceTask;
+import net.botwithus.tasks.WinterSqirkjuiceTask;
+import net.botwithus.tasks.sorceressgarden.SorceressGardenTask;
 
 public class CoaezUtility extends LoopingScript {
     private BotState botState = BotState.SORCERESS_GARDEN;
@@ -59,6 +83,9 @@ public class CoaezUtility extends LoopingScript {
     private final SummerPinata summerPinata;
     private final SouthFeldipeHillsTeleportTask southFeldipeHillsTeleportTask;
     private final SorceressGardenTask sorceressGardenTask;
+    private final BeerCraftingTask beerCraftingTask;
+    private final WinterSqirkjuiceTask winterSqirkjuiceTask;
+    private final TurnInSqirkjuiceTask turnInSqirkjuiceTask;
     // GUI reference
     private CoaezUtilityGUI gui;
     private final NPCLoggerTask npcLoggerTask;
@@ -91,7 +118,10 @@ public class CoaezUtility extends LoopingScript {
         SOUTH_FELDIPE_HILLS_TELEPORT,
         SORCERESS_GARDEN,
         NPC_LOGGER,
-        STOPPED
+        STOPPED,
+        BEER_CRAFTING,
+        WINTER_SQIRKJUICE,
+        TURN_IN_SQIRKJUICE
     }
 
     public CoaezUtility(String s, ScriptConfig scriptConfig, ScriptDefinition scriptDefinition) {
@@ -129,6 +159,9 @@ public class CoaezUtility extends LoopingScript {
         this.summerPinata = new SummerPinata(this);
         this.southFeldipeHillsTeleportTask = new SouthFeldipeHillsTeleportTask(this);
         this.sorceressGardenTask = new SorceressGardenTask(this);
+        this.beerCraftingTask = new BeerCraftingTask(this);
+        this.winterSqirkjuiceTask = new WinterSqirkjuiceTask(this);
+        this.turnInSqirkjuiceTask = new TurnInSqirkjuiceTask(this);
         this.npcLoggerTask = new NPCLoggerTask(this);
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
@@ -306,6 +339,18 @@ public class CoaezUtility extends LoopingScript {
                     ScriptConsole.println("Executing NPC Logger task");
                     npcLoggerTask.execute();
                 }
+                case BEER_CRAFTING -> {
+                    ScriptConsole.println("Executing beer crafting task");
+                    beerCraftingTask.execute();
+                }
+                case WINTER_SQIRKJUICE -> {
+                    ScriptConsole.println("Executing Winter Sq'irkjuice task");
+                    winterSqirkjuiceTask.execute();
+                }
+                case TURN_IN_SQIRKJUICE -> {
+                    ScriptConsole.println("Executing Turn In Sq'irkjuice task");
+                    turnInSqirkjuiceTask.execute();
+                }
                 case STOPPED -> stopScript();
                 default -> ScriptConsole.println("Unknown bot state: " + botState);
             }
@@ -411,6 +456,17 @@ public class CoaezUtility extends LoopingScript {
         return npcLoggerTask;
     }
     
+    public BeerCraftingTask getBeerCraftingTask() {
+        return beerCraftingTask;
+    }
+
+    public WinterSqirkjuiceTask getWinterSqirkjuiceTask() {
+        return winterSqirkjuiceTask;
+    }
+
+    public TurnInSqirkjuiceTask getTurnInSqirkjuiceTask() {
+        return turnInSqirkjuiceTask;
+    }
 
 
     /* public SmithingTask getSmithingTask() {

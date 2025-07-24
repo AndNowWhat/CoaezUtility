@@ -5,10 +5,10 @@ import java.util.Set;
 
 import net.botwithus.CoaezUtility;
 import net.botwithus.api.game.hud.inventories.Backpack;
-import net.botwithus.api.game.hud.inventories.Bank;
 import net.botwithus.rs3.game.Area;
 import net.botwithus.rs3.game.Client;
 import net.botwithus.rs3.game.Coordinate;
+import net.botwithus.rs3.game.inventories.Bank;
 import net.botwithus.rs3.game.movement.Movement;
 import net.botwithus.rs3.game.movement.NavPath;
 import net.botwithus.rs3.game.queries.builders.characters.NpcQuery;
@@ -21,6 +21,7 @@ import net.botwithus.rs3.script.Execution;
 import net.botwithus.rs3.script.ScriptConsole;
 import net.botwithus.tasks.Task;
 import net.botwithus.tasks.sorceressgarden.gardens.BaseGarden;
+import net.botwithus.tasks.sorceressgarden.gardens.SpringGarden;
 import net.botwithus.tasks.sorceressgarden.gardens.WinterGarden;
 import net.botwithus.tasks.sorceressgarden.models.GardenType;
 
@@ -37,7 +38,8 @@ public class SorceressGardenTask implements Task {
     
     private static final Area CENTRAL_GARDEN_AREA = new Area.Rectangular(new Coordinate(2905, 5478, 0), new Coordinate(2918, 5465, 0));
     private static final Area WINTER_GARDEN_AREA = new Area.Rectangular(new Coordinate(2886, 5487, 0), new Coordinate(2903, 5464, 0));
-    private static final Area ALKHARID_BANK_AREA = new Area.Rectangular(new Coordinate(3265, 3170, 0), new Coordinate(3272, 3162, 0));
+    private static final Area SPRING_GARDEN_AREA = new Area.Rectangular(new Coordinate(2920, 5479, 0), new Coordinate(2937, 5456, 0));
+    private static final Area ALKHARID_BANK_AREA = new Area.Rectangular(new Coordinate(3302, 3125, 0), new Coordinate(3309, 3118, 0));
     private static final Area APPRENTICE_AREA = new Area.Rectangular(new Coordinate(3318, 3141, 0), new Coordinate(3324, 3137, 0));
     
     public SorceressGardenTask(CoaezUtility script) {
@@ -49,7 +51,7 @@ public class SorceressGardenTask implements Task {
         
         // Register garden implementations
         gardenManager.registerGarden(new WinterGarden(script));
-        // gardenManager.registerGarden(new SpringGarden(script));
+        gardenManager.registerGarden(new SpringGarden(script));
         // gardenManager.registerGarden(new SummerGarden(script));
         // gardenManager.registerGarden(new AutumnGarden(script));
     }
@@ -65,13 +67,13 @@ public class SorceressGardenTask implements Task {
             }
 
             if (Backpack.isFull()) {
-                ScriptConsole.println("Backpack is full, banking at Al-Kharid");
+                ScriptConsole.println("Backpack is full, banking at Shantay-pass");
                 handleBankingAndReturn();
                 return;
             }
 
             ScriptConsole.println("Checking if we're in Sorceress's Garden central area or the garden itself...");
-            if (!isInSorceressGarden() && !isInWinterGarden()) {
+            if (!isInSorceressGarden() && (!isInWinterGarden() && !isInSpringGarden())) {
                 ScriptConsole.println("Not in Sorceress's Garden central area or gardens, teleporting...");
                 teleportToGarden();
                 return;
@@ -114,6 +116,19 @@ public class SorceressGardenTask implements Task {
         
         return inWinterGarden;
     }
+
+    private boolean isInSpringGarden() {
+        LocalPlayer player = Client.getLocalPlayer();
+        if (player == null) {
+            ScriptConsole.println("Player is null, cannot check location");
+            return false;
+        }
+
+        boolean inSpringGarden = SPRING_GARDEN_AREA.contains(player.getCoordinate());
+        ScriptConsole.println("Player position: " + player.getCoordinate() + ", In spring garden area: " + inSpringGarden);
+        
+        return inSpringGarden;
+    }
     
     /**
      * Teleport to the Sorceress's Garden (via apprentice only)
@@ -148,7 +163,7 @@ public class SorceressGardenTask implements Task {
     }
 
     /**
-     * Handle banking at Al-Kharid and return to apprentice
+     * Handle banking at Shantay-pass and return to apprentice
      */
     private void handleBankingAndReturn() {
         LocalPlayer player = Client.getLocalPlayer();
@@ -163,14 +178,25 @@ public class SorceressGardenTask implements Task {
         }
 
         if (!isInAlKharidBank()) {
-            ScriptConsole.println("Navigating to Al-Kharid bank...");
+            ScriptConsole.println("Navigating to Shantay-pass bank...");
             navigateToAlKharidBank();
             return;
         }
 
-        ScriptConsole.println("At Al-Kharid bank, loading last preset...");
-        Bank.loadLastPreset();
-        Execution.delayUntil(8000, () -> !Backpack.isFull());
+        ScriptConsole.println("At Shantay-pass bank...");
+        if(!Bank.isOpen() && Backpack.isFull()) {
+            EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery().name("Shantay chest").option("Open").results();
+            if(!results.isEmpty()) {
+                results.nearest().interact("Open");
+                Execution.delayUntil(5000, () -> Bank.isOpen());
+                return;
+            }
+        } else {
+            ScriptConsole.println("Bank is open");
+            Bank.depositAll();
+            Execution.delayUntil(5000, () -> !Backpack.isFull());
+            return;
+        }
 
         if (!isInApprenticeArea()) {
             ScriptConsole.println("Banking done, navigating to apprentice...");
@@ -189,18 +215,20 @@ public class SorceressGardenTask implements Task {
     }
 
     private void navigateToAlKharidBank() {
-        NavPath path = NavPath.resolve(ALKHARID_BANK_AREA.getRandomWalkableCoordinate());
-        if(path != null) {
+        Coordinate target = ALKHARID_BANK_AREA.getRandomWalkableCoordinate();
+        NavPath path = NavPath.resolve(target, Movement.DISABLE_TELEPORTS);
+        if (path != null) {
             Movement.traverse(path);
         } else {
-            ScriptConsole.println("No path found to Al-Kharid bank");
+            ScriptConsole.println("No path found to Shantay-pass bank");
         }
     }
 
     private void navigateToApprentice() {
         ScriptConsole.println("Navigating to apprentice area...");
-        NavPath path = NavPath.resolve(APPRENTICE_AREA.getRandomWalkableCoordinate());
-        if(path != null) {
+        Coordinate target = APPRENTICE_AREA.getRandomWalkableCoordinate();
+        NavPath path = NavPath.resolve(target, Movement.DISABLE_TELEPORTS);
+        if (path != null) {
             Movement.traverse(path);
         } else {
             ScriptConsole.println("No path found to apprentice area");

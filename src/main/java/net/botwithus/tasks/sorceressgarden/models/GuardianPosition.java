@@ -3,24 +3,24 @@ package net.botwithus.tasks.sorceressgarden.models;
 import net.botwithus.rs3.game.Coordinate;
 
 /**
- * Represents a guardian's position and direction for waiting logic
- * Makes it easy to specify guardian positions using coordinates and cardinal directions
+ * Represents a guardian's position and required moving direction for waiting logic.
+ * The direction field now means the required MOVING direction (based on coordinate deltas), not facing direction.
  */
 public class GuardianPosition {
     private final int guardianId;
     private final Coordinate position;
-    private final NPCDirection.Direction direction;
+    private final NPCDirection.Direction movingDirection;
     
-    public GuardianPosition(int guardianId, Coordinate position, NPCDirection.Direction direction) {
+    public GuardianPosition(int guardianId, Coordinate position, NPCDirection.Direction movingDirection) {
         this.guardianId = guardianId;
         this.position = position;
-        this.direction = direction;
+        this.movingDirection = movingDirection;
     }
     
-    public GuardianPosition(int guardianId, int x, int y, int z, NPCDirection.Direction direction) {
+    public GuardianPosition(int guardianId, int x, int y, int z, NPCDirection.Direction movingDirection) {
         this.guardianId = guardianId;
         this.position = new Coordinate(x, y, z);
-        this.direction = direction;
+        this.movingDirection = movingDirection;
     }
     
     public int getGuardianId() {
@@ -31,13 +31,13 @@ public class GuardianPosition {
         return position;
     }
     
-    public NPCDirection.Direction getDirection() {
-        return direction;
+    public NPCDirection.Direction getMovingDirection() {
+        return movingDirection;
     }
     
     @Override
     public String toString() {
-        return String.format("GuardianPosition{guardianId=%d, position=%s, direction=%s}", 
-                           guardianId, position, direction);
+        return String.format("GuardianPosition{guardianId=%d, position=%s, movingDirection=%s}", 
+                           guardianId, position, movingDirection);
     }
 } 

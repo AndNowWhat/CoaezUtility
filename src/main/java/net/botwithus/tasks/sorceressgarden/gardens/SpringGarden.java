@@ -21,163 +21,157 @@ import net.botwithus.tasks.sorceressgarden.models.GuardianRequirement;
 import net.botwithus.tasks.sorceressgarden.models.NPCDirection;
 import net.botwithus.tasks.sorceressgarden.models.Waypoint;
 
+public class SpringGarden extends BaseGarden {
+    private static final int SPRING_DOOR_ID = 21753;
+    private static final Coordinate SPRING_START = new Coordinate(2921, 5473, 0);
+    private static final Coordinate SPRING_TREE = new Coordinate(2931, 5463, 0);
+    private static final int[] SPRING_GUARDIAN_IDS = {5539, 5540, 5541, 5544, 5545,5546};
+    private static final Area SPRING_GARDEN_AREA = new Area.Rectangular(new Coordinate(2920, 5479, 0), new Coordinate(2937, 5456, 0));
 
-public class WinterGarden extends BaseGarden {
-    private static final int WINTER_DOOR_ID = 21709;
-    private static final Coordinate WINTER_START = new Coordinate(2902, 5470, 0); 
-    private static final Coordinate WINTER_TREE = new Coordinate(2892, 5477, 0);
-    private static final int[] WINTER_GUARDIAN_IDS = {5553, 5554, 5555, 5556, 5557, 5558}; 
+    private static final Coordinate WAYPOINT_1 = new Coordinate(2923, 5471, 0);
+    private static final Coordinate WAYPOINT_2 = new Coordinate(2923, 5465, 0);
+    private static final Coordinate WAYPOINT_3 = new Coordinate(2923, 5459, 0);
+    private static final Coordinate WAYPOINT_4 = new Coordinate(2926, 5468, 0);
+    private static final Coordinate WAYPOINT_5 = new Coordinate(2928, 5470, 0);
+    private static final Coordinate WAYPOINT_6 = new Coordinate(2932, 5465, 0);
     
-    private static final Area WINTER_GARDEN_AREA = new Area.Rectangular(new Coordinate(2886, 5487, 0), new Coordinate(2903, 5464, 0));
-    
-    private static final Coordinate WAYPOINT_1 = new Coordinate(2900, 5476, 0);
-    private static final Coordinate WAYPOINT_2 = new Coordinate(2898, 5481, 0);
-    private static final Coordinate WAYPOINT_3 = new Coordinate(2891, 5482, 0);
-    private static final Coordinate WAYPOINT_4 = new Coordinate(2892, 5484, 0);
-    private static final Coordinate WAYPOINT_5 = new Coordinate(2892, 5477, 0);
 
     private static final GuardianRequirement[] GUARDIAN_REQUIREMENTS_WAYPOINT_1 = {
-        new GuardianRequirement(5555, new int[][] {
-            {2899, 5474, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2899, 5475, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2899, 5476, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2899, 5477, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2899, 5478, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2897, 5478, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2897, 5477, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2897, 5476, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2897, 5475, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2897, 5474, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2898, 5478, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2898, 5477, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2898, 5476, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2898, 5475, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2898, 5474, 0, NPCDirection.Direction.SOUTH.ordinal()}
-        })
+        
     };
-    
-    private static final GuardianRequirement[] GUARDIAN_REQUIREMENTS_WAYPOINT_2 = {
-        GuardianRequirement.createAvoidPositions(5556, new int[][] {
-            {2899, 5483, 0},
-            {2900, 5483, 0},
-            {2900, 5482, 0},
-            {2900, 5481, 0},
-        }),
-        GuardianRequirement.createAvoidPositions(5555, new int[][] {
-            {2899, 5471, 0},
-            {2899, 5472, 0},
-            {2899, 5473, 0},
-            {2899, 5474, 0},
-            {2899, 5475, 0},
-            {2899, 5476, 0},
-            {2899, 5477, 0},
-        }),
-    };
-    
-    private static final GuardianRequirement[] GUARDIAN_REQUIREMENTS_WAYPOINT_3 = {
-        new GuardianRequirement(5557, new int[][] {
-            {2892, 5481, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2891, 5481, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2891, 5482, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2891, 5483, 0, NPCDirection.Direction.SOUTH.ordinal()},
-            {2892, 5483, 0, NPCDirection.Direction.SOUTH.ordinal()}
-        }),
 
-        GuardianRequirement.createAvoidPositions(5556, new int[][] {
-            {2897, 5481, 0},
-            {2897, 5480, 0},
-            {2898, 5480, 0},
+    private static final GuardianRequirement[] GUARDIAN_REQUIREMENTS_WAYPOINT_2 = {
+        new GuardianRequirement(5539, 5.0),
+        new GuardianRequirement(5539, NPCDirection.Direction.SOUTH),
+
+    };
+
+    private static final GuardianRequirement[] GUARDIAN_REQUIREMENTS_WAYPOINT_3 = {
+        GuardianRequirement.createAvoidPositions(5539, new int[][] {
+            {2923, 5460, 0},
+            {2923, 5461, 0},
+            {2923, 5462, 0},
+            {2923, 5463, 0},
+            {2923, 5464, 0},
+            {2923, 5465, 0},
         }),
+        new GuardianRequirement(5539, NPCDirection.Direction.NORTH),
     };
 
     private static final GuardianRequirement[] GUARDIAN_REQUIREMENTS_WAYPOINT_4 = {
-        GuardianRequirement.createAvoidPositions(5557, new int[][] {
-            {2893, 5481, 0},
-            {2892, 5481, 0},
-            {2891, 5481, 0},
-            {2892, 5482, 0}
-        })
+        GuardianRequirement.createAvoidPositions(5540, new int[][] {
+            {2927, 5461, 0},
+            {2926, 5461, 0},
+            {2925, 5461, 0},
+
+        }),
+        GuardianRequirement.createAvoidPositions(5541, new int[][] {
+            {2926, 5458, 0},
+            {2925, 5458, 0},
+            {2924, 5458, 0},
+            {2924, 5460, 0},
+
+        }),
+        new GuardianRequirement(5545, NPCDirection.Direction.NORTH),
+        GuardianRequirement.createAvoidPositions(5545, new int[][] {
+            {2925, 5475, 0},
+        }),
     };
 
     private static final GuardianRequirement[] GUARDIAN_REQUIREMENTS_WAYPOINT_5 = {
-        new GuardianRequirement(5558, 4.0)
+        GuardianRequirement.createAvoidPositions(5545, new int[][] {
+            {2925, 5468, 0},
+            {2925, 5469, 0},
+            {2925, 5470, 0},
+            {2925, 5471, 0},
+            {2925, 5472, 0},
+            {2925, 5473, 0},
+            {2925, 5474, 0},
+            {2925, 5475, 0},
+        }),
+        new GuardianRequirement(5545, NPCDirection.Direction.SOUTH),
     };
-    
-    public WinterGarden(CoaezUtility script) {
-        super(script, GardenType.WINTER, WINTER_DOOR_ID, WINTER_START, WINTER_TREE, WINTER_GUARDIAN_IDS, WINTER_GARDEN_AREA);
+
+    private static final GuardianRequirement[] GUARDIAN_REQUIREMENTS_WAYPOINT_6 = {
+        new GuardianRequirement(5544, new Coordinate(2932, 5469, 0), NPCDirection.Direction.EAST),
+        GuardianRequirement.createAvoidPositions(5546, new int[][] {
+            {2931, 5470, 0},
+            {2931, 5471, 0},
+            {2931, 5472, 0},
+            {2931, 5473, 0},
+
+        }),    
+    };
+
+
+    public SpringGarden(CoaezUtility script) {
+        super(script, GardenType.SPRING, SPRING_DOOR_ID, SPRING_START, SPRING_TREE, SPRING_GUARDIAN_IDS, SPRING_GARDEN_AREA);
     }
-    
+
     @Override
     protected List<Waypoint> getWaypoints() {
         return Arrays.asList(
-            new Waypoint(WAYPOINT_1, "Winter Garden - First Checkpoint", 0),
-            new Waypoint(WAYPOINT_2, "Winter Garden - Second Checkpoint", 0),
-            new Waypoint(WAYPOINT_3, "Winter Garden - Third Checkpoint", 0),
-            new Waypoint(WAYPOINT_4, "Winter Garden - Fourth Checkpoint", 0),
-            new Waypoint(getRandomizedWaypoint5(), "Winter Garden - Fifth Checkpoint", 0)
+            new Waypoint(WAYPOINT_1, "Spring Garden - First Checkpoint", 0),
+            new Waypoint(WAYPOINT_2, "Spring Garden - Second Checkpoint", 0),
+            new Waypoint(WAYPOINT_3, "Spring Garden - Third Checkpoint", 0),
+            new Waypoint(WAYPOINT_4, "Spring Garden - Fourth Checkpoint", 0),
+            new Waypoint(WAYPOINT_5, "Spring Garden - Fifth Checkpoint", 0),
+            new Waypoint(getRandomizedWaypoint6(), "Spring Garden - Sixth Checkpoint", 0)
         );
     }
-    
+
     @Override
     protected boolean enterGarden() {
-        ScriptConsole.println("Attempting to enter Winter Garden through door ID: " + WINTER_DOOR_ID);
-        EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery().id(WINTER_DOOR_ID).option("Open").hidden(false).results();
+        ScriptConsole.println("Attempting to enter Spring Garden through door ID: " + SPRING_DOOR_ID);
+        EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery().id(SPRING_DOOR_ID).option("Open").hidden(false).results();
         if (!results.isEmpty()) {
             results.nearest().interact("Open");
-           
-        } else{
+        } else {
             return false;
-        }        
+        }
         return waitForStartPosition();
     }
-    
+
     @Override
     protected boolean navigateToTree() {
-        ScriptConsole.println("Navigating to Winter Garden tree with guardian tracking");
-        
+        ScriptConsole.println("Navigating to Spring Garden tree with guardian tracking");
         List<Waypoint> waypoints = getWaypoints();
         if (waypoints.isEmpty()) return false;
-        
         for (int i = 0; i < waypoints.size(); i++) {
             if(!script.isActive()) break;
-            if(!isInWinterGardenArea()) break;
-
+            if(!isInSpringGardenArea()) break;
             Waypoint waypoint = waypoints.get(i);
             ScriptConsole.println("Moving to waypoint " + (i + 1) + ": " + waypoint.getDescription());
-            
             if (!waitForGuardiansAtWaypoint(i + 1)) {
                 ScriptConsole.println("Failed to wait for guardians at waypoint " + (i + 1));
                 return false;
             }
-            
             ScriptConsole.println("Guardians in position - MOVING to waypoint " + (i + 1));
             if (!pathNavigator.navigateToWaypoint(waypoint, gardenArea)) {
                 ScriptConsole.println("Failed to reach waypoint " + (i + 1));
                 return false;
             }
-            
             if (i < waypoints.size() - 1) {
                 ScriptConsole.println("Proceeding to next waypoint");
             }
         }
-        
         return true;
     }
-    
+
     @Override
     protected boolean harvestFruit() {
-        ScriptConsole.println("Harvesting Winter sq'irk fruit");
+        ScriptConsole.println("Harvesting Spring sq'irk fruit");
         EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery().name("Sq'irk tree").option("Pick-fruit").results();
         if (!results.isEmpty()) {
             results.nearest().interact("Pick-fruit");
         }
-        Execution.delayUntil(8000, ()  -> !WINTER_GARDEN_AREA.contains(LocalPlayer.LOCAL_PLAYER) && LocalPlayer.LOCAL_PLAYER.getAnimationId() == -1);
+        Execution.delayUntil(8000, ()  -> !SPRING_GARDEN_AREA.contains(LocalPlayer.LOCAL_PLAYER) && LocalPlayer.LOCAL_PLAYER.getAnimationId() == -1);
         return true;
     }
-    
+
     @Override
     protected boolean returnToCenter() {
-        ScriptConsole.println("Returning to central garden from Winter Garden");
+        ScriptConsole.println("Returning to central garden from Spring Garden");
         if(Backpack.contains("Broomstick")) {
             Backpack.interact("Broomstick", "Teleport");
             return true;
@@ -185,54 +179,36 @@ public class WinterGarden extends BaseGarden {
         ScriptConsole.println("No broomstick found, returning to central garden");
         return false;
     }
-    
-    /**
-     * Wait for player to reach the start position
-     */
+
     private boolean waitForStartPosition() {
-        ScriptConsole.println("Waiting to reach Winter Garden start position");
+        ScriptConsole.println("Waiting to reach Spring Garden start position");
         LocalPlayer player = Client.getLocalPlayer();
         if (player == null) {
             return false;
         }
-        if (player.getCoordinate().equals(WINTER_START)) {
+        if (player.getCoordinate().equals(SPRING_START)) {
             return true;
         }
-        Execution.delayUntil(10000,() -> Client.getLocalPlayer().getCoordinate().equals(WINTER_START));
+        Execution.delayUntil(10000,() -> Client.getLocalPlayer().getCoordinate().equals(SPRING_START));
         return true;
     }
-    
-    /**
-     * Get the door ID for this garden
-     */
+
     public int getDoorId() {
-        return WINTER_DOOR_ID;
+        return SPRING_DOOR_ID;
     }
-    
-    /**
-     * Get the start position for this garden
-     */
+
     public Coordinate getStartPosition() {
-        return WINTER_START;
+        return SPRING_START;
     }
-    
-    /**
-     * Get the tree position for this garden
-     */
+
     public Coordinate getTreePosition() {
-        return WINTER_TREE;
+        return SPRING_TREE;
     }
-    
-    /**
-     * Get the guardian IDs for this garden
-     */
+
     public List<Integer> getGuardianIds() {
-        return Arrays.stream(WINTER_GUARDIAN_IDS).boxed().toList();
+        return Arrays.stream(SPRING_GUARDIAN_IDS).boxed().toList();
     }
-    
-    /**
-     * Wait for guardians to meet their requirements before moving to a waypoint
-     */
+
     private boolean waitForGuardiansAtWaypoint(int waypointIndex) {
         ScriptConsole.println("Waiting for guardians to meet requirements for waypoint " + waypointIndex);
         GuardianRequirement[] guardianRequirements;
@@ -252,27 +228,18 @@ public class WinterGarden extends BaseGarden {
             case 5:
                 guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_5;
                 break;
+            case 6:
+                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_6;
+                break;
             default:
                 return true;
         }
+
         List<GuardianRequirement> guardianRequirementList = Arrays.asList(guardianRequirements);
         ScriptConsole.println("Waiting for " + guardianRequirementList.size() + " guardian requirements:");
         for (GuardianRequirement requirement : guardianRequirementList) {
-            if (null == requirement.getType()) {
-                ScriptConsole.println("  - Guardian " + requirement.getGuardianId() +
-                        " must NOT be at: " + requirement.getAvoidPositions());
-            } else switch (requirement.getType()) {
-                case EXACT_POSITION -> ScriptConsole.println("  - Guardian " + requirement.getGuardianId() +
-                        " must be at " + requirement.getExactPosition() + " facing " + requirement.getExactDirection());
-                case MULTIPLE_POSITIONS -> ScriptConsole.println("  - Guardian " + requirement.getGuardianId() +
-                        " must be at ANY of: " + requirement.getValidPositions());
-                case MIN_DISTANCE -> ScriptConsole.println("  - Guardian " + requirement.getGuardianId() +
-                        " must be at least " + requirement.getMinDistance() + " tiles from the player");
-                default -> ScriptConsole.println("  - Guardian " + requirement.getGuardianId() +
-                        " must NOT be at: " + requirement.getAvoidPositions());
-            }
+            ScriptConsole.println("  - Guardian " + requirement.getGuardianId());
         }
-        ScriptConsole.println("Forcing guardian position update before waiting...");
         guardianTracker.updateGuardianPositions(gardenArea);
         if (!guardianTracker.waitForGuardianRequirements(guardianRequirementList, 60000, gardenArea)) {
             ScriptConsole.println("Timeout waiting for guardians to meet requirements for waypoint " + waypointIndex);
@@ -281,10 +248,7 @@ public class WinterGarden extends BaseGarden {
         ScriptConsole.println("All " + guardianRequirementList.size() + " guardian requirements met for waypoint " + waypointIndex);
         return true;
     }
-    
-    /**
-     * Get the number of guardian requirements for a specific waypoint
-     */
+
     public int getGuardianCountForWaypoint(int waypointIndex) {
         GuardianRequirement[] guardianRequirements;
         switch (waypointIndex) {
@@ -303,15 +267,15 @@ public class WinterGarden extends BaseGarden {
             case 5:
                 guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_5;
                 break;
+            case 6:
+                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_6;
+                break;
             default:
                 return 0;
         }
         return guardianRequirements.length;
     }
-    
-    /**
-     * Get all guardian requirements for a specific waypoint
-     */
+
     public List<GuardianRequirement> getGuardianRequirementsForWaypoint(int waypointIndex) {
         GuardianRequirement[] guardianRequirements;
         switch (waypointIndex) {
@@ -330,37 +294,38 @@ public class WinterGarden extends BaseGarden {
             case 5:
                 guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_5;
                 break;
+            case 6:
+                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_6;
+                break;
             default:
                 return new ArrayList<>();
         }
         return Arrays.asList(guardianRequirements);
     }
-    
-    /**
-     * Helper: check if player is in the Winter Garden area
-     */
-    private boolean isInWinterGardenArea() {
+
+    private boolean isInSpringGardenArea() {
         LocalPlayer player = Client.getLocalPlayer();
-        return player != null && WINTER_GARDEN_AREA.contains(player.getCoordinate());
+        return player != null && SPRING_GARDEN_AREA.contains(player.getCoordinate());
     }
 
-    private Coordinate getRandomizedWaypoint5() {
+    private Coordinate getRandomizedWaypoint6() {
         if (Math.random() < 0.5) {
-            return new Coordinate(WAYPOINT_5.getX() - 1, WAYPOINT_5.getY(), WAYPOINT_5.getZ());
+            return new Coordinate(WAYPOINT_6.getX(), WAYPOINT_6.getY() - 1, WAYPOINT_6.getZ());
         } else {
-            return WAYPOINT_5;
+            return WAYPOINT_6;
         }
     }    
     
+
     @Override
     public void reset() {
         this.isCompleted = false;
         this.hasFailed = false;
         this.currentState = GardenState.IDLE;
     }
-    
+
     @Override
     public String toString() {
-        return "WinterGarden{doorId=" + WINTER_DOOR_ID + ", startPosition=" + WINTER_START + ", treePosition=" + WINTER_TREE + "}";
+        return "SpringGarden{doorId=" + SPRING_DOOR_ID + ", startPosition=" + SPRING_START + ", treePosition=" + SPRING_TREE + "}";
     }
 } 

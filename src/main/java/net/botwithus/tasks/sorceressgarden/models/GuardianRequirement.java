@@ -20,12 +20,15 @@ public class GuardianRequirement {
     private final List<GuardianPosition> validPositions;
     private final double tolerance;
     private final Double minDistance;
+    private final NPCDirection.Direction movingDirection;
+    private final boolean isAvoidDirection;
     
     public enum RequirementType {
         EXACT_POSITION,    // Guardian must be at specific position and direction
         MULTIPLE_POSITIONS, // Guardian must be at ANY of the specified positions with directions
         AVOID_POSITIONS,    // Guardian must NOT be at any of the specified positions
-        MIN_DISTANCE        // Guardian must be at least a certain distance from a position
+        MIN_DISTANCE,       // Guardian must be at least a certain distance from a position
+        MOVING_DIRECTION    // Guardian must be moving in a specific direction
     }
     
     /**
@@ -47,6 +50,8 @@ public class GuardianRequirement {
         this.validPositions = new ArrayList<>();
         this.tolerance = tolerance;
         this.minDistance = null;
+        this.movingDirection = null;
+        this.isAvoidDirection = false;
     }
     
     /**
@@ -75,6 +80,8 @@ public class GuardianRequirement {
         this.validPositions = new ArrayList<>(validPositions);
         this.tolerance = tolerance;
         this.minDistance = null;
+        this.movingDirection = null;
+        this.isAvoidDirection = false;
     }
     
     /**
@@ -91,6 +98,8 @@ public class GuardianRequirement {
         this.validPositions = new ArrayList<>();
         this.tolerance = 1.0;
         this.minDistance = null;
+        this.movingDirection = null;
+        this.isAvoidDirection = false;
         
         for (int[] coords : validCoordinatesWithDirections) {
             if (coords.length >= 4) {
@@ -115,6 +124,8 @@ public class GuardianRequirement {
         }
         this.tolerance = 1.0;
         this.minDistance = null;
+        this.movingDirection = null;
+        this.isAvoidDirection = false;
     }
     
     /**
@@ -129,6 +140,8 @@ public class GuardianRequirement {
         this.validPositions = new ArrayList<>();
         this.exactDirection = null;
         this.tolerance = 1.0;
+        this.movingDirection = null;
+        this.isAvoidDirection = false;
     }
     
     /**
@@ -143,6 +156,24 @@ public class GuardianRequirement {
         this.validPositions = new ArrayList<>();
         this.exactDirection = null;
         this.tolerance = 1.0;
+        this.movingDirection = null;
+        this.isAvoidDirection = false;
+    }
+
+    /**
+     * Create a moving direction requirement - guardian must be moving in a specific direction
+     */
+    public GuardianRequirement(int guardianId, NPCDirection.Direction movingDirection, boolean isAvoidDirection) {
+        this.guardianId = guardianId;
+        this.type = RequirementType.MOVING_DIRECTION;
+        this.exactPosition = null;
+        this.exactDirection = null;
+        this.avoidPositions = new ArrayList<>();
+        this.validPositions = new ArrayList<>();
+        this.tolerance = 1.0;
+        this.minDistance = null;
+        this.movingDirection = movingDirection;
+        this.isAvoidDirection = isAvoidDirection;
     }
     
     /**
@@ -157,8 +188,16 @@ public class GuardianRequirement {
         this.validPositions = new ArrayList<>();
         this.tolerance = tolerance;
         this.minDistance = null;
+        this.movingDirection = null;
+        this.isAvoidDirection = false;
     }
     
+    /**
+     * Add back the two-argument constructor for compatibility
+     */
+    public GuardianRequirement(int guardianId, NPCDirection.Direction movingDirection) {
+        this(guardianId, movingDirection, false);
+    }
     
     /**
      * Create a multiple positions requirement using GuardianPosition list
@@ -186,6 +225,15 @@ public class GuardianRequirement {
      */
     public static GuardianRequirement createAvoidPositions(int guardianId, int[][] avoidCoordinates) {
         return new GuardianRequirement(guardianId, avoidCoordinates, true);
+    }
+    
+    /**
+     * Create a moving direction requirement - guardian must NOT be moving in the specified direction.
+     * This is to be interpreted as: guardian must NOT be facing/moving in the given direction.
+     * The logic that checks requirements must treat this as a negative check.
+     */
+    public static GuardianRequirement createAvoidDirection(int guardianId, NPCDirection.Direction direction) {
+        return new GuardianRequirement(guardianId, direction, true);
     }
     
     public int getGuardianId() {
@@ -219,6 +267,14 @@ public class GuardianRequirement {
     public Double getMinDistance() {
         return minDistance;
     }
+
+    public NPCDirection.Direction getMovingDirection() {
+        return movingDirection;
+    }
+
+    public boolean isAvoidDirection() {
+        return isAvoidDirection;
+    }
     
     @Override
     public String toString() {
@@ -227,11 +283,13 @@ public class GuardianRequirement {
                     guardianId, avoidPositions);
         } else return switch (type) {
             case EXACT_POSITION -> String.format("GuardianRequirement{guardianId=%d, type=EXACT_POSITION, position=%s, direction=%s, tolerance=%.1f}",
-                    guardianId, exactPosition, exactDirection, tolerance);
+                    guardianId, exactPosition, movingDirection, tolerance);
             case MULTIPLE_POSITIONS -> String.format("GuardianRequirement{guardianId=%d, type=MULTIPLE_POSITIONS, validPositions=%s, tolerance=%.1f}",
-                    guardianId, validPositions, tolerance);
+                    guardianId, validPositions, tolerance, movingDirection);
             case MIN_DISTANCE -> String.format("GuardianRequirement{guardianId=%d, type=MIN_DISTANCE, position=%s, minDistance=%.1f}",
                     guardianId, exactPosition, minDistance);
+            case MOVING_DIRECTION -> String.format("GuardianRequirement{guardianId=%d, type=MOVING_DIRECTION, movingDirection=%s}",
+                    guardianId, movingDirection);
             default -> String.format("GuardianRequirement{guardianId=%d, type=AVOID_POSITIONS, avoidPositions=%s}",
                     guardianId, avoidPositions);
         };
