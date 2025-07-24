@@ -1,41 +1,37 @@
 package net.botwithus;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import net.botwithus.GuiStyling.ImGuiCol;
+import net.botwithus.rs3.game.Coordinate;
+import net.botwithus.rs3.game.quest.Quest;
+import net.botwithus.rs3.imgui.BGList;
 import net.botwithus.rs3.imgui.ImGui;
 import net.botwithus.rs3.imgui.ImGuiWindowFlag;
-import net.botwithus.rs3.imgui.BGList;
 import net.botwithus.rs3.script.ScriptConsole;
 import net.botwithus.rs3.script.ScriptGraphicsContext;
 import net.botwithus.rs3.script.config.ScriptConfig;
+import net.botwithus.tasks.BeachActivity;
+import net.botwithus.tasks.BeachEventTask;
+import net.botwithus.tasks.Ingredient;
+import net.botwithus.tasks.MapNavigatorTask;
+import net.botwithus.tasks.Portable;
+import net.botwithus.tasks.PortableCrafter;
+import net.botwithus.tasks.PortableSawmill;
 import net.botwithus.tasks.PortableType;
 import net.botwithus.tasks.PortableWorkbench;
 import net.botwithus.tasks.Product;
-import net.botwithus.tasks.Ingredient;
-import net.botwithus.tasks.Portable;
-import net.botwithus.GuiStyling.ImGuiCol;
-import net.botwithus.api.game.hud.Dialog;
-import net.botwithus.rs3.game.js5.types.configs.ConfigManager;
-import net.botwithus.tasks.SimplePortable;
-import net.botwithus.tasks.PortableCrafter;
-import net.botwithus.tasks.SawmillPlank;
-import net.botwithus.tasks.PortableSawmill;
-import net.botwithus.rs3.game.quest.Quest;
-import net.botwithus.tasks.QuestHelper;
 import net.botwithus.tasks.QuestDialogFetcher;
-import net.botwithus.rs3.game.Coordinate;
-import net.botwithus.tasks.BeachActivity;
-import net.botwithus.tasks.BeachEventTask;
-import net.botwithus.tasks.MapNavigatorTask;
-
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.Collections;
-import java.util.Optional;
-import java.util.Map;
-import java.awt.Point;
+import net.botwithus.tasks.QuestHelper;
+import net.botwithus.tasks.SawmillPlank;
+import net.botwithus.tasks.SimplePortable;
+import net.botwithus.tasks.sorceressgarden.models.GardenType;
 
 public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private final CoaezUtility coaezUtility;
@@ -99,6 +95,9 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private int selectedLocationIndex = 0;
     private String locationSearchText = "";
     private String[] currentLocationNames = new String[0];
+    
+    // Sorceress Garden state
+    private boolean sorceressGardenActive = false;
     
     private boolean guiUsePinkFizz = false;
     private boolean guiUsePurpleLumbridge = false;
@@ -246,6 +245,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         renderMapNavigatorTab();
                         ImGui.EndTabItem();
                     }
+                    if (ImGui.BeginTabItem("Sorceress Garden", 0)) {
+                        renderSorceressGardenTab();
+                        ImGui.EndTabItem();
+                    }
                     /* if (ImGui.BeginTabItem("Smithing", 0)) {
                         renderSmithingTab();
                         ImGui.EndTabItem();
@@ -304,6 +307,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
 
         if (ImGui.Button("Start Limestone Brick")) {
             coaezUtility.setBotState(CoaezUtility.BotState.LIMESTONE_BRICK);
+        }
+
+        if (ImGui.Button("Start South Feldipe Hills Teleport")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.SOUTH_FELDIPE_HILLS_TELEPORT);
         }
 
         if (ImGui.Button("Start Portables")) {
@@ -369,6 +376,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (ImGui.Button("Start Sandy Clues")) {
             coaezUtility.setBotState(CoaezUtility.BotState.SANDY_CLUES);
         }
+        
+        ImGui.SeparatorText("Debug Tools");
+        if (ImGui.Button("Start NPC Logger")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.NPC_LOGGER);
+        }
+
     }
     
     private void renderAlchemyTab() {
@@ -1273,6 +1286,13 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         config.addProperty("guiUsePalmerFarmer", String.valueOf(guiUsePalmerFarmer));
         config.addProperty("guiUseUglyDuckling", String.valueOf(guiUseUglyDuckling));
 
+        // Save Sorceress Garden selection
+        Set<GardenType> sgSelected = coaezUtility.getSorceressGardenTask() != null ? coaezUtility.getSorceressGardenTask().getSelectedGardens() : new HashSet<>();
+        config.addProperty("sg_winterGardenSelected", String.valueOf(sgSelected.contains(GardenType.WINTER)));
+        config.addProperty("sg_springGardenSelected", String.valueOf(sgSelected.contains(GardenType.SPRING)));
+        config.addProperty("sg_summerGardenSelected", String.valueOf(sgSelected.contains(GardenType.SUMMER)));
+        config.addProperty("sg_autumnGardenSelected", String.valueOf(sgSelected.contains(GardenType.AUTUMN)));
+
         config.save();
     }
 
@@ -1605,6 +1625,18 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         }
         
         updateBeachEventSettings();
+        
+        // Load Sorceress Garden selection
+        Set<GardenType> loadedSG = new HashSet<>();
+        String sgWinter = config.getProperty("sg_winterGardenSelected");
+        if (sgWinter != null && Boolean.parseBoolean(sgWinter)) loadedSG.add(GardenType.WINTER);
+        String sgSpring = config.getProperty("sg_springGardenSelected");
+        if (sgSpring != null && Boolean.parseBoolean(sgSpring)) loadedSG.add(GardenType.SPRING);
+        String sgSummer = config.getProperty("sg_summerGardenSelected");
+        if (sgSummer != null && Boolean.parseBoolean(sgSummer)) loadedSG.add(GardenType.SUMMER);
+        String sgAutumn = config.getProperty("sg_autumnGardenSelected");
+        if (sgAutumn != null && Boolean.parseBoolean(sgAutumn)) loadedSG.add(GardenType.AUTUMN);
+        if (coaezUtility.getSorceressGardenTask() != null) coaezUtility.getSorceressGardenTask().setSelectedGardens(loadedSG);
         
         isLoadingConfig = false;
      }
@@ -2191,6 +2223,69 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         } else {
             ImGui.Text("Initializing location manager...");
         }
+    }
+    
+    private void renderSorceressGardenTab() {
+        if (coaezUtility == null) return;
+        
+        ImGui.Text("Sorceress's Garden Minigame");
+        ImGui.Separator();
+        
+        // Garden selection checkboxes
+        ImGui.Text("Select Gardens to Play:");
+        ImGui.Separator();
+        
+        try {
+            Set<GardenType> selectedGardens = coaezUtility.getSorceressGardenTask() != null ? coaezUtility.getSorceressGardenTask().getSelectedGardens() : new HashSet<>();
+            boolean winterSelected = selectedGardens.contains(GardenType.WINTER);
+            boolean springSelected = selectedGardens.contains(GardenType.SPRING);
+            boolean summerSelected = selectedGardens.contains(GardenType.SUMMER);
+            boolean autumnSelected = selectedGardens.contains(GardenType.AUTUMN);
+
+            boolean newWinterSelected = ImGui.Checkbox("Winter Garden (Level 1 Thieving)", winterSelected);
+            if (newWinterSelected != winterSelected) {
+                Set<GardenType> newSet = new HashSet<>(selectedGardens);
+                if (newWinterSelected) newSet.add(GardenType.WINTER); else newSet.remove(GardenType.WINTER);
+                if (coaezUtility.getSorceressGardenTask() != null) coaezUtility.getSorceressGardenTask().setSelectedGardens(newSet);
+                saveConfig();
+            }
+            boolean newSpringSelected = ImGui.Checkbox("Spring Garden (Level 25 Thieving)", springSelected);
+            if (newSpringSelected != springSelected) {
+                Set<GardenType> newSet = new HashSet<>(selectedGardens);
+                if (newSpringSelected) newSet.add(GardenType.SPRING); else newSet.remove(GardenType.SPRING);
+                if (coaezUtility.getSorceressGardenTask() != null) coaezUtility.getSorceressGardenTask().setSelectedGardens(newSet);
+                saveConfig();
+            }
+            boolean newSummerSelected = ImGui.Checkbox("Summer Garden (Level 65 Thieving)", summerSelected);
+            if (newSummerSelected != summerSelected) {
+                Set<GardenType> newSet = new HashSet<>(selectedGardens);
+                if (newSummerSelected) newSet.add(GardenType.SUMMER); else newSet.remove(GardenType.SUMMER);
+                if (coaezUtility.getSorceressGardenTask() != null) coaezUtility.getSorceressGardenTask().setSelectedGardens(newSet);
+                saveConfig();
+            }
+            boolean newAutumnSelected = ImGui.Checkbox("Autumn Garden (Level 45 Thieving)", autumnSelected);
+            if (newAutumnSelected != autumnSelected) {
+                Set<GardenType> newSet = new HashSet<>(selectedGardens);
+                if (newAutumnSelected) newSet.add(GardenType.AUTUMN); else newSet.remove(GardenType.AUTUMN);
+                if (coaezUtility.getSorceressGardenTask() != null) coaezUtility.getSorceressGardenTask().setSelectedGardens(newSet);
+                saveConfig();
+            }
+        } catch (Exception e) {
+            // Silently handle any errors to prevent GUI issues
+        }
+        
+        ImGui.Separator();
+        
+        // Start/Stop button
+        if (ImGui.Button(sorceressGardenActive ? "Stop Sorceress Garden" : "Start Sorceress Garden")) {
+            sorceressGardenActive = !sorceressGardenActive;
+            if (sorceressGardenActive) {
+                coaezUtility.setBotState(CoaezUtility.BotState.SORCERESS_GARDEN);
+            } else {
+                coaezUtility.setBotState(CoaezUtility.BotState.IDLE);
+            }
+        }
+        
     }
     
 }

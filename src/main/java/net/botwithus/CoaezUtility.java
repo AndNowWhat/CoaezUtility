@@ -10,6 +10,7 @@ import net.botwithus.rs3.script.Execution;
 import net.botwithus.rs3.script.LoopingScript;
 import net.botwithus.rs3.script.config.ScriptConfig;
 import net.botwithus.tasks.*;
+import net.botwithus.tasks.sorceressgarden.SorceressGardenTask;
 import net.botwithus.model.Alchemy;
 import net.botwithus.model.Disassembly;
 import net.botwithus.model.POSD;
@@ -19,7 +20,7 @@ import java.util.Random;
 import net.botwithus.rs3.script.ScriptConsole;
 
 public class CoaezUtility extends LoopingScript {
-    private BotState botState = BotState.POWDER_OF_BURIALS;
+    private BotState botState = BotState.SORCERESS_GARDEN;
     private Random random = new Random();
     private ScriptConfig config;
     private volatile boolean noBonesLeft = false;
@@ -56,8 +57,11 @@ public class CoaezUtility extends LoopingScript {
     private final DeployDummyTask deployDummyTask;
     private final SandyCluesTask sandyCluesTask;
     private final SummerPinata summerPinata;
+    private final SouthFeldipeHillsTeleportTask southFeldipeHillsTeleportTask;
+    private final SorceressGardenTask sorceressGardenTask;
     // GUI reference
     private CoaezUtilityGUI gui;
+    private final NPCLoggerTask npcLoggerTask;
 
     public enum BotState {
         IDLE,
@@ -84,6 +88,9 @@ public class CoaezUtility extends LoopingScript {
         DEPLOY_DUMMY,
         SANDY_CLUES,
         SUMMER_PINATA,
+        SOUTH_FELDIPE_HILLS_TELEPORT,
+        SORCERESS_GARDEN,
+        NPC_LOGGER,
         STOPPED
     }
 
@@ -120,6 +127,9 @@ public class CoaezUtility extends LoopingScript {
         this.deployDummyTask = new DeployDummyTask(this);
         this.sandyCluesTask = new SandyCluesTask(this);
         this.summerPinata = new SummerPinata(this);
+        this.southFeldipeHillsTeleportTask = new SouthFeldipeHillsTeleportTask(this);
+        this.sorceressGardenTask = new SorceressGardenTask(this);
+        this.npcLoggerTask = new NPCLoggerTask(this);
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
 
@@ -284,6 +294,18 @@ public class CoaezUtility extends LoopingScript {
                     ScriptConsole.println("Executing attack deploy task");
                     summerPinata.execute();
                 }
+                case SOUTH_FELDIPE_HILLS_TELEPORT -> {
+                    ScriptConsole.println("Executing south Feldip Hills teleport task");
+                    southFeldipeHillsTeleportTask.execute();
+                }
+                case SORCERESS_GARDEN -> {
+                    ScriptConsole.println("Executing Sorceress Garden task");
+                    sorceressGardenTask.execute();
+                }
+                case NPC_LOGGER -> {
+                    ScriptConsole.println("Executing NPC Logger task");
+                    npcLoggerTask.execute();
+                }
                 case STOPPED -> stopScript();
                 default -> ScriptConsole.println("Unknown bot state: " + botState);
             }
@@ -376,6 +398,20 @@ public class CoaezUtility extends LoopingScript {
     public SummerPinata getSummerPinata() {
         return summerPinata;
     }
+
+    public SouthFeldipeHillsTeleportTask getSouthFeldipeHillsTeleportTask() {
+        return southFeldipeHillsTeleportTask;
+    }
+
+    public SorceressGardenTask getSorceressGardenTask() {
+        return sorceressGardenTask;
+    }
+    
+    public NPCLoggerTask getNPCLoggerTask() {
+        return npcLoggerTask;
+    }
+    
+
 
     /* public SmithingTask getSmithingTask() {
         return smithingTask;
