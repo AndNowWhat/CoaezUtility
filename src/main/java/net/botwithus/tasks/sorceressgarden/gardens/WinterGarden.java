@@ -263,7 +263,7 @@ public class WinterGarden extends BaseGarden {
                         " must NOT be at: " + requirement.getAvoidPositions());
             } else switch (requirement.getType()) {
                 case EXACT_POSITION -> ScriptConsole.println("  - Guardian " + requirement.getGuardianId() +
-                        " must be at " + requirement.getExactPosition() + " facing " + requirement.getExactDirection());
+                        " must be at " + requirement.getExactPosition() + " facing " + requirement.getMovingDirection().name());
                 case MULTIPLE_POSITIONS -> ScriptConsole.println("  - Guardian " + requirement.getGuardianId() +
                         " must be at ANY of: " + requirement.getValidPositions());
                 case MIN_DISTANCE -> ScriptConsole.println("  - Guardian " + requirement.getGuardianId() +
@@ -274,7 +274,9 @@ public class WinterGarden extends BaseGarden {
         }
         ScriptConsole.println("Forcing guardian position update before waiting...");
         guardianTracker.updateGuardianPositions(gardenArea);
-        if (!guardianTracker.waitForGuardianRequirements(guardianRequirementList, 60000, gardenArea)) {
+        if (!guardianTracker.waitForGuardianRequirements(guardianRequirementList, 120000, gardenArea)) {
+            if(!script.isActive()) return false;
+            if(!isInWinterGardenArea()) return false;
             ScriptConsole.println("Timeout waiting for guardians to meet requirements for waypoint " + waypointIndex);
             return false;
         }

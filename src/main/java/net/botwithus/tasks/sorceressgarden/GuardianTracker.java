@@ -202,11 +202,12 @@ public class GuardianTracker {
                     Direction required = guardianPosition.getMovingDirection();
                     boolean movingCorrect = false;
                     switch (required) {
-                        case NORTH: movingCorrect = (dy > 0); break;
-                        case SOUTH: movingCorrect = (dy < 0); break;
-                        case EAST:  movingCorrect = (dx > 0); break;
-                        case WEST:  movingCorrect = (dx < 0); break;
-                        default: break;
+                        case NORTH -> movingCorrect = (dy > 0);
+                        case SOUTH -> movingCorrect = (dy < 0);
+                        case EAST -> movingCorrect = (dx > 0);
+                        case WEST -> movingCorrect = (dx < 0);
+                        default -> {
+                        }
                     }
                     if (movingCorrect) {
                         return true;
@@ -272,11 +273,12 @@ public class GuardianTracker {
                         Direction required = guardianPosition.getMovingDirection();
                         boolean movingCorrect = false;
                         switch (required) {
-                            case NORTH: movingCorrect = (dy > 0); break;
-                            case SOUTH: movingCorrect = (dy < 0); break;
-                            case EAST:  movingCorrect = (dx > 0); break;
-                            case WEST:  movingCorrect = (dx < 0); break;
-                            default: break;
+                            case NORTH -> movingCorrect = (dy > 0);
+                            case SOUTH -> movingCorrect = (dy < 0);
+                            case EAST -> movingCorrect = (dx > 0);
+                            case WEST -> movingCorrect = (dx < 0);
+                            default -> {
+                            }
                         }
                         if (!movingCorrect) {
                             ScriptConsole.println("Guardian " + guardianPosition.getGuardianId() + 
@@ -421,11 +423,12 @@ public class GuardianTracker {
                                             Direction required = validPos.getMovingDirection();
                                             boolean movingCorrect = false;
                                             switch (required) {
-                                                case NORTH: movingCorrect = (dy > 0); break;
-                                                case SOUTH: movingCorrect = (dy < 0); break;
-                                                case EAST:  movingCorrect = (dx > 0); break;
-                                                case WEST:  movingCorrect = (dx < 0); break;
-                                                default: break;
+                                                case NORTH -> movingCorrect = (dy > 0);
+                                                case SOUTH -> movingCorrect = (dy < 0);
+                                                case EAST -> movingCorrect = (dx > 0);
+                                                case WEST -> movingCorrect = (dx < 0);
+                                                default -> {
+                                                }
                                             }
                                             if (movingCorrect) {
                                                 ScriptConsole.println("Guardian " + guardianRequirement.getGuardianId() +

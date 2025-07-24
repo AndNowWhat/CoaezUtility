@@ -94,13 +94,7 @@ public class SpringGarden extends BaseGarden {
 
     private static final GuardianRequirement[] GUARDIAN_REQUIREMENTS_WAYPOINT_6 = {
         new GuardianRequirement(5544, new Coordinate(2932, 5469, 0), NPCDirection.Direction.EAST),
-        GuardianRequirement.createAvoidPositions(5546, new int[][] {
-            {2931, 5470, 0},
-            {2931, 5471, 0},
-            {2931, 5472, 0},
-            {2931, 5473, 0},
 
-        }),    
     };
 
 
@@ -241,7 +235,9 @@ public class SpringGarden extends BaseGarden {
             ScriptConsole.println("  - Guardian " + requirement.getGuardianId());
         }
         guardianTracker.updateGuardianPositions(gardenArea);
-        if (!guardianTracker.waitForGuardianRequirements(guardianRequirementList, 60000, gardenArea)) {
+        if (!guardianTracker.waitForGuardianRequirements(guardianRequirementList, 120000, gardenArea)) {
+            if(!script.isActive()) return false;
+            if(!isInSpringGardenArea()) return false;
             ScriptConsole.println("Timeout waiting for guardians to meet requirements for waypoint " + waypointIndex);
             return false;
         }
