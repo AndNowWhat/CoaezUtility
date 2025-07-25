@@ -96,7 +96,8 @@ public class AutumnGarden extends BaseGarden {
     private static final GuardianRequirement[] GUARDIAN_REQUIREMENTS_WAYPOINT_7 = {
         new GuardianRequirement(5538, NPCDirection.Direction.EAST),
         GuardianRequirement.createAvoidPositions(5538, new int[][] {
-            {2912, 5455, 0},
+            {2917, 5455, 0},
+            {2916, 5455, 0},
             {2911, 5455, 0},
             {2910, 5455, 0},
             {2909, 5455, 0},
