@@ -253,6 +253,8 @@ public class WinterGarden extends BaseGarden {
         List<GuardianRequirement> guardianRequirementList = Arrays.asList(guardianRequirements);
         ScriptConsole.println("Waiting for " + guardianRequirementList.size() + " guardian requirements:");
         for (GuardianRequirement requirement : guardianRequirementList) {
+            if(!script.isActive()) break;
+            if(!isInWinterGardenArea()) break;
             if (null == requirement.getType()) {
                 ScriptConsole.println("  - Guardian " + requirement.getGuardianId() +
                         " must NOT be at: " + requirement.getAvoidPositions());

@@ -236,6 +236,8 @@ public class SpringGarden extends BaseGarden {
         List<GuardianRequirement> guardianRequirementList = Arrays.asList(guardianRequirements);
         ScriptConsole.println("Waiting for " + guardianRequirementList.size() + " guardian requirements:");
         for (GuardianRequirement requirement : guardianRequirementList) {
+            if(!script.isActive()) break;
+            if(!isInSpringGardenArea()) break;
             ScriptConsole.println("  - Guardian " + requirement.getGuardianId());
         }
         guardianTracker.updateGuardianPositions(gardenArea);
