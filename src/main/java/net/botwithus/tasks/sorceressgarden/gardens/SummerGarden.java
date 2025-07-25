@@ -36,7 +36,9 @@ public class SummerGarden extends BaseGarden {
     private static final Coordinate WAYPOINT_5 = new Coordinate(2909, 5486, 0);
     private static final Coordinate WAYPOINT_6 = new Coordinate(2920, 5485, 0);
     private static final Coordinate WAYPOINT_7 = new Coordinate(2924, 5487, 0);
-    private static final Coordinate WAYPOINT_8 = new Coordinate(2920, 5488, 0);
+    private static final Coordinate WAYPOINT_8 = new Coordinate(2922, 5495, 0);
+
+    private static final Coordinate WAYPOINT_9 = new Coordinate(2920, 5488, 0);
 
 
     
@@ -82,7 +84,19 @@ public class SummerGarden extends BaseGarden {
     private static final GuardianRequirement[] GUARDIAN_REQUIREMENTS_WAYPOINT_8 = {
         new GuardianRequirement(5551, NPCDirection.Direction.SOUTH),
         new GuardianRequirement(5551, new Coordinate(2923, 5487, 0)),
+
+        GuardianRequirement.createAvoidPositions(5552, new int[][] {
+            {2921, 5494, 0},
+            {2921, 5493, 0},
+            {2921, 5492, 0},
+        }),
     };
+
+
+    private static final GuardianRequirement[] GUARDIAN_REQUIREMENTS_WAYPOINT_9 = {
+
+    };
+
 
     public SummerGarden(CoaezUtility script) {
         super(script, GardenType.SUMMER, SUMMER_DOOR_ID, SUMMER_START, SUMMER_TREE, SUMMER_GUARDIAN_IDS, SUMMER_GARDEN_AREA);
@@ -98,7 +112,8 @@ public class SummerGarden extends BaseGarden {
             new Waypoint(WAYPOINT_5, "Summer Garden - Fifth Checkpoint", 0),
             new Waypoint(WAYPOINT_6, "Summer Garden - Sixth Checkpoint", 0),
             new Waypoint(WAYPOINT_7, "Summer Garden - Seventh Checkpoint", 0),
-            new Waypoint(WAYPOINT_8, "Summer Garden - Eighth Checkpoint", 0)
+            new Waypoint(WAYPOINT_8, "Summer Garden - Eighth Checkpoint", 0),
+            new Waypoint(WAYPOINT_9, "Summer Garden - Ninth Checkpoint", 0)
         );
     }
 
@@ -207,6 +222,7 @@ public class SummerGarden extends BaseGarden {
             case 6 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_6;
             case 7 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_7;
             case 8 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_8;
+            case 9 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_9;
             default -> {
                 return true;
             }
@@ -241,6 +257,7 @@ public class SummerGarden extends BaseGarden {
             case 6 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_6;
             case 7 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_7;
             case 8 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_8;
+            case 9 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_9;
             default -> {
                 return 0;
             }
@@ -259,6 +276,7 @@ public class SummerGarden extends BaseGarden {
             case 6 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_6;
             case 7 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_7;
             case 8 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_8;
+            case 9 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_9;
             default -> {
                 return new ArrayList<>();
             }
