@@ -150,7 +150,15 @@ public class SorceressGardenTask implements Task {
      * Teleport to the Sorceress's Garden (via apprentice only)
      */
     private void teleportToGarden() {
-        ScriptConsole.println("Teleporting to Sorceress's Garden (apprentice only)");
+        ScriptConsole.println("Teleporting to Sorceress's Garden");
+        if(Backpack.contains("Broomstick")) {
+            ScriptConsole.println("Using broomstick to teleport to Sorceress's Garden");
+            Backpack.interact("Broomstick", "Teleport");
+            Execution.delayUntil(8000,() -> isInSorceressGarden());
+            return;
+        } else {
+            ScriptConsole.println("No broomstick found, moving to apprentice...");
+        }
 
         if (!isInApprenticeArea()) {
             ScriptConsole.println("Not in apprentice area, navigating to apprentice...");
