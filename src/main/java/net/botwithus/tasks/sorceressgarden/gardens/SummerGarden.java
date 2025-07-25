@@ -84,12 +84,6 @@ public class SummerGarden extends BaseGarden {
     private static final GuardianRequirement[] GUARDIAN_REQUIREMENTS_WAYPOINT_8 = {
         new GuardianRequirement(5551, NPCDirection.Direction.SOUTH),
         new GuardianRequirement(5551, new Coordinate(2923, 5487, 0)),
-
-        GuardianRequirement.createAvoidPositions(5552, new int[][] {
-            {2921, 5494, 0},
-            {2921, 5493, 0},
-            {2921, 5492, 0},
-        }),
     };
 
 
