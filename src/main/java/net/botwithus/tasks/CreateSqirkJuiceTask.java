@@ -4,9 +4,8 @@ import net.botwithus.CoaezUtility;
 import net.botwithus.api.game.hud.inventories.Backpack;
 import net.botwithus.api.game.hud.inventories.Bank;
 import net.botwithus.rs3.game.Item;
-import net.botwithus.rs3.script.Execution;
 
-public class WinterSqirkjuiceTask implements Task {
+public class CreateSqirkJuiceTask implements Task {
     private final CoaezUtility script;
     private static final String BEER_GLASS_NAME = "Beer glass";
     // {fruit name, required amount}
@@ -17,7 +16,7 @@ public class WinterSqirkjuiceTask implements Task {
         {"Summer sq'irk", 2}
     };
 
-    public WinterSqirkjuiceTask(CoaezUtility script) {
+    public CreateSqirkJuiceTask(CoaezUtility script) {
         this.script = script;
     }
 
@@ -52,6 +51,5 @@ public class WinterSqirkjuiceTask implements Task {
 
     private void squeezeJuice(int backpackSlot) {
         Backpack.interact(backpackSlot, "Squeeze");
-        Execution.delay(script.getRandom().nextLong(300, 500));
     }
 } 

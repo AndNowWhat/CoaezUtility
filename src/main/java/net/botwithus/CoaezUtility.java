@@ -16,6 +16,7 @@ import net.botwithus.rs3.script.config.ScriptConfig;
 import net.botwithus.tasks.AlchemyTask;
 import net.botwithus.tasks.BeachEventTask;
 import net.botwithus.tasks.BeerCraftingTask;
+import net.botwithus.tasks.CreateSqirkJuiceTask;
 import net.botwithus.tasks.DeployDummyTask;
 import net.botwithus.tasks.DisassemblyTask;
 import net.botwithus.tasks.DrinkPerfectPlusJujuTask;
@@ -37,10 +38,9 @@ import net.botwithus.tasks.ScreenMeshTask;
 import net.botwithus.tasks.SheepShearingTask;
 import net.botwithus.tasks.SiftSoilTask;
 import net.botwithus.tasks.SoftClayTask;
-import net.botwithus.tasks.SouthFeldipeHillsTeleportTask;
 import net.botwithus.tasks.SummerPinata;
+import net.botwithus.tasks.TeleportToCamelot;
 import net.botwithus.tasks.TurnInSqirkjuiceTask;
-import net.botwithus.tasks.WinterSqirkjuiceTask;
 import net.botwithus.tasks.sorceressgarden.SorceressGardenTask;
 
 public class CoaezUtility extends LoopingScript {
@@ -81,10 +81,10 @@ public class CoaezUtility extends LoopingScript {
     private final DeployDummyTask deployDummyTask;
     private final SandyCluesTask sandyCluesTask;
     private final SummerPinata summerPinata;
-    private final SouthFeldipeHillsTeleportTask southFeldipeHillsTeleportTask;
+    private final TeleportToCamelot southFeldipeHillsTeleportTask;
     private final SorceressGardenTask sorceressGardenTask;
     private final BeerCraftingTask beerCraftingTask;
-    private final WinterSqirkjuiceTask winterSqirkjuiceTask;
+    private final CreateSqirkJuiceTask winterSqirkjuiceTask;
     private final TurnInSqirkjuiceTask turnInSqirkjuiceTask;
     // GUI reference
     private CoaezUtilityGUI gui;
@@ -157,10 +157,10 @@ public class CoaezUtility extends LoopingScript {
         this.deployDummyTask = new DeployDummyTask(this);
         this.sandyCluesTask = new SandyCluesTask(this);
         this.summerPinata = new SummerPinata(this);
-        this.southFeldipeHillsTeleportTask = new SouthFeldipeHillsTeleportTask(this);
+        this.southFeldipeHillsTeleportTask = new TeleportToCamelot(this);
         this.sorceressGardenTask = new SorceressGardenTask(this);
         this.beerCraftingTask = new BeerCraftingTask(this);
-        this.winterSqirkjuiceTask = new WinterSqirkjuiceTask(this);
+        this.winterSqirkjuiceTask = new CreateSqirkJuiceTask(this);
         this.turnInSqirkjuiceTask = new TurnInSqirkjuiceTask(this);
         this.npcLoggerTask = new NPCLoggerTask(this);
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
@@ -444,7 +444,7 @@ public class CoaezUtility extends LoopingScript {
         return summerPinata;
     }
 
-    public SouthFeldipeHillsTeleportTask getSouthFeldipeHillsTeleportTask() {
+    public TeleportToCamelot getSouthFeldipeHillsTeleportTask() {
         return southFeldipeHillsTeleportTask;
     }
 
@@ -460,7 +460,7 @@ public class CoaezUtility extends LoopingScript {
         return beerCraftingTask;
     }
 
-    public WinterSqirkjuiceTask getWinterSqirkjuiceTask() {
+    public CreateSqirkJuiceTask getWinterSqirkjuiceTask() {
         return winterSqirkjuiceTask;
     }
 

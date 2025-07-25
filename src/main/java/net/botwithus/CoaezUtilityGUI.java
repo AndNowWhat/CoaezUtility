@@ -220,6 +220,51 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 ImGui.PushStyleColor(0, 0.25f, 0.78f, 0.71f, 1.0f); // Teal accent color
                 ImGui.Text(coaezUtility.getBotState().name());
                 ImGui.PopStyleColor();
+                
+                // Show active task details if available
+                if (coaezUtility.getBotState() != CoaezUtility.BotState.IDLE) {
+                    ImGui.Text("Active Task Details:");
+                    ImGui.PushStyleColor(0, 0.4f, 0.9f, 0.7f, 1.0f); // Lighter teal
+                    
+                    switch (coaezUtility.getBotState()) {
+                        case PORTABLES:
+                            if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() != null) {
+                                Portable portable = coaezUtility.getPortableTask().getActivePortable();
+                                ImGui.Text("  Portable: " + portable.getType().getName());
+                                if (portable instanceof PortableWorkbench && ((PortableWorkbench) portable).getSelectedProduct() != null) {
+                                    ImGui.Text("  Product: " + ((PortableWorkbench) portable).getSelectedProduct().getName());
+                                } else if (portable instanceof PortableCrafter && ((PortableCrafter) portable).getSelectedProduct() != null) {
+                                    ImGui.Text("  Product: " + ((PortableCrafter) portable).getSelectedProduct().getName());
+                                } else if (portable instanceof PortableSawmill && ((PortableSawmill) portable).getSelectedPlank() != null) {
+                                    ImGui.Text("  Plank: " + ((PortableSawmill) portable).getSelectedPlank().getDisplayName());
+                                }
+                            }
+                            break;
+                        case QUESTS:
+                            if (coaezUtility.getQuestHelper() != null && coaezUtility.getQuestHelper().getSelectedQuest() != null) {
+                                ImGui.Text("  Quest: " + coaezUtility.getQuestHelper().getSelectedQuest().name());
+                            }
+                            break;
+                        case BEACH_EVENT:
+                            if (coaezUtility.getBeachEventTask() != null) {
+                                ImGui.Text("  Activity: " + coaezUtility.getBeachEventTask().getSelectedActivity().getName());
+                            }
+                            break;
+                        case SORCERESS_GARDEN:
+                            if (coaezUtility.getSorceressGardenTask() != null) {
+                                Set<GardenType> gardens = coaezUtility.getSorceressGardenTask().getSelectedGardens();
+                                if (!gardens.isEmpty()) {
+                                    ImGui.Text("  Gardens: " + gardens.stream().map(GardenType::name).collect(Collectors.joining(", ")));
+                                }
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                    
+                    ImGui.PopStyleColor();
+                }
+                
                 ImGui.Separator();
                 
                 if (ImGui.BeginTabBar("MainTabBar", 0)) {
@@ -285,123 +330,140 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         ImGui.Text("Configure and load a preset before starting any activity");
         ImGui.Separator();
 
-        ImGui.Text("Prayer & Crafting Activities");
-        
-        if (ImGui.Button("Start Powder of Burials")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.POWDER_OF_BURIALS);
-        }
-        
-        if (ImGui.Button("Start Sheep Shearing")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.SHEEP_SHEARING);
-        }
-        
-        if (ImGui.Button("Start Gem Crafting")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.GEM_CRAFTING);
-        }
-
-        if (ImGui.Button("Start Fungal Bowstrings")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.FUNGAL_BOWSTRINGS);
-        }
-
-        if (ImGui.Button("Start Soft Clay")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.SOFTCLAY);
-        }
-
-        if (ImGui.Button("Start Limestone")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.LIMESTONE);
-        }
-
-        if (ImGui.Button("Start Limestone Brick")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.LIMESTONE_BRICK);
-        }
-
-        if (ImGui.Button("Start South Feldipe Hills Teleport")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.SOUTH_FELDIPE_HILLS_TELEPORT);
-        }
-
-        if (ImGui.Button("Start Portables")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.PORTABLES);
-        }
-
-        if (ImGui.Button("Start Beer Crafting")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.BEER_CRAFTING);
-        }
-
-/*         if (ImGui.Button("Start Smithing")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.SMITHING);
-        } */
-        
-        ImGui.Separator();
-        
-        ImGui.Text("Archaeology Activities");
-        
-        if (ImGui.Button("Start Soil Sifting (Spell)")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.SIFT_SOIL);
-        }
-        
-        if (ImGui.Button("Start Soil Screening (Mesh)")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.SCREEN_MESH);
-        }
+        // Create a child window for better button alignment
+        if (ImGui.BeginChild("ActivitiesChild", 0, 0, true, 0)) {
+            
+            // Setup table with 3 columns
+            if (ImGui.BeginTable("ActivitiesTable", 3, 0)) {
+                ImGui.TableSetupColumn("Prayer & Crafting", 0);
+                ImGui.TableSetupColumn("Archaeology & Combat", 0);
+                ImGui.TableSetupColumn("Training & Misc", 0);
+                ImGui.TableHeadersRow();
                 
-        ImGui.SeparatorText("Combat Activities");
-        
-        if (ImGui.Button("Start Attack/Deploy Pinata")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.SUMMER_PINATA);
-        }
-
-        ImGui.SeparatorText("Minigames & D&Ds");
-/*         if (ImGui.Button("Start Penguin Tracking")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.PENGUIN_TRACKING);
-        } */
-        
-        ImGui.SeparatorText("Navigation");
-        if (ImGui.Button("Start Map Navigator")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.MAP_NAVIGATOR);
-        }
-        
-        ImGui.SeparatorText("Training");
-        if (ImGui.Button("Start Deploy Dummy")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.DEPLOY_DUMMY);
-        }
-        
-        ImGui.SeparatorText("Invention");
-        if (ImGui.Button("Start invention")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.INVENTION);
-        }
-
-        ImGui.SeparatorText("Enchanting bolts");
-        if (ImGui.Button("Start enchanting")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.ENCHANTING);
-        }
-
-        ImGui.SeparatorText("Quest Helper");
-        if (ImGui.Button("Start Quest Helper")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.QUESTS);
-            if (coaezUtility.getQuestHelper() != null) {
-                coaezUtility.getQuestHelper().initializeQuestDisplay();
+                // Row 1
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Powder of Burials")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.POWDER_OF_BURIALS);
+                }
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Soil Sifting (Spell)")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.SIFT_SOIL);
+                }
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Deploy Dummy")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.DEPLOY_DUMMY);
+                }
+                
+                // Row 2
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Sheep Shearing")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.SHEEP_SHEARING);
+                }
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Soil Screening (Mesh)")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.SCREEN_MESH);
+                }
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Invention")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.INVENTION);
+                }
+                
+                // Row 3
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Gem Crafting")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.GEM_CRAFTING);
+                }
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Attack/Deploy Pinata")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.SUMMER_PINATA);
+                }
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Enchanting")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.ENCHANTING);
+                }
+                
+                // Row 4
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Fungal Bowstrings")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.FUNGAL_BOWSTRINGS);
+                }
+                ImGui.TableNextColumn();
+                // Empty cell
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Sandy Clues")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.SANDY_CLUES);
+                }
+                
+                // Row 5
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Soft Clay")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.SOFTCLAY);
+                }
+                ImGui.TableNextColumn();
+                // Empty cell
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start NPC Logger")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.NPC_LOGGER);
+                }
+                
+                // Row 6
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Limestone")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.LIMESTONE);
+                }
+                ImGui.TableNextColumn();
+                // Empty cell
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Winter Sq'irkjuice")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.WINTER_SQIRKJUICE);
+                }
+                
+                // Row 7
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Limestone Brick")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.LIMESTONE_BRICK);
+                }
+                ImGui.TableNextColumn();
+                // Empty cell
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Turn In Sq'irkjuice")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.TURN_IN_SQIRKJUICE);
+                }
+                
+                // Row 8
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Teleport to Camelot")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.SOUTH_FELDIPE_HILLS_TELEPORT);
+                }
+                ImGui.TableNextColumn();
+                // Empty cell
+                ImGui.TableNextColumn();
+                // Empty cell
+                
+                // Row 9
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Beer Crafting")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.BEER_CRAFTING);
+                }
+                ImGui.TableNextColumn();
+                // Empty cell
+                ImGui.TableNextColumn();
+                // Empty cell
+                
+                ImGui.EndTable();
             }
+            
+            ImGui.EndChild();
         }
-
-        ImGui.SeparatorText("Beach Event");
-        if (ImGui.Button("Start Sandy Clues")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.SANDY_CLUES);
-        }
-        
-        ImGui.SeparatorText("Debug Tools");
-        if (ImGui.Button("Start NPC Logger")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.NPC_LOGGER);
-        }
-
-        if (ImGui.Button("Start Winter Sq'irkjuice")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.WINTER_SQIRKJUICE);
-        }
-        
-        if (ImGui.Button("Turn In Sq'irkjuice")) {
-            coaezUtility.setBotState(CoaezUtility.BotState.TURN_IN_SQIRKJUICE);
-        }
-        
-        ImGui.Separator();
-    
     }
     
     private void renderAlchemyTab() {
@@ -438,9 +500,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         alchemyInput = ImGui.InputText("Item Name##Alch", alchemyInput);
         if (ImGui.Button("Add##Alch") && !alchemyInput.isEmpty() && coaezUtility.getAlchemy() != null) {
             coaezUtility.getAlchemy().addAlchemyItem(alchemyInput);
-            preloadedAlchemyItems.add(alchemyInput); // Consider if this is still needed
+            preloadedAlchemyItems.add(alchemyInput);
             alchemyInput = "";
         }
+        
+        ImGui.Separator();
+        
     }
     
     private void renderDisassemblyTab() {
@@ -478,6 +543,28 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (ImGui.Button("Add##Disassembly") && !disassemblyInput.isEmpty() && coaezUtility.getDisassembly() != null) {
             coaezUtility.getDisassembly().addDisassemblyItem(disassemblyInput);
             disassemblyInput = "";
+        }
+        
+        ImGui.Separator();
+        
+        // Quick preset buttons for common disassembly items
+        ImGui.Text("Quick Presets:");
+        if (ImGui.Button("Add Magic Shortbow")) {
+            if (coaezUtility.getDisassembly() != null) {
+                coaezUtility.getDisassembly().addDisassemblyItem("Magic shortbow");
+            }
+        }
+        ImGui.SameLine();
+        if (ImGui.Button("Add Black D'hide Body")) {
+            if (coaezUtility.getDisassembly() != null) {
+                coaezUtility.getDisassembly().addDisassemblyItem("Black d'hide body");
+            }
+        }
+        ImGui.SameLine();
+        if (ImGui.Button("Add Rune Full Helm")) {
+            if (coaezUtility.getDisassembly() != null) {
+                coaezUtility.getDisassembly().addDisassemblyItem("Rune full helm");
+            }
         }
     }
     
@@ -724,38 +811,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             ImGui.Text("Portable selected, but no active portable task found or task is of wrong type.");
         }
 
-        if (ImGui.Button("Start Current Portable Task")) {
-            if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() != null &&
-                (portableTypes[selectedPortableTypeIndex] != PortableType.WORKBENCH && 
-                 portableTypes[selectedPortableTypeIndex] != PortableType.CRAFTER && 
-                 portableTypes[selectedPortableTypeIndex] != PortableType.SAWMILL)) { // Non-configurable portables
-                coaezUtility.setBotState(CoaezUtility.BotState.PORTABLES);
-                saveConfig();
-            } else if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() != null && 
-                       (portableTypes[selectedPortableTypeIndex] == PortableType.WORKBENCH || 
-                        portableTypes[selectedPortableTypeIndex] == PortableType.CRAFTER || 
-                        portableTypes[selectedPortableTypeIndex] == PortableType.SAWMILL)) {
-                // Check if product/plank is selected for configurable portables
-                boolean canStart = false;
-                Portable currentPortable = coaezUtility.getPortableTask().getActivePortable();
-                if (currentPortable instanceof PortableWorkbench && ((PortableWorkbench) currentPortable).getSelectedProduct() != null) {
-                    canStart = true;
-                } else if (currentPortable instanceof PortableCrafter && ((PortableCrafter) currentPortable).getSelectedProduct() != null) {
-                    canStart = true;
-                } else if (currentPortable instanceof PortableSawmill && ((PortableSawmill) currentPortable).getSelectedPlank() != null) {
-                    canStart = true;
-                }
 
-                if (canStart) {
-                    coaezUtility.setBotState(CoaezUtility.BotState.PORTABLES);
-                    saveConfig();
-                } else {
-                    // ScriptConsole.println("[GUI] Cannot start Portables: No product/plank selected for the current portable type.");
-                }
-            } else {
-                // ScriptConsole.println("[GUI] Cannot start Portables: No active portable or no product/plank selected.");
-            }
-        }
 
         if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() != null) {
             Portable currentPortable = coaezUtility.getPortableTask().getActivePortable();
@@ -807,6 +863,20 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
 
         } else {
             ImGui.Text("Active Portable: None");
+        }
+
+        ImGui.Separator();
+        
+        // Start/Stop Portables button
+        String portablesButtonText = (coaezUtility.getBotState() == CoaezUtility.BotState.PORTABLES) ? 
+            "Stop Portables" : "Start Portables";
+        if (ImGui.Button(portablesButtonText)) {
+            if (coaezUtility.getBotState() == CoaezUtility.BotState.PORTABLES) {
+                coaezUtility.setBotState(CoaezUtility.BotState.IDLE);
+            } else if (coaezUtility.getPortableTask() != null && coaezUtility.getPortableTask().getActivePortable() != null) {
+                coaezUtility.setBotState(CoaezUtility.BotState.PORTABLES);
+                saveConfig();
+            }
         }
     }
 
@@ -990,6 +1060,22 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             }
         } else {
             ImGui.Text("No quest selected.");
+        }
+        
+        ImGui.Separator();
+        
+        // Start/Stop Quest Helper button
+        String questButtonText = (coaezUtility.getBotState() == CoaezUtility.BotState.QUESTS) ? 
+            "Stop Quest Helper" : "Start Quest Helper";
+        if (ImGui.Button(questButtonText)) {
+            if (coaezUtility.getBotState() == CoaezUtility.BotState.QUESTS) {
+                coaezUtility.setBotState(CoaezUtility.BotState.IDLE);
+            } else {
+                coaezUtility.setBotState(CoaezUtility.BotState.QUESTS);
+                if (coaezUtility.getQuestHelper() != null) {
+                    coaezUtility.getQuestHelper().initializeQuestDisplay();
+                }
+            }
         }
     }
 
@@ -2234,6 +2320,19 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         if (ImGui.Button("Navigate to Location")) {
                             mapTask.navigateToLocation(selectedLocationName);
                             coaezUtility.setBotState(CoaezUtility.BotState.MAP_NAVIGATOR);
+                        }
+                        
+                        ImGui.SameLine();
+                        
+                        // Start/Stop Map Navigator button
+                        String mapButtonText = (coaezUtility.getBotState() == CoaezUtility.BotState.MAP_NAVIGATOR) ? 
+                            "Stop Map Navigator" : "Start Map Navigator";
+                        if (ImGui.Button(mapButtonText)) {
+                            if (coaezUtility.getBotState() == CoaezUtility.BotState.MAP_NAVIGATOR) {
+                                coaezUtility.setBotState(CoaezUtility.BotState.IDLE);
+                            } else {
+                                coaezUtility.setBotState(CoaezUtility.BotState.MAP_NAVIGATOR);
+                            }
                         }
                     }
                 }

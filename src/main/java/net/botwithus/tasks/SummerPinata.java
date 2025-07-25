@@ -2,24 +2,17 @@ package net.botwithus.tasks;
 
 import net.botwithus.CoaezUtility;
 import net.botwithus.rs3.game.Client;
-import net.botwithus.rs3.game.Item;
-import net.botwithus.rs3.game.actionbar.ActionBar;
-import net.botwithus.rs3.game.hud.interfaces.Component;
+import net.botwithus.rs3.game.Distance;
 import net.botwithus.rs3.game.inventories.Backpack;
 import net.botwithus.rs3.game.minimenu.MiniMenu;
 import net.botwithus.rs3.game.minimenu.actions.ComponentAction;
 import net.botwithus.rs3.game.queries.builders.characters.NpcQuery;
-import net.botwithus.rs3.game.queries.builders.components.ComponentQuery;
 import net.botwithus.rs3.game.queries.results.EntityResultSet;
-import net.botwithus.rs3.game.queries.results.ResultSet;
 import net.botwithus.rs3.game.scene.entities.characters.PathingEntity;
 import net.botwithus.rs3.game.scene.entities.characters.npc.Npc;
 import net.botwithus.rs3.game.scene.entities.characters.player.LocalPlayer;
 import net.botwithus.rs3.script.Execution;
 import net.botwithus.rs3.script.ScriptConsole;
-
-import java.util.List;
-import java.util.regex.Pattern;
 
 public class SummerPinata implements Task {
     private final CoaezUtility script;
@@ -56,7 +49,8 @@ public class SummerPinata implements Task {
             .option("Attack")
             .results();
         if (!results.isEmpty()) {
-            Npc targetNpc = results.first();
+            Npc targetNpc = results.nearestTo(player);
+            if (targetNpc != null && Distance.between(player, targetNpc) < 2) {
             ScriptConsole.println("[SummerPinataTask] Found NPC to attack: " + targetNpc.getName());
 
             if (targetNpc.interact("Attack")) {
@@ -86,3 +80,4 @@ public class SummerPinata implements Task {
 
         }
     }
+}
