@@ -23,6 +23,7 @@ import net.botwithus.tasks.Task;
 import net.botwithus.tasks.sorceressgarden.gardens.AutumnGarden;
 import net.botwithus.tasks.sorceressgarden.gardens.BaseGarden;
 import net.botwithus.tasks.sorceressgarden.gardens.SpringGarden;
+import net.botwithus.tasks.sorceressgarden.gardens.SummerGarden;
 import net.botwithus.tasks.sorceressgarden.gardens.WinterGarden;
 import net.botwithus.tasks.sorceressgarden.models.GardenType;
 
@@ -41,6 +42,7 @@ public class SorceressGardenTask implements Task {
     private static final Area WINTER_GARDEN_AREA = new Area.Rectangular(new Coordinate(2886, 5487, 0), new Coordinate(2903, 5464, 0));
     private static final Area SPRING_GARDEN_AREA = new Area.Rectangular(new Coordinate(2920, 5479, 0), new Coordinate(2937, 5456, 0));
     private static final Area AUTUMN_GARDEN_AREA = new Area.Rectangular(new Coordinate(2896, 5463, 0), new Coordinate(2919, 5446, 0));
+    private static final Area SUMMER_GARDEN_AREA = new Area.Rectangular(new Coordinate(2904, 5497, 0), new Coordinate(2927, 5480, 0));
     private static final Area ALKHARID_BANK_AREA = new Area.Rectangular(new Coordinate(3302, 3125, 0), new Coordinate(3309, 3118, 0));
     private static final Area APPRENTICE_AREA = new Area.Rectangular(new Coordinate(3318, 3141, 0), new Coordinate(3324, 3137, 0));
     
@@ -55,7 +57,7 @@ public class SorceressGardenTask implements Task {
         gardenManager.registerGarden(new WinterGarden(script));
         gardenManager.registerGarden(new SpringGarden(script));
         gardenManager.registerGarden(new AutumnGarden(script));
-        // gardenManager.registerGarden(new SummerGarden(script));
+        gardenManager.registerGarden(new SummerGarden(script));
 
     }
     
@@ -76,7 +78,7 @@ public class SorceressGardenTask implements Task {
             }
 
             ScriptConsole.println("Checking if we're in Sorceress's Garden central area or the garden itself...");
-            if (!isInSorceressGarden() && (!isInWinterGarden() && !isInSpringGarden() && !isInAutumnGarden())) {
+            if (!isInSorceressGarden() && (!isInWinterGarden() && !isInSpringGarden() && !isInAutumnGarden() && !isInSummerGarden())) {
                 ScriptConsole.println("Not in Sorceress's Garden central area or gardens, teleporting...");
                 teleportToGarden();
                 return;
@@ -145,12 +147,26 @@ public class SorceressGardenTask implements Task {
         
         return inAutumnGarden;
     }
+
+    private boolean isInSummerGarden() {
+        LocalPlayer player = Client.getLocalPlayer();
+        if (player == null) {
+            ScriptConsole.println("Player is null, cannot check location");
+            return false;
+        }
+
+        boolean inSummerGarden = SUMMER_GARDEN_AREA.contains(player.getCoordinate());
+        ScriptConsole.println("Player position: " + player.getCoordinate() + ", In summer garden area: " + inSummerGarden);
+        
+        return inSummerGarden;
+    }
     
     /**
      * Teleport to the Sorceress's Garden (via apprentice only)
      */
     private void teleportToGarden() {
         ScriptConsole.println("Teleporting to Sorceress's Garden");
+        
         if(Backpack.contains("Broomstick")) {
             ScriptConsole.println("Using broomstick to teleport to Sorceress's Garden");
             Backpack.interact("Broomstick", "Teleport");
