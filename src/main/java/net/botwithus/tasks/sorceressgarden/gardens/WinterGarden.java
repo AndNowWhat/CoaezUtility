@@ -205,6 +205,7 @@ public class WinterGarden extends BaseGarden {
     /**
      * Get the door ID for this garden
      */
+    @Override
     public int getDoorId() {
         return WINTER_DOOR_ID;
     }
@@ -212,6 +213,7 @@ public class WinterGarden extends BaseGarden {
     /**
      * Get the start position for this garden
      */
+    @Override
     public Coordinate getStartPosition() {
         return WINTER_START;
     }
@@ -219,6 +221,7 @@ public class WinterGarden extends BaseGarden {
     /**
      * Get the tree position for this garden
      */
+    @Override
     public Coordinate getTreePosition() {
         return WINTER_TREE;
     }
@@ -226,6 +229,7 @@ public class WinterGarden extends BaseGarden {
     /**
      * Get the guardian IDs for this garden
      */
+    @Override
     public List<Integer> getGuardianIds() {
         return Arrays.stream(WINTER_GUARDIAN_IDS).boxed().toList();
     }
@@ -237,23 +241,14 @@ public class WinterGarden extends BaseGarden {
         ScriptConsole.println("Waiting for guardians to meet requirements for waypoint " + waypointIndex);
         GuardianRequirement[] guardianRequirements;
         switch (waypointIndex) {
-            case 1:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_1;
-                break;
-            case 2:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_2;
-                break;
-            case 3:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_3;
-                break;
-            case 4:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_4;
-                break;
-            case 5:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_5;
-                break;
-            default:
+            case 1 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_1;
+            case 2 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_2;
+            case 3 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_3;
+            case 4 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_4;
+            case 5 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_5;
+            default -> {
                 return true;
+            }
         }
         List<GuardianRequirement> guardianRequirementList = Arrays.asList(guardianRequirements);
         ScriptConsole.println("Waiting for " + guardianRequirementList.size() + " guardian requirements:");
@@ -290,23 +285,14 @@ public class WinterGarden extends BaseGarden {
     public int getGuardianCountForWaypoint(int waypointIndex) {
         GuardianRequirement[] guardianRequirements;
         switch (waypointIndex) {
-            case 1:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_1;
-                break;
-            case 2:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_2;
-                break;
-            case 3:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_3;
-                break;
-            case 4:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_4;
-                break;
-            case 5:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_5;
-                break;
-            default:
+            case 1 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_1;
+            case 2 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_2;
+            case 3 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_3;
+            case 4 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_4;
+            case 5 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_5;
+            default -> {
                 return 0;
+            }
         }
         return guardianRequirements.length;
     }
@@ -317,23 +303,14 @@ public class WinterGarden extends BaseGarden {
     public List<GuardianRequirement> getGuardianRequirementsForWaypoint(int waypointIndex) {
         GuardianRequirement[] guardianRequirements;
         switch (waypointIndex) {
-            case 1:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_1;
-                break;
-            case 2:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_2;
-                break;
-            case 3:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_3;
-                break;
-            case 4:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_4;
-                break;
-            case 5:
-                guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_5;
-                break;
-            default:
+            case 1 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_1;
+            case 2 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_2;
+            case 3 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_3;
+            case 4 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_4;
+            case 5 -> guardianRequirements = GUARDIAN_REQUIREMENTS_WAYPOINT_5;
+            default -> {
                 return new ArrayList<>();
+            }
         }
         return Arrays.asList(guardianRequirements);
     }

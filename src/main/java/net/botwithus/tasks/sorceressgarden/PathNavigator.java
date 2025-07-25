@@ -41,29 +41,36 @@ public class PathNavigator {
         }
         
         ScriptConsole.println("Moving to waypoint: " + waypoint.getDescription() + " at " + targetPosition);
-        return moveToPosition(targetPosition);
+        return moveToPosition(targetPosition, gardenArea);
     }
     
     /**
      * Move to a specific position
      */
-    public boolean moveToPosition(Coordinate targetPosition) {
+    public boolean moveToPosition(Coordinate targetPosition, Area gardenArea) {
         if (targetPosition == null) return false;
         
         LocalPlayer player = Client.getLocalPlayer();
         if (player == null) return false;
         
-        return walkToPosition(targetPosition);
+        return walkToPosition(targetPosition, gardenArea);
     }
     
     /**
      * Walk to a position using standard movement
      */
-    private boolean walkToPosition(Coordinate targetPosition) {
+    private boolean walkToPosition(Coordinate targetPosition, Area gardenArea) {
         LocalPlayer player = Client.getLocalPlayer();
         if (player == null) return false;
         Movement.walkTo(targetPosition.getX(), targetPosition.getY(), false);
-        Execution.delayUntil(5000,() -> Client.getLocalPlayer().getCoordinate().equals(targetPosition));
+        Execution.delayUntil(
+            () -> Client.getLocalPlayer().getCoordinate().equals(targetPosition),
+            () -> {
+                guardianTracker.updateGuardianPositions(gardenArea);
+                return false;
+            },
+            5000
+        );
         return true;
     }
     

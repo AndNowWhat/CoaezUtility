@@ -76,43 +76,40 @@ public abstract class BaseGarden {
         }
         try {
             switch (currentState) {
-                case IDLE:
-                    currentState = GardenState.ENTERING;
-                    break;
+                case IDLE -> currentState = GardenState.ENTERING;
                     
-                case ENTERING:
+                case ENTERING -> {
                     if (enterGarden()) {
                         currentState = GardenState.NAVIGATING;
                         ScriptConsole.println("Successfully entered " + gardenType.getDisplayName());
                     }
-                    break;
+                }
                     
-                case NAVIGATING:
+                case NAVIGATING -> {
                     if (navigateToTree()) {
                         currentState = GardenState.HARVESTING;
                         ScriptConsole.println("Reached tree in " + gardenType.getDisplayName());
                     }
-                    break;
+                }
                     
-                case HARVESTING:
+                case HARVESTING -> {
                     if (harvestFruit()) {
                         currentState = GardenState.RETURNING;
                         ScriptConsole.println("Harvested fruit from " + gardenType.getDisplayName());
                     }
-                    break;
+                }
                     
-                case RETURNING:
+                case RETURNING -> {
                     if (returnToCenter()) {
                         currentState = GardenState.COMPLETED;
                         isCompleted = true;
                         lastCompletionTime = System.currentTimeMillis();
                         ScriptConsole.println("Completed " + gardenType.getDisplayName());
                     }
-                    break;
+                }
                     
-                case COMPLETED:
-                case FAILED:
-                    break;
+                case COMPLETED, FAILED -> {
+                }
             }
         } catch (Exception e) {
             ScriptConsole.println("Error in " + gardenType.getDisplayName() + ": " + e.getMessage());

@@ -177,6 +177,22 @@ public class GuardianRequirement {
     }
     
     /**
+     * Create a position-only requirement (guardian must be at this coordinate, any direction)
+     */
+    public GuardianRequirement(int guardianId, Coordinate position) {
+        this.guardianId = guardianId;
+        this.type = RequirementType.EXACT_POSITION;
+        this.exactPosition = position;
+        this.exactDirection = null;
+        this.avoidPositions = new ArrayList<>();
+        this.validPositions = new ArrayList<>();
+        this.tolerance = 1.0;
+        this.minDistance = null;
+        this.movingDirection = null;
+        this.isAvoidDirection = false;
+    }
+    
+    /**
      * Private constructor for avoid positions with Coordinate list
      */
     private GuardianRequirement(int guardianId, List<Coordinate> avoidPositions, double tolerance, boolean isAvoidPositions) {

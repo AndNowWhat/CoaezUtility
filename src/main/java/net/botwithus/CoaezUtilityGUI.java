@@ -2276,17 +2276,17 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 if (coaezUtility.getSorceressGardenTask() != null) coaezUtility.getSorceressGardenTask().setSelectedGardens(newSet);
                 saveConfig();
             }
-            boolean newSummerSelected = ImGui.Checkbox("Summer Garden (Level 65 Thieving)", summerSelected);
-            if (newSummerSelected != summerSelected) {
-                Set<GardenType> newSet = new HashSet<>(selectedGardens);
-                if (newSummerSelected) newSet.add(GardenType.SUMMER); else newSet.remove(GardenType.SUMMER);
-                if (coaezUtility.getSorceressGardenTask() != null) coaezUtility.getSorceressGardenTask().setSelectedGardens(newSet);
-                saveConfig();
-            }
             boolean newAutumnSelected = ImGui.Checkbox("Autumn Garden (Level 45 Thieving)", autumnSelected);
             if (newAutumnSelected != autumnSelected) {
                 Set<GardenType> newSet = new HashSet<>(selectedGardens);
                 if (newAutumnSelected) newSet.add(GardenType.AUTUMN); else newSet.remove(GardenType.AUTUMN);
+                if (coaezUtility.getSorceressGardenTask() != null) coaezUtility.getSorceressGardenTask().setSelectedGardens(newSet);
+                saveConfig();
+            }
+            boolean newSummerSelected = ImGui.Checkbox("Summer Garden (Level 65 Thieving)", summerSelected);
+            if (newSummerSelected != summerSelected) {
+                Set<GardenType> newSet = new HashSet<>(selectedGardens);
+                if (newSummerSelected) newSet.add(GardenType.SUMMER); else newSet.remove(GardenType.SUMMER);
                 if (coaezUtility.getSorceressGardenTask() != null) coaezUtility.getSorceressGardenTask().setSelectedGardens(newSet);
                 saveConfig();
             }

@@ -187,18 +187,22 @@ public class SpringGarden extends BaseGarden {
         return true;
     }
 
+    @Override
     public int getDoorId() {
         return SPRING_DOOR_ID;
     }
 
+    @Override
     public Coordinate getStartPosition() {
         return SPRING_START;
     }
 
+    @Override
     public Coordinate getTreePosition() {
         return SPRING_TREE;
     }
 
+    @Override
     public List<Integer> getGuardianIds() {
         return Arrays.stream(SPRING_GUARDIAN_IDS).boxed().toList();
     }
