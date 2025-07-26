@@ -1,22 +1,28 @@
 package net.botwithus.tasks;
 
-import net.botwithus.CoaezUtility;
-import net.botwithus.api.game.hud.inventories.Bank;
-import net.botwithus.rs3.game.hud.interfaces.Component;
-import net.botwithus.rs3.game.Item;
-import net.botwithus.rs3.game.queries.builders.components.ComponentQuery;
-import net.botwithus.rs3.script.Execution;
-
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.regex.Pattern;
 
+import net.botwithus.CoaezUtility;
+import net.botwithus.api.game.hud.inventories.Bank;
+import net.botwithus.rs3.game.Item;
 import net.botwithus.rs3.game.actionbar.ActionBar;
+import net.botwithus.rs3.game.hud.interfaces.Component;
+import net.botwithus.rs3.game.queries.builders.components.ComponentQuery;
+import net.botwithus.rs3.script.Execution;
 
 public class PowderOfBurialsTask implements Task {
     private final CoaezUtility script;
     private static final int BURIAL_POWDER_SPRITE_ID = 52805;
+    
+    // Cache for bone and ash components
+    private Map<String, Component> boneComponentCache = new HashMap<>();
+    private Map<String, Component> ashComponentCache = new HashMap<>();
+    private boolean cacheInitialized = false;
     
     private static final List<String> BONE_NAMES = Arrays.asList(
             "Bones", "Wolf bones", "Burnt bones", "Monkey bones", "Bat bones",
@@ -85,19 +91,49 @@ public class PowderOfBurialsTask implements Task {
         return false;
     }
     
-    private boolean hasBonesToBury() {
-        // Check for bones
+    /**
+     * Initializes the component cache for bones and ashes (only once)
+     */
+    private void initializeComponentCache() {
+        if (cacheInitialized) {
+            return; // Cache already initialized
+        }
+        
+        // Cache bone components
         for (String itemName : BONE_NAMES) {
             Component itemComponent = ComponentQuery.newQuery(1473).componentIndex(5).itemName(itemName).results().first();
+            if (itemComponent != null) {
+                boneComponentCache.put(itemName, itemComponent);
+            }
+        }
+        
+        // Cache ash components
+        for (String ashName : ASH_NAMES) {
+            Component itemComponent = ComponentQuery.newQuery(1473).componentIndex(5).itemName(ashName).results().first();
+            if (itemComponent != null) {
+                ashComponentCache.put(ashName, itemComponent);
+            }
+        }
+        
+        cacheInitialized = true;
+    }
+    
+    private boolean hasBonesToBury() {
+        // Initialize cache if needed
+        initializeComponentCache();
+        
+        // Check cached bone components
+        for (String itemName : BONE_NAMES) {
+            Component itemComponent = boneComponentCache.get(itemName);
             if (itemComponent != null) {
                 Execution.delay(script.getRandom().nextInt(100, 300));
                 return true;
             }
         }
         
-        // Check for ashes
+        // Check cached ash components
         for (String ashName : ASH_NAMES) {
-            Component itemComponent = ComponentQuery.newQuery(1473).componentIndex(5).itemName(ashName).results().first();
+            Component itemComponent = ashComponentCache.get(ashName);
             if (itemComponent != null) {
                 Execution.delay(script.getRandom().nextInt(100, 300));
                 return true;
