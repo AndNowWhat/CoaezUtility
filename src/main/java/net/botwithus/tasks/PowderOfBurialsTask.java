@@ -10,7 +10,6 @@ import java.util.regex.Pattern;
 import net.botwithus.CoaezUtility;
 import net.botwithus.api.game.hud.inventories.Bank;
 import net.botwithus.rs3.game.Item;
-import net.botwithus.rs3.game.actionbar.ActionBar;
 import net.botwithus.rs3.game.hud.interfaces.Component;
 import net.botwithus.rs3.game.queries.builders.components.ComponentQuery;
 import net.botwithus.rs3.script.Execution;
@@ -19,9 +18,8 @@ public class PowderOfBurialsTask implements Task {
     private final CoaezUtility script;
     private static final int BURIAL_POWDER_SPRITE_ID = 52805;
     
-    // Cache for bone and ash components
-    private Map<String, Component> boneComponentCache = new HashMap<>();
-    private Map<String, Component> ashComponentCache = new HashMap<>();
+    private Map<String, Component> boneActionBarCache = new HashMap<>();
+    private Map<String, Component> ashActionBarCache = new HashMap<>();
     private boolean cacheInitialized = false;
     
     private static final List<String> BONE_NAMES = Arrays.asList(
@@ -92,26 +90,26 @@ public class PowderOfBurialsTask implements Task {
     }
     
     /**
-     * Initializes the component cache for bones and ashes (only once)
+     * Initializes the ActionBar component cache for bones and ashes (only once)
      */
     private void initializeComponentCache() {
         if (cacheInitialized) {
             return; // Cache already initialized
         }
         
-        // Cache bone components
+        // Cache bone ActionBar components
         for (String itemName : BONE_NAMES) {
-            Component itemComponent = ComponentQuery.newQuery(1473).componentIndex(5).itemName(itemName).results().first();
-            if (itemComponent != null) {
-                boneComponentCache.put(itemName, itemComponent);
+            Component actionBarComponent = ComponentQuery.newQuery(1473).componentIndex(5).itemName(itemName).results().first();
+            if (actionBarComponent != null) {
+                boneActionBarCache.put(itemName, actionBarComponent);
             }
         }
         
-        // Cache ash components
+        // Cache ash ActionBar components
         for (String ashName : ASH_NAMES) {
-            Component itemComponent = ComponentQuery.newQuery(1473).componentIndex(5).itemName(ashName).results().first();
-            if (itemComponent != null) {
-                ashComponentCache.put(ashName, itemComponent);
+            Component actionBarComponent = ComponentQuery.newQuery(1473).componentIndex(5).itemName(ashName).results().first();
+            if (actionBarComponent != null) {
+                ashActionBarCache.put(ashName, actionBarComponent);
             }
         }
         
@@ -124,7 +122,7 @@ public class PowderOfBurialsTask implements Task {
         
         // Check cached bone components
         for (String itemName : BONE_NAMES) {
-            Component itemComponent = boneComponentCache.get(itemName);
+            Component itemComponent = boneActionBarCache.get(itemName);
             if (itemComponent != null) {
                 Execution.delay(script.getRandom().nextInt(100, 300));
                 return true;
@@ -133,7 +131,7 @@ public class PowderOfBurialsTask implements Task {
         
         // Check cached ash components
         for (String ashName : ASH_NAMES) {
-            Component itemComponent = ashComponentCache.get(ashName);
+            Component itemComponent = ashActionBarCache.get(ashName);
             if (itemComponent != null) {
                 Execution.delay(script.getRandom().nextInt(100, 300));
                 return true;
@@ -152,16 +150,22 @@ public class PowderOfBurialsTask implements Task {
             boolean ashSuccess = false;
             
             for (String itemName : BONE_NAMES) {
-                boneSuccess = ActionBar.useItem(itemName, 1);
-                if (boneSuccess) {
-                    break;
+                Component boneComponent = boneActionBarCache.get(itemName);
+                if (boneComponent != null) {
+                    boneSuccess = boneComponent.interact("Bury");
+                    if (boneSuccess) {
+                        break;
+                    }
                 }
             }
             
             for (String ashName : ASH_NAMES) {
-                ashSuccess = ActionBar.useItem(ashName, 1);
-                if (ashSuccess) {
-                    break;
+                Component ashComponent = ashActionBarCache.get(ashName);
+                if (ashComponent != null) {
+                    ashSuccess = ashComponent.interact("Scatter");
+                    if (ashSuccess) {
+                        break;
+                    }
                 }
             }
             
