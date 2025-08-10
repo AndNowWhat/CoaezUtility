@@ -16,6 +16,7 @@ import net.botwithus.rs3.script.config.ScriptConfig;
 import net.botwithus.tasks.AlchemyTask;
 import net.botwithus.tasks.BeachEventTask;
 import net.botwithus.tasks.BeerCraftingTask;
+import net.botwithus.tasks.ClayUrnTask;
 import net.botwithus.tasks.CreateSqirkJuiceTask;
 import net.botwithus.tasks.DeployDummyTask;
 import net.botwithus.tasks.DisassemblyTask;
@@ -86,6 +87,7 @@ public class CoaezUtility extends LoopingScript {
     private final BeerCraftingTask beerCraftingTask;
     private final CreateSqirkJuiceTask winterSqirkjuiceTask;
     private final TurnInSqirkjuiceTask turnInSqirkjuiceTask;
+    private final ClayUrnTask clayUrnTask;
     // GUI reference
     private CoaezUtilityGUI gui;
     private final NPCLoggerTask npcLoggerTask;
@@ -121,7 +123,8 @@ public class CoaezUtility extends LoopingScript {
         STOPPED,
         BEER_CRAFTING,
         WINTER_SQIRKJUICE,
-        TURN_IN_SQIRKJUICE
+        TURN_IN_SQIRKJUICE,
+        CLAY_URN
     }
 
     public CoaezUtility(String s, ScriptConfig scriptConfig, ScriptDefinition scriptDefinition) {
@@ -162,6 +165,7 @@ public class CoaezUtility extends LoopingScript {
         this.beerCraftingTask = new BeerCraftingTask(this);
         this.winterSqirkjuiceTask = new CreateSqirkJuiceTask(this);
         this.turnInSqirkjuiceTask = new TurnInSqirkjuiceTask(this);
+        this.clayUrnTask = new ClayUrnTask(this);
         this.npcLoggerTask = new NPCLoggerTask(this);
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
@@ -351,6 +355,10 @@ public class CoaezUtility extends LoopingScript {
                     ScriptConsole.println("Executing Turn In Sq'irkjuice task");
                     turnInSqirkjuiceTask.execute();
                 }
+                case CLAY_URN -> {
+                    ScriptConsole.println("Executing Clay Urn task");
+                    clayUrnTask.execute();
+                }
                 case STOPPED -> stopScript();
                 default -> ScriptConsole.println("Unknown bot state: " + botState);
             }
@@ -468,6 +476,9 @@ public class CoaezUtility extends LoopingScript {
         return turnInSqirkjuiceTask;
     }
 
+    public ClayUrnTask getClayUrnTask() {
+        return clayUrnTask;
+    }
 
     /* public SmithingTask getSmithingTask() {
         return smithingTask;

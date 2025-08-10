@@ -19,6 +19,9 @@ import net.botwithus.rs3.script.ScriptGraphicsContext;
 import net.botwithus.rs3.script.config.ScriptConfig;
 import net.botwithus.tasks.BeachActivity;
 import net.botwithus.tasks.BeachEventTask;
+import net.botwithus.tasks.ClayUrnTask;
+import net.botwithus.tasks.ClayUrnTask.UrnCategory;
+import net.botwithus.tasks.ClayUrnTask.UrnType;
 import net.botwithus.tasks.Ingredient;
 import net.botwithus.tasks.MapNavigatorTask;
 import net.botwithus.tasks.Portable;
@@ -69,6 +72,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     // Sawmill specific state
     private int selectedSawmillPlankIndex = 0;
     private final SawmillPlank[] sawmillPlanks = SawmillPlank.values();
+
+    // Clay Urn specific state
+    private int selectedUrnCategoryIndex = 0;
+    private int selectedUrnTypeIndex = 0;
+    private UrnCategory[] urnCategories = new UrnCategory[0];
+    private UrnType[] currentUrnTypes = new UrnType[0];
 
     // Window dimensions
     private final int LISTBOX_HEIGHT = 150;
@@ -146,11 +155,11 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     this.currentGroupIds = wbInstance.getGroupEnumIds();
                     if (this.currentGroupIds != null && !this.currentGroupIds.isEmpty()) {
                         this.currentGroupNames = this.currentGroupIds.stream()
-                                                           .map(wbInstance::getGroupName)
-                                                           .collect(Collectors.toList());
+                                                               .map(wbInstance::getGroupName)
+                                                               .collect(Collectors.toList());
                         // selectedGroupIndex would have been set by loadConfig or defaults to 0
                         if(selectedGroupIndex >= this.currentGroupIds.size()) selectedGroupIndex = 0;
-
+                        
                         // Update product list for the current group
                         int activeGroupId = this.currentGroupIds.get(selectedGroupIndex);
                         this.currentWorkbenchProducts = wbInstance.getProductsForGroup(activeGroupId);
@@ -187,6 +196,9 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 selectedGroupIndex = 0;
                 selectedWorkbenchProductIndex = 0;
             }
+            
+            // Initialize urn data
+            initializeUrnData();
         } else {
              // ScriptConsole.println("[CoaezUtilityGUI] CRITICAL: CoaezUtility instance is null in GUI constructor.");
         }
@@ -298,6 +310,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     }
                     if (ImGui.BeginTabItem("Sorceress Garden", 0)) {
                         renderSorceressGardenTab();
+                        ImGui.EndTabItem();
+                    }
+                    if (ImGui.BeginTabItem("Clay Urns", 0)) {
+                        renderUrnTab();
                         ImGui.EndTabItem();
                     }
                     /* if (ImGui.BeginTabItem("Smithing", 0)) {
@@ -454,6 +470,18 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 if (ImGui.Button("Start Beer Crafting")) {
                     coaezUtility.setBotState(CoaezUtility.BotState.BEER_CRAFTING);
                 }
+                ImGui.TableNextColumn();
+                // Empty cell
+                ImGui.TableNextColumn();
+                // Empty cell
+                
+                // Row 10
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start Clay Urns")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.CLAY_URN);
+                }
+                
                 ImGui.TableNextColumn();
                 // Empty cell
                 ImGui.TableNextColumn();
@@ -1399,6 +1427,16 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         config.addProperty("sg_summerGardenSelected", String.valueOf(sgSelected.contains(GardenType.SUMMER)));
         config.addProperty("sg_autumnGardenSelected", String.valueOf(sgSelected.contains(GardenType.AUTUMN)));
 
+        // Save Clay Urn settings
+        config.addProperty("selectedUrnCategoryIndex", String.valueOf(selectedUrnCategoryIndex));
+        config.addProperty("selectedUrnTypeIndex", String.valueOf(selectedUrnTypeIndex));
+        
+        // Save the actual selected urn ID for restoration
+        ClayUrnTask clayUrnTask = coaezUtility.getClayUrnTask();
+        if (clayUrnTask != null && clayUrnTask.getSelectedUrn() != null) {
+            config.addProperty("selectedUrnId", String.valueOf(clayUrnTask.getSelectedUrn().getId()));
+        }
+
         config.save();
     }
 
@@ -1743,6 +1781,45 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         String sgAutumn = config.getProperty("sg_autumnGardenSelected");
         if (sgAutumn != null && Boolean.parseBoolean(sgAutumn)) loadedSG.add(GardenType.AUTUMN);
         if (coaezUtility.getSorceressGardenTask() != null) coaezUtility.getSorceressGardenTask().setSelectedGardens(loadedSG);
+        
+        // Load Clay Urn settings
+        String selectedUrnCategoryIndexStr = config.getProperty("selectedUrnCategoryIndex");
+        if (selectedUrnCategoryIndexStr != null) {
+            try {
+                int index = Integer.parseInt(selectedUrnCategoryIndexStr);
+                if (index >= 0) {
+                    selectedUrnCategoryIndex = index;
+                }
+            } catch (NumberFormatException e) {
+                selectedUrnCategoryIndex = 0;
+            }
+        }
+        
+        String selectedUrnTypeIndexStr = config.getProperty("selectedUrnTypeIndex");
+        if (selectedUrnTypeIndexStr != null) {
+            try {
+                int index = Integer.parseInt(selectedUrnTypeIndexStr);
+                if (index >= 0) {
+                    selectedUrnTypeIndex = index;
+                }
+            } catch (NumberFormatException e) {
+                selectedUrnTypeIndex = 0;
+            }
+        }
+        
+        // Load the selected urn ID and restore the selection
+        String selectedUrnIdStr = config.getProperty("selectedUrnId");
+        if (selectedUrnIdStr != null) {
+            try {
+                int urnId = Integer.parseInt(selectedUrnIdStr);
+                ClayUrnTask clayUrnTask = coaezUtility.getClayUrnTask();
+                if (clayUrnTask != null) {
+                    clayUrnTask.setSelectedUrnById(urnId);
+                }
+            } catch (NumberFormatException e) {
+                // Ignore invalid urn ID
+            }
+        }
         
         isLoadingConfig = false;
      }
@@ -2114,6 +2191,68 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 ", Happy Hour: " + beachSpotlightHappyHour);
         }
     }
+    
+    private void updateUrnTypes() {
+        if (selectedUrnCategoryIndex < urnCategories.length) {
+            UrnCategory selectedCategory = urnCategories[selectedUrnCategoryIndex];
+            if (selectedCategory != null) {
+                // Get the ClayUrnTask to access the dynamic urn data
+                ClayUrnTask clayUrnTask = coaezUtility.getClayUrnTask();
+                if (clayUrnTask != null && clayUrnTask.isDataLoaded()) {
+                    currentUrnTypes = clayUrnTask.getUrnsInCategory(selectedCategory);
+                    
+                    // Reset urn type selection if current selection is invalid
+                    if (selectedUrnTypeIndex >= currentUrnTypes.length) {
+                        selectedUrnTypeIndex = 0;
+                    }
+                }
+            }
+        }
+    }
+    
+    private void initializeUrnData() {
+        ClayUrnTask clayUrnTask = coaezUtility.getClayUrnTask();
+        if (clayUrnTask != null) {
+            // Wait for data to be loaded
+            if (!clayUrnTask.isDataLoaded()) {
+                clayUrnTask.reloadUrnData();
+            }
+            
+            if (clayUrnTask.isDataLoaded()) {
+                urnCategories = clayUrnTask.getAvailableCategories();
+                if (urnCategories.length > 0) {
+                    // Reset indices if they're out of bounds
+                    if (selectedUrnCategoryIndex >= urnCategories.length) {
+                        selectedUrnCategoryIndex = 0;
+                    }
+                    // Update urn types for the selected category
+                    updateUrnTypes();
+                }
+            }
+        }
+    }
+    
+    private void refreshUrnDataIfNeeded() {
+        // Only refresh if we don't have data or if the task has been updated
+        if (urnCategories.length == 0) {
+            ClayUrnTask clayUrnTask = coaezUtility.getClayUrnTask();
+            if (clayUrnTask != null && clayUrnTask.isDataLoaded()) {
+                urnCategories = clayUrnTask.getAvailableCategories();
+                if (urnCategories.length > 0) {
+                    // Reset indices if they're out of bounds
+                    if (selectedUrnCategoryIndex >= urnCategories.length) {
+                        selectedUrnCategoryIndex = 0;
+                    }
+                    // Update urn types for the selected category
+                    updateUrnTypes();
+                }
+            }
+        }
+    }
+    
+    private boolean isDataLoaded() {
+        return urnCategories != null && urnCategories.length > 0;
+    }
 
     private void renderBeachEventTab() {
         ImGui.Text("Beach Event Configuration");
@@ -2345,65 +2484,169 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     }
     
     private void renderSorceressGardenTab() {
-        if (coaezUtility == null) return;
-        
-        ImGui.Text("Sorceress's Garden Minigame");
+        ImGui.Text("Sorceress Garden Configuration");
         ImGui.Separator();
         
-        // Garden selection checkboxes
-        ImGui.Text("Select Gardens to Play:");
-        ImGui.Separator();
-        
-        try {
-            Set<GardenType> selectedGardens = coaezUtility.getSorceressGardenTask() != null ? coaezUtility.getSorceressGardenTask().getSelectedGardens() : new HashSet<>();
+        if (coaezUtility.getSorceressGardenTask() != null) {
+            Set<GardenType> selectedGardens = coaezUtility.getSorceressGardenTask().getSelectedGardens();
+            
             boolean winterSelected = selectedGardens.contains(GardenType.WINTER);
             boolean springSelected = selectedGardens.contains(GardenType.SPRING);
             boolean summerSelected = selectedGardens.contains(GardenType.SUMMER);
             boolean autumnSelected = selectedGardens.contains(GardenType.AUTUMN);
+            
+            boolean winterChanged = ImGui.Checkbox("Winter Garden", winterSelected);
+            if (winterChanged) {
+                if (winterSelected) {
+                    selectedGardens.remove(GardenType.WINTER);
+                } else {
+                    selectedGardens.add(GardenType.WINTER);
+                }
+                coaezUtility.getSorceressGardenTask().setSelectedGardens(selectedGardens);
+                saveConfig();
+            }
+            
+            boolean springChanged = ImGui.Checkbox("Spring Garden", springSelected);
+            if (springChanged) {
+                if (springSelected) {
+                    selectedGardens.remove(GardenType.SPRING);
+                } else {
+                    selectedGardens.add(GardenType.SPRING);
+                }
+                coaezUtility.getSorceressGardenTask().setSelectedGardens(selectedGardens);
+                saveConfig();
+            }
+            
+            boolean summerChanged = ImGui.Checkbox("Summer Garden", summerSelected);
+            if (summerChanged) {
+                if (summerSelected) {
+                    selectedGardens.remove(GardenType.SUMMER);
+                } else {
+                    selectedGardens.add(GardenType.SUMMER);
+                }
+                coaezUtility.getSorceressGardenTask().setSelectedGardens(selectedGardens);
+                saveConfig();
+            }
+            
+            boolean autumnChanged = ImGui.Checkbox("Autumn Garden", autumnSelected);
+            if (autumnChanged) {
+                if (autumnSelected) {
+                    selectedGardens.remove(GardenType.AUTUMN);
+                } else {
+                    selectedGardens.add(GardenType.AUTUMN);
+                }
+                coaezUtility.getSorceressGardenTask().setSelectedGardens(selectedGardens);
+                saveConfig();
+            }
+            
+            ImGui.Separator();
+            
+            if (ImGui.Button("Start Sorceress Garden")) {
+                coaezUtility.setBotState(CoaezUtility.BotState.SORCERESS_GARDEN);
+            }
+        } else {
+            ImGui.Text("Sorceress Garden task not available");
+        }
+    }
 
-            boolean newWinterSelected = ImGui.Checkbox("Winter Garden (Level 1 Thieving)", winterSelected);
-            if (newWinterSelected != winterSelected) {
-                Set<GardenType> newSet = new HashSet<>(selectedGardens);
-                if (newWinterSelected) newSet.add(GardenType.WINTER); else newSet.remove(GardenType.WINTER);
-                if (coaezUtility.getSorceressGardenTask() != null) coaezUtility.getSorceressGardenTask().setSelectedGardens(newSet);
+    private void renderUrnTab() {
+        ImGui.Text("Clay Urn Configuration");
+        ImGui.Separator();
+        
+        // Refresh urn data if needed
+        refreshUrnDataIfNeeded();
+        
+        if (!isDataLoaded()) {
+            ImGui.Text("Loading urn data...");
+            if (ImGui.Button("Reload Urn Data")) {
+                ClayUrnTask clayUrnTask = coaezUtility.getClayUrnTask();
+                if (clayUrnTask != null) {
+                    clayUrnTask.reloadUrnData();
+                    initializeUrnData();
+                }
+            }
+            return;
+        }
+        
+        // Category selection
+        if (urnCategories.length > 0) {
+            String[] categoryNames = Arrays.stream(urnCategories)
+                .map(UrnCategory::getDisplayName)
+                .toArray(String[]::new);
+            
+            int newCategoryIndex = ImGui.Combo("Urn Category", selectedUrnCategoryIndex, categoryNames);
+            if (newCategoryIndex != selectedUrnCategoryIndex) {
+                selectedUrnCategoryIndex = newCategoryIndex;
+                updateUrnTypes();
+                
+                // Update the task with the new category
+                ClayUrnTask clayUrnTask = coaezUtility.getClayUrnTask();
+                if (clayUrnTask != null && selectedUrnCategoryIndex < urnCategories.length) {
+                    clayUrnTask.setSelectedCategory(urnCategories[selectedUrnCategoryIndex]);
+                }
+                
                 saveConfig();
             }
-            boolean newSpringSelected = ImGui.Checkbox("Spring Garden (Level 25 Thieving)", springSelected);
-            if (newSpringSelected != springSelected) {
-                Set<GardenType> newSet = new HashSet<>(selectedGardens);
-                if (newSpringSelected) newSet.add(GardenType.SPRING); else newSet.remove(GardenType.SPRING);
-                if (coaezUtility.getSorceressGardenTask() != null) coaezUtility.getSorceressGardenTask().setSelectedGardens(newSet);
+        } else {
+            ImGui.Text("No urn categories available");
+        }
+        
+        // Urn type selection
+        if (currentUrnTypes.length > 0) {
+            String[] urnTypeNames = Arrays.stream(currentUrnTypes)
+                .map(UrnType::getDisplayName)
+                .toArray(String[]::new);
+            
+            int newUrnTypeIndex = ImGui.Combo("Urn Type", selectedUrnTypeIndex, urnTypeNames);
+            if (newUrnTypeIndex != selectedUrnTypeIndex) {
+                selectedUrnTypeIndex = newUrnTypeIndex;
+                
+                // Update the task with the new urn type
+                ClayUrnTask clayUrnTask = coaezUtility.getClayUrnTask();
+                if (clayUrnTask != null && selectedUrnTypeIndex < currentUrnTypes.length) {
+                    clayUrnTask.setSelectedUrn(currentUrnTypes[selectedUrnTypeIndex]);
+                }
+                
                 saveConfig();
             }
-            boolean newAutumnSelected = ImGui.Checkbox("Autumn Garden (Level 45 Thieving)", autumnSelected);
-            if (newAutumnSelected != autumnSelected) {
-                Set<GardenType> newSet = new HashSet<>(selectedGardens);
-                if (newAutumnSelected) newSet.add(GardenType.AUTUMN); else newSet.remove(GardenType.AUTUMN);
-                if (coaezUtility.getSorceressGardenTask() != null) coaezUtility.getSorceressGardenTask().setSelectedGardens(newSet);
-                saveConfig();
-            }
-            boolean newSummerSelected = ImGui.Checkbox("Summer Garden (Level 65 Thieving)", summerSelected);
-            if (newSummerSelected != summerSelected) {
-                Set<GardenType> newSet = new HashSet<>(selectedGardens);
-                if (newSummerSelected) newSet.add(GardenType.SUMMER); else newSet.remove(GardenType.SUMMER);
-                if (coaezUtility.getSorceressGardenTask() != null) coaezUtility.getSorceressGardenTask().setSelectedGardens(newSet);
-                saveConfig();
-            }
-        } catch (Exception e) {
-            // Silently handle any errors to prevent GUI issues
+        } else {
+            ImGui.Text("No urn types available for selected category");
         }
         
         ImGui.Separator();
         
-        // Start/Stop button
-        if (ImGui.Button(sorceressGardenActive ? "Stop Sorceress Garden" : "Start Sorceress Garden")) {
-            sorceressGardenActive = !sorceressGardenActive;
-            if (sorceressGardenActive) {
-                coaezUtility.setBotState(CoaezUtility.BotState.SORCERESS_GARDEN);
-            } else {
-                coaezUtility.setBotState(CoaezUtility.BotState.IDLE);
+        // Status information
+        ClayUrnTask clayUrnTask = coaezUtility.getClayUrnTask();
+        if (clayUrnTask != null) {
+            String status = clayUrnTask.getStatus();
+            ImGui.Text("Status: " + status);
+            
+            // Show selected urn details
+            if (clayUrnTask.getSelectedUrn() != null) {
+                UrnType selectedUrn = clayUrnTask.getSelectedUrn();
+                ImGui.Text("Selected Urn: " + selectedUrn.getDisplayName());
+                ImGui.Text("Category: " + selectedUrn.getCategory().getDisplayName());
+                ImGui.Text("Item ID: " + selectedUrn.getId());
             }
         }
+        
+        ImGui.Separator();
+        
+        // Control buttons
+        if (ImGui.Button("Start Clay Urn Task")) {
+            coaezUtility.setBotState(CoaezUtility.BotState.CLAY_URN);
+        }
+        
+        ImGui.SameLine();
+        
+        if (ImGui.Button("Print Available Urns")) {
+            ClayUrnTask task = coaezUtility.getClayUrnTask();
+            if (task != null) {
+                task.printAvailableUrns();
+            }
+        }
+        
+        ImGui.Separator();
         
     }
     
