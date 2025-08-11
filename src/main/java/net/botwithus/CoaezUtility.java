@@ -7,6 +7,7 @@ import net.botwithus.model.Alchemy;
 import net.botwithus.model.Disassembly;
 import net.botwithus.model.POSD;
 import net.botwithus.rs3.events.impl.ChatMessageEvent;
+import net.botwithus.rs3.events.impl.InventoryUpdateEvent;
 import net.botwithus.rs3.game.Client;
 import net.botwithus.rs3.game.scene.entities.characters.player.LocalPlayer;
 import net.botwithus.rs3.script.Execution;
@@ -217,6 +218,7 @@ public class CoaezUtility extends LoopingScript {
         ScriptConsole.println("Current bot state: " + botState);
         sgc.setOpen(true);
         subscribe(ChatMessageEvent.class, this::onChatMessage);
+        subscribe(InventoryUpdateEvent.class, this::onInventoryUpdate);
     }
 
     @Override
@@ -385,6 +387,25 @@ public class CoaezUtility extends LoopingScript {
         
         if (botState == BotState.BEACH_EVENT) {
             beachEventTask.handleBattleshipMessage(message);
+        }
+    }
+
+    private void onInventoryUpdate(InventoryUpdateEvent event) {
+        if (botState != BotState.CLAY_URN) return;
+        var oldItem = event.getOldItem();
+        var newItem = event.getNewItem();
+        // Check if an urn was added to this slot
+        if (newItem != null && newItem.getName() != null && newItem.getName().toLowerCase().contains("urn")) {
+            boolean wasNotUrn = oldItem == null || oldItem.getName() == null || !oldItem.getName().toLowerCase().contains("urn");
+            if (wasNotUrn) {
+                for (ClayUrnTask.UrnType urnType : clayUrnTask.getAllAvailableUrns()) {
+                    if (newItem.getId() == urnType.getId()) {
+                        clayUrnTask.onUrnCrafted(urnType);
+                        ScriptConsole.println("[CoaezUtility] Urn crafted: " + urnType.getDisplayName() + ", updated queue.");
+                        break;
+                    }
+                }
+            }
         }
     }
 

@@ -1,8 +1,12 @@
 package net.botwithus.tasks;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import net.botwithus.CoaezUtility;
@@ -42,22 +46,22 @@ public class ClayUrnTask implements Task {
     // Default selections - will be updated when data is loaded
     private UrnCategory selectedCategory;
     private UrnType selectedUrn;
-    
+
     public static class UrnCategory {
         private final int index;
         private final String displayName;
         private final int enumId;
-        
+
         public UrnCategory(int index, String displayName, int enumId) {
             this.index = index;
             this.displayName = displayName;
             this.enumId = enumId;
         }
-        
+
         public int getIndex() { return index; }
         public String getDisplayName() { return displayName; }
         public int getEnumId() { return enumId; }
-        
+
         @Override
         public String toString() {
             return displayName;
@@ -83,6 +87,15 @@ public class ClayUrnTask implements Task {
         public String toString() {
             return displayName;
         }
+
+        public UrnType getById(int id, List<UrnType> urns) {
+            for (UrnType urn : urns) {
+                if (urn.getId() == id) {
+                    return urn;
+                }
+            }
+            return null;
+        }
     }
     
     // State logic
@@ -97,10 +110,16 @@ public class ClayUrnTask implements Task {
     private final UrnTaskState addRunesState = new AddRunesState();
     private final UrnTaskState depositUrnsState = new DepositUrnsState();
 
+    // Queue system: urn type -> quantity to craft
+    private final Map<UrnType, Integer> urnQueue = new LinkedHashMap<>();
+
+    // Skip adding runes state
+    private boolean skipAddRunes = false;
+
     public ClayUrnTask(CoaezUtility script) {
         this.script = script;
         loadUrnData();
-        currentState = depositUrnsState;
+        currentState = fireUrnsState;
     }
     
     private void loadUrnData() {
@@ -223,9 +242,7 @@ public class ClayUrnTask implements Task {
                 return;
             }
         }
-        if (currentState != null) {
-            currentState.handle(this);
-        }
+        currentState.handle(this);
     }
 
     // State transition helpers
@@ -336,9 +353,9 @@ public class ClayUrnTask implements Task {
     }
     
     void handleSpinUrns() {
-        // Only spin urns if we have enough soft clay for the selected urn
-        if (!isDataLoaded() || selectedUrn == null) {
-            ScriptConsole.println("[ClayUrnTask] No urn selected or data not loaded");
+        // Priority: process urns in the queue first
+        if (!isDataLoaded() || urnQueue.isEmpty()) {
+            ScriptConsole.println("[ClayUrnTask] No urns in queue or data not loaded");
             Execution.delay(1000);
             return;
         }
@@ -348,18 +365,21 @@ public class ClayUrnTask implements Task {
             return;
         }
 
-        // Check for at least 2 soft clay before attempting to craft
         int softClayCount = Backpack.getItems().stream()
                 .filter(item -> item != null && "Soft clay".equals(item.getName()))
                 .mapToInt(item -> item.getStackSize())
                 .sum();
         if (softClayCount < 2) {
-            ScriptConsole.println("[ClayUrnTask] Not enough soft clay (need at least 2), transitioning to mining.");
+            ScriptConsole.println("[ClayUrnTask] Not enough soft clay (need at least 2), transitioning to firing.");
             setStateToFireUrns();
             return;
         }
 
-        // Check if pottery wheel interface is open
+        // Get the first urn type in the queue
+        UrnType queueUrn = urnQueue.keySet().iterator().next();
+        selectedUrn = queueUrn;
+        selectedCategory = queueUrn.getCategory();
+
         if (Interfaces.isOpen(1370)) {
             ScriptConsole.println("[ClayUrnTask] Pottery wheel interface is open, handling urn selection");
             handlePotteryWheelInterface();
@@ -448,6 +468,11 @@ public class ClayUrnTask implements Task {
     
     void handleAddRunesToUrns() {
         ScriptConsole.println("[ClayUrnTask] Adding runes to fired urns...");
+        if(skipAddRunes){
+            ScriptConsole.println("[ClayUrnTask] Skipping adding runes, transitioning to deposit urns");
+            setStateToDepositUrns();
+            return;
+        }
         var urnItem = Backpack.getItems().stream()
             .filter(item -> item != null && item.getId() != -1 &&
                 item.getName().toLowerCase().contains("no rune"))
@@ -489,10 +514,33 @@ public class ClayUrnTask implements Task {
     void handleDepositUrns() {
         ScriptConsole.println("[ClayUrnTask] Handling depositing urns...");
 
-        // Find all urns with (empty) in their name
-        Pattern urnPattern = Pattern.compile("urn.*\\(empty\\)", Pattern.CASE_INSENSITIVE);
+        // If skipping add runes, just deposit all items once deposit box is open
+        if (skipAddRunes) {
+            if (!DepositBox.isOpen()) {
+                EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery().name("Bank deposit box").hidden(false).option("Deposit").results();
+                SceneObject depositBox = results.nearest();
+                if (depositBox != null && depositBox.interact("Deposit")) {
+                    boolean opened = Execution.delayUntil(10000, () -> DepositBox.isOpen());
+                    if (!opened) {
+                        ScriptConsole.println("[ClayUrnTask] Deposit box did not open in time");
+                        return;
+                    }
+                } else {
+                    ScriptConsole.println("[ClayUrnTask] Deposit box not found or failed to interact, using bank preset");
+                    Bank.loadLastPreset();
+                    Execution.delay(script.getRandom().nextInt(5000, 7000));
+                    return;
+                }
+            }
+            ScriptConsole.println("[ClayUrnTask] Deposit box is open, depositing all items...");
+            DepositBox.depositAll();
+            Execution.delay(script.getRandom().nextInt(500, 1200));
+            ScriptConsole.println("[ClayUrnTask] All items deposited.");
+            setStateToMineClay();
+            return;
+        }
 
-        // Try to open deposit box if not already open
+        Pattern urnPattern = Pattern.compile("urn.*\\(empty\\)", Pattern.CASE_INSENSITIVE);
         if (!DepositBox.isOpen()) {
             EntityResultSet<SceneObject> results = SceneObjectQuery.newQuery().name("Bank deposit box").hidden(false).option("Deposit").results();
             SceneObject depositBox = results.nearest();
@@ -511,13 +559,15 @@ public class ClayUrnTask implements Task {
         }
 
         ScriptConsole.println("[ClayUrnTask] Deposit box is open, attempting to deposit urns...");
-        // Find all slots with urns matching the pattern
         List<Item> items = Backpack.getItems();
         List<Integer> urnSlots = new ArrayList<>();
-        for (int i = 0; i < items.size(); i++) {
-            Item item = items.get(i);
-            if (item != null && item.getName() != null && urnPattern.matcher(item.getName()).find()) {
-                urnSlots.add(i);
+        List<UrnType> queueOrder = new ArrayList<>(urnQueue.keySet());
+        for (UrnType urnType : queueOrder) {
+            for (int i = 0; i < items.size(); i++) {
+                Item item = items.get(i);
+                if (item != null && item.getName() != null && urnPattern.matcher(item.getName()).find() && item.getId() == urnType.getId()) {
+                    urnSlots.add(i);
+                }
             }
         }
         boolean allDeposited = true;
@@ -541,7 +591,6 @@ public class ClayUrnTask implements Task {
         } else {
             ScriptConsole.println("[ClayUrnTask] Some urns were not deposited or an error occurred.");
         }
-        // Print current backpack urns for debug
         List<String> remainingUrns = Backpack.getItems().stream()
             .filter(item -> item != null && item.getName() != null && item.getName().toLowerCase().contains("urn") && item.getName().toLowerCase().contains("(empty)"))
             .map(item -> item.getName())
@@ -712,6 +761,48 @@ public class ClayUrnTask implements Task {
         return false;
     }
 
+    /**
+     * Add urns to the crafting queue.
+     */
+    public void queueUrn(UrnType urnType, int quantity) {
+        urnQueue.put(urnType, urnQueue.getOrDefault(urnType, 0) + quantity);
+    }
+
+    /**
+     * Remove a specific urn type from the queue.
+     */
+    public void removeUrnFromQueue(UrnType urnType) {
+        urnQueue.remove(urnType);
+    }
+
+    /**
+     * Called when an urn is added to the backpack (from InventoryUpdateEvent).
+     */
+    public void onUrnCrafted(UrnType urnType) {
+        if (urnQueue.containsKey(urnType)) {
+            int remaining = urnQueue.get(urnType) - 1;
+            if (remaining <= 0) {
+                urnQueue.remove(urnType);
+            } else {
+                urnQueue.put(urnType, remaining);
+            }
+        }
+    }
+
+    /**
+     * Get the current urn crafting queue.
+     */
+    public Map<UrnType, Integer> getUrnQueue() {
+        return urnQueue;
+    }
+
+    /**
+     * Clear the urn crafting queue.
+     */
+    public void clearUrnQueue() {
+        urnQueue.clear();
+    }
+
     // Getters and setters for GUI configuration
     public UrnCategory getSelectedCategory() {
         return selectedCategory;
@@ -859,5 +950,15 @@ public class ClayUrnTask implements Task {
         ItemType itemType = ConfigManager.getItemType(urn.getId());
         if (itemType == null) return 0;
         return itemType.getIntParam(2665); // craft_quantity_1
+    }
+
+    /**
+     * Set whether to skip the add runes state in the urn task.
+     */
+    public void setSkipAddRunes(boolean skip) {
+        this.skipAddRunes = skip;
+    }
+    public boolean isSkipAddRunes() {
+        return skipAddRunes;
     }
 }

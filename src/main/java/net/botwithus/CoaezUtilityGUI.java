@@ -126,6 +126,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private float consoleWindowPosX = 100;
     private float consoleWindowPosY = 100;
 
+    // Quantity input for urn crafting
+    private int urnQuantityInput = 1;
+
+    // Checkbox for skipping Add Runes
+    private boolean skipAddRunesCheckbox = false;
+
     public CoaezUtilityGUI(ScriptConsole scriptConsole, CoaezUtility coaezUtility) {
         super(scriptConsole);
         this.coaezUtility = coaezUtility;
@@ -1430,11 +1436,25 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         // Save Clay Urn settings
         config.addProperty("selectedUrnCategoryIndex", String.valueOf(selectedUrnCategoryIndex));
         config.addProperty("selectedUrnTypeIndex", String.valueOf(selectedUrnTypeIndex));
-        
         // Save the actual selected urn ID for restoration
         ClayUrnTask clayUrnTask = coaezUtility.getClayUrnTask();
         if (clayUrnTask != null && clayUrnTask.getSelectedUrn() != null) {
             config.addProperty("selectedUrnId", String.valueOf(clayUrnTask.getSelectedUrn().getId()));
+        }
+
+        // Save ClayUrnTask queue and skip state
+        clayUrnTask = coaezUtility.getClayUrnTask();
+        if (clayUrnTask != null) {
+            // Serialize queue as urnId:quantity,urnId:quantity,...
+            var queue = clayUrnTask.getUrnQueue();
+            StringBuilder queueStr = new StringBuilder();
+            for (var entry : queue.entrySet()) {
+                if (queueStr.length() > 0) queueStr.append(",");
+                queueStr.append(entry.getKey().getId()).append(":").append(entry.getValue());
+            }
+            config.addProperty("clayUrnQueue", queueStr.toString());
+            // Save skip state
+            config.addProperty("skipAddRunesCheckbox", String.valueOf(skipAddRunesCheckbox));
         }
 
         config.save();
@@ -1821,6 +1841,34 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             }
         }
         
+        // Load ClayUrnTask queue and skip state
+        ClayUrnTask clayUrnTask = coaezUtility.getClayUrnTask();
+        if (clayUrnTask != null) {
+            String queueStr = config.getProperty("clayUrnQueue");
+            if (queueStr != null && !queueStr.isEmpty()) {
+                String[] entries = queueStr.split(",");
+                clayUrnTask.clearUrnQueue();
+                for (String entry : entries) {
+                    String[] parts = entry.split(":");
+                    if (parts.length == 2) {
+                        try {
+                            int urnId = Integer.parseInt(parts[0]);
+                            int quantity = Integer.parseInt(parts[1]);
+                            ClayUrnTask.UrnType urnType = null;
+                            urnType = new ClayUrnTask.UrnType(0, "", null).getById(urnId, List.of(clayUrnTask.getAllAvailableUrns()));
+                            if (urnType != null) {
+                                clayUrnTask.queueUrn(urnType, quantity);
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+            String skipStr = config.getProperty("skipAddRunesCheckbox");
+            if (skipStr != null) {
+                skipAddRunesCheckbox = Boolean.parseBoolean(skipStr);
+            }
+        }
+
         isLoadingConfig = false;
      }
 
@@ -2257,7 +2305,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private void renderBeachEventTab() {
         ImGui.Text("Beach Event Configuration");
         ImGui.Separator();
-        
+
         // Beach Activity Selection
         String[] beachActivityNames = Arrays.stream(beachActivities)
             .map(activity -> activity.getName())
@@ -2267,32 +2315,32 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         int newBeachActivityIndex = ImGui.Combo("Select Beach Activity", selectedBeachActivityIndex, beachActivityNames);
         if (newBeachActivityIndex != selectedBeachActivityIndex) {
             selectedBeachActivityIndex = newBeachActivityIndex;
-            updateBeachEventSettings(); 
+            updateBeachEventSettings();
             saveConfig();
         }
-        
+
         ImGui.Separator();
-        
+
         ImGui.Text("General Options:");
-        
+
         boolean newBeachFightClawdia = ImGui.Checkbox("Fight Clawdia", beachFightClawdia);
         if (newBeachFightClawdia != beachFightClawdia) {
             beachFightClawdia = newBeachFightClawdia;
-            updateBeachEventSettings(); 
+            updateBeachEventSettings();
             saveConfig();
         }
-        
+
         boolean newBeachUseSpotlight = ImGui.Checkbox("Follow Spotlight", beachUseSpotlight);
         if (newBeachUseSpotlight != beachUseSpotlight) {
             beachUseSpotlight = newBeachUseSpotlight;
-            updateBeachEventSettings(); 
+            updateBeachEventSettings();
             saveConfig();
         }
-        
+
         boolean newBeachUseBattleship = ImGui.Checkbox("Use Battleship", beachUseBattleship);
         if (newBeachUseBattleship != beachUseBattleship) {
             beachUseBattleship = newBeachUseBattleship;
-            updateBeachEventSettings(); 
+            updateBeachEventSettings();
             saveConfig();
         }
 
@@ -2308,80 +2356,80 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             if (newSpotlightHappyHourIndex != selectedSpotlightHappyHourIndex) {
                 selectedSpotlightHappyHourIndex = newSpotlightHappyHourIndex;
                 beachSpotlightHappyHour = spotlightHappyHourOptions[selectedSpotlightHappyHourIndex];
-                updateBeachEventSettings(); 
+                updateBeachEventSettings();
                 saveConfig();
             }
         }
-        
+
         ImGui.Separator();
-        
+
         ImGui.Text("Cocktail Selection:");
-        
+
         boolean newGuiUsePinkFizz = ImGui.Checkbox("Pink Fizz (Strength)", guiUsePinkFizz);
         if (newGuiUsePinkFizz != guiUsePinkFizz) {
             guiUsePinkFizz = newGuiUsePinkFizz;
-            updateBeachEventSettings(); 
+            updateBeachEventSettings();
             saveConfig();
         }
-        
+
         boolean newGuiUsePurpleLumbridge = ImGui.Checkbox("Purple Lumbridge (Construction/Cooking)", guiUsePurpleLumbridge);
         if (newGuiUsePurpleLumbridge != guiUsePurpleLumbridge) {
             guiUsePurpleLumbridge = newGuiUsePurpleLumbridge;
-            updateBeachEventSettings(); 
+            updateBeachEventSettings();
             saveConfig();
         }
-        
+
         boolean newGuiUsePineappletini = ImGui.Checkbox("Pineappletini (Hunter/Farming/Fishing)", guiUsePineappletini);
         if (newGuiUsePineappletini != guiUsePineappletini) {
             guiUsePineappletini = newGuiUsePineappletini;
-            updateBeachEventSettings(); 
+            updateBeachEventSettings();
             saveConfig();
         }
-        
+
         boolean newGuiUseLemonSour = ImGui.Checkbox("Lemon Sour (Dungeoneering)", guiUseLemonSour);
         if (newGuiUseLemonSour != guiUseLemonSour) {
             guiUseLemonSour = newGuiUseLemonSour;
-            updateBeachEventSettings(); 
+            updateBeachEventSettings();
             saveConfig();
         }
-        
+
         boolean newGuiUseFishermanssFriend = ImGui.Checkbox("Fisherman's Friend (Fishing)", guiUseFishermanssFriend);
         if (newGuiUseFishermanssFriend != guiUseFishermanssFriend) {
             guiUseFishermanssFriend = newGuiUseFishermanssFriend;
-            updateBeachEventSettings(); 
+            updateBeachEventSettings();
             saveConfig();
         }
-        
+
         boolean newGuiUseGeorgesPeachDelight = ImGui.Checkbox("George's Peach Delight (Construction)", guiUseGeorgesPeachDelight);
         if (newGuiUseGeorgesPeachDelight != guiUseGeorgesPeachDelight) {
             guiUseGeorgesPeachDelight = newGuiUseGeorgesPeachDelight;
-            updateBeachEventSettings(); 
+            updateBeachEventSettings();
             saveConfig();
         }
-        
+
         boolean newGuiUseAHoleInOne = ImGui.Checkbox("A Hole in One (Dungeoneering)", guiUseAHoleInOne);
         if (newGuiUseAHoleInOne != guiUseAHoleInOne) {
             guiUseAHoleInOne = newGuiUseAHoleInOne;
-            updateBeachEventSettings(); 
+            updateBeachEventSettings();
             saveConfig();
         }
-        
+
         boolean newGuiUsePalmerFarmer = ImGui.Checkbox("Palmer Farmer (Farming)", guiUsePalmerFarmer);
         if (newGuiUsePalmerFarmer != guiUsePalmerFarmer) {
             guiUsePalmerFarmer = newGuiUsePalmerFarmer;
-            updateBeachEventSettings(); 
+            updateBeachEventSettings();
             saveConfig();
         }
-        
+
         boolean newGuiUseUglyDuckling = ImGui.Checkbox("Ugly Duckling (Hunter)", guiUseUglyDuckling);
         if (newGuiUseUglyDuckling != guiUseUglyDuckling) {
             guiUseUglyDuckling = newGuiUseUglyDuckling;
-            updateBeachEventSettings(); 
+            updateBeachEventSettings();
             saveConfig();
         }
-        
+
         ImGui.Separator();
-        
+
         if (ImGui.Button("Start Beach Event")) {
             if (coaezUtility.getBeachEventTask() != null) {
                 coaezUtility.setBotState(CoaezUtility.BotState.BEACH_EVENT);
@@ -2389,12 +2437,12 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 ScriptConsole.println("[GUI] Beach Event Task not available.");
             }
         }
-        
+
         // Display current beach event configuration
         ImGui.Separator();
         ImGui.Text("Current Configuration:");
         ImGui.Text("Activity: " + beachActivities[selectedBeachActivityIndex].getName().replace("%", "%%"));
-        
+
         // Display selected cocktails
         StringBuilder cocktailsText = new StringBuilder("Cocktails: ");
         boolean hasSelectedCocktails = false;
@@ -2407,7 +2455,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         if (guiUseAHoleInOne) { cocktailsText.append("A Hole in One, "); hasSelectedCocktails = true; }
         if (guiUsePalmerFarmer) { cocktailsText.append("Palmer Farmer, "); hasSelectedCocktails = true; }
         if (guiUseUglyDuckling) { cocktailsText.append("Ugly Duckling, "); hasSelectedCocktails = true; }
-        
+
         if (hasSelectedCocktails) {
             // Remove the trailing ", "
             String cocktailsList = cocktailsText.toString();
@@ -2416,7 +2464,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         } else {
             ImGui.Text("Cocktails: None");
         }
-        
+
         ImGui.Text("Fight Clawdia: " + (beachFightClawdia ? "Yes" : "No"));
         ImGui.Text("Follow Spotlight: " + (beachUseSpotlight ? "Yes" : "No"));
         if (beachUseSpotlight) {
@@ -2427,17 +2475,17 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
 
     private void renderMapNavigatorTab() {
         if (coaezUtility == null) return;
-        
+
         MapNavigatorTask mapTask = coaezUtility.getMapNavigatorTask();
         if (mapTask == null) return;
-        
+
         ImGui.Text("Location Navigator");
         ImGui.Separator();
-        
+
         // Get available locations
         if (mapTask.getLocationManager().isInitialized()) {
             String[] availableLocations = mapTask.getAvailableLocationNames();
-            
+
             if (availableLocations.length > 0) {
                 // Location selection combo
                 ImGui.Text("Select Location:");
@@ -2446,7 +2494,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     selectedLocationIndex = newLocationIndex;
                     ScriptConsole.println("Location selected: " + availableLocations[selectedLocationIndex]);
                 }
-                
+
                 // Show coordinates for selected location
                 if (selectedLocationIndex >= 0 && selectedLocationIndex < availableLocations.length) {
                     String selectedLocationName = availableLocations[selectedLocationIndex];
@@ -2454,17 +2502,17 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     if (locationInfo != null) {
                         Coordinate coord = locationInfo.getCoordinate();
                         ImGui.Text("Coordinates: " + coord.getX() + ", " + coord.getY() + ", " + coord.getZ());
-                        
+
                         // Navigate button
                         if (ImGui.Button("Navigate to Location")) {
                             mapTask.navigateToLocation(selectedLocationName);
                             coaezUtility.setBotState(CoaezUtility.BotState.MAP_NAVIGATOR);
                         }
-                        
+
                         ImGui.SameLine();
-                        
+
                         // Start/Stop Map Navigator button
-                        String mapButtonText = (coaezUtility.getBotState() == CoaezUtility.BotState.MAP_NAVIGATOR) ? 
+                        String mapButtonText = (coaezUtility.getBotState() == CoaezUtility.BotState.MAP_NAVIGATOR) ?
                             "Stop Map Navigator" : "Start Map Navigator";
                         if (ImGui.Button(mapButtonText)) {
                             if (coaezUtility.getBotState() == CoaezUtility.BotState.MAP_NAVIGATOR) {
@@ -2482,19 +2530,19 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             ImGui.Text("Initializing location manager...");
         }
     }
-    
+
     private void renderSorceressGardenTab() {
         ImGui.Text("Sorceress Garden Configuration");
         ImGui.Separator();
-        
+
         if (coaezUtility.getSorceressGardenTask() != null) {
             Set<GardenType> selectedGardens = coaezUtility.getSorceressGardenTask().getSelectedGardens();
-            
+
             boolean winterSelected = selectedGardens.contains(GardenType.WINTER);
             boolean springSelected = selectedGardens.contains(GardenType.SPRING);
             boolean summerSelected = selectedGardens.contains(GardenType.SUMMER);
             boolean autumnSelected = selectedGardens.contains(GardenType.AUTUMN);
-            
+
             boolean winterChanged = ImGui.Checkbox("Winter Garden", winterSelected);
             if (winterChanged) {
                 if (winterSelected) {
@@ -2505,7 +2553,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 coaezUtility.getSorceressGardenTask().setSelectedGardens(selectedGardens);
                 saveConfig();
             }
-            
+
             boolean springChanged = ImGui.Checkbox("Spring Garden", springSelected);
             if (springChanged) {
                 if (springSelected) {
@@ -2516,7 +2564,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 coaezUtility.getSorceressGardenTask().setSelectedGardens(selectedGardens);
                 saveConfig();
             }
-            
+
             boolean summerChanged = ImGui.Checkbox("Summer Garden", summerSelected);
             if (summerChanged) {
                 if (summerSelected) {
@@ -2527,7 +2575,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 coaezUtility.getSorceressGardenTask().setSelectedGardens(selectedGardens);
                 saveConfig();
             }
-            
+
             boolean autumnChanged = ImGui.Checkbox("Autumn Garden", autumnSelected);
             if (autumnChanged) {
                 if (autumnSelected) {
@@ -2538,9 +2586,9 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 coaezUtility.getSorceressGardenTask().setSelectedGardens(selectedGardens);
                 saveConfig();
             }
-            
+
             ImGui.Separator();
-            
+
             if (ImGui.Button("Start Sorceress Garden")) {
                 coaezUtility.setBotState(CoaezUtility.BotState.SORCERESS_GARDEN);
             }
@@ -2552,10 +2600,7 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private void renderUrnTab() {
         ImGui.Text("Clay Urn Configuration");
         ImGui.Separator();
-        
-        // Refresh urn data if needed
         refreshUrnDataIfNeeded();
-        
         if (!isDataLoaded()) {
             ImGui.Text("Loading urn data...");
             if (ImGui.Button("Reload Urn Data")) {
@@ -2567,87 +2612,99 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             }
             return;
         }
-        
         // Category selection
         if (urnCategories.length > 0) {
             String[] categoryNames = Arrays.stream(urnCategories)
                 .map(UrnCategory::getDisplayName)
                 .toArray(String[]::new);
-            
             int newCategoryIndex = ImGui.Combo("Urn Category", selectedUrnCategoryIndex, categoryNames);
             if (newCategoryIndex != selectedUrnCategoryIndex) {
                 selectedUrnCategoryIndex = newCategoryIndex;
+                selectedUrnTypeIndex = 0;
                 updateUrnTypes();
-                
-                // Update the task with the new category
                 ClayUrnTask clayUrnTask = coaezUtility.getClayUrnTask();
                 if (clayUrnTask != null && selectedUrnCategoryIndex < urnCategories.length) {
                     clayUrnTask.setSelectedCategory(urnCategories[selectedUrnCategoryIndex]);
                 }
-                
                 saveConfig();
             }
         } else {
             ImGui.Text("No urn categories available");
         }
-        
         // Urn type selection
         if (currentUrnTypes.length > 0) {
             String[] urnTypeNames = Arrays.stream(currentUrnTypes)
                 .map(UrnType::getDisplayName)
                 .toArray(String[]::new);
-            
             int newUrnTypeIndex = ImGui.Combo("Urn Type", selectedUrnTypeIndex, urnTypeNames);
             if (newUrnTypeIndex != selectedUrnTypeIndex) {
                 selectedUrnTypeIndex = newUrnTypeIndex;
-                
-                // Update the task with the new urn type
                 ClayUrnTask clayUrnTask = coaezUtility.getClayUrnTask();
                 if (clayUrnTask != null && selectedUrnTypeIndex < currentUrnTypes.length) {
                     clayUrnTask.setSelectedUrn(currentUrnTypes[selectedUrnTypeIndex]);
                 }
-                
                 saveConfig();
             }
         } else {
             ImGui.Text("No urn types available for selected category");
         }
-        
         ImGui.Separator();
-        
-        // Status information
         ClayUrnTask clayUrnTask = coaezUtility.getClayUrnTask();
         if (clayUrnTask != null) {
             String status = clayUrnTask.getStatus();
             ImGui.Text("Status: " + status);
-            
-            // Show selected urn details
             if (clayUrnTask.getSelectedUrn() != null) {
                 UrnType selectedUrn = clayUrnTask.getSelectedUrn();
                 ImGui.Text("Selected Urn: " + selectedUrn.getDisplayName());
                 ImGui.Text("Category: " + selectedUrn.getCategory().getDisplayName());
                 ImGui.Text("Item ID: " + selectedUrn.getId());
+                // Quantity input and queue button
+                urnQuantityInput = ImGui.InputInt("Quantity to craft", urnQuantityInput);
+                if (ImGui.Button("Queue Urn Craft")) {
+                    clayUrnTask.queueUrn(selectedUrn, urnQuantityInput);
+                    ScriptConsole.println("[GUI] Queued " + urnQuantityInput + " x " + selectedUrn.getDisplayName());
+                }
+            }
+            // Show current queue
+            ImGui.Separator();
+            ImGui.Text("Current Urn Queue:");
+            var queue = clayUrnTask.getUrnQueue();
+            if (queue.isEmpty()) {
+                ImGui.Text("(Queue is empty)");
+            } else {
+                int queueIndex = 0;
+                for (var entry : queue.entrySet()) {
+                    ImGui.PushID("urn_queue_" + queueIndex);
+                    ImGui.Text(entry.getKey().getDisplayName() + ": " + entry.getValue());
+                    ImGui.SameLine();
+                    if (ImGui.Button("Remove")) {
+                        clayUrnTask.removeUrnFromQueue(entry.getKey());
+                        saveConfig();
+                        break;
+                    }
+                    ImGui.PopID();
+                    queueIndex++;
+                }
             }
         }
-        
         ImGui.Separator();
-        
-        // Control buttons
+        ImGui.Text("Options:");
+        boolean newSkipAddRunes = ImGui.Checkbox("Skip Add Runes", clayUrnTask != null && clayUrnTask.isSkipAddRunes());
+        if (clayUrnTask != null && newSkipAddRunes != clayUrnTask.isSkipAddRunes()) {
+            clayUrnTask.setSkipAddRunes(newSkipAddRunes);
+        }
+
         if (ImGui.Button("Start Clay Urn Task")) {
             coaezUtility.setBotState(CoaezUtility.BotState.CLAY_URN);
         }
-        
         ImGui.SameLine();
-        
         if (ImGui.Button("Print Available Urns")) {
             ClayUrnTask task = coaezUtility.getClayUrnTask();
             if (task != null) {
                 task.printAvailableUrns();
             }
         }
-        
         ImGui.Separator();
-        
     }
     
     @Override
