@@ -2,6 +2,7 @@ package net.botwithus;
 
 import java.util.Random;
 
+import net.botwithus.api.game.hud.inventories.Backpack;
 import net.botwithus.internal.scripts.ScriptDefinition;
 import net.botwithus.model.Alchemy;
 import net.botwithus.model.Disassembly;
@@ -17,6 +18,10 @@ import net.botwithus.rs3.script.config.ScriptConfig;
 import net.botwithus.tasks.AlchemyTask;
 import net.botwithus.tasks.BeachEventTask;
 import net.botwithus.tasks.BeerCraftingTask;
+import net.botwithus.tasks.BuyBucketsWaterTask;
+import net.botwithus.tasks.ChaosBones;
+import net.botwithus.tasks.FlaxPickerTask;
+import net.botwithus.tasks.InventionGizmoTask;
 import net.botwithus.tasks.ClayUrnTask;
 import net.botwithus.tasks.CreateSqirkJuiceTask;
 import net.botwithus.tasks.DeployDummyTask;
@@ -25,10 +30,12 @@ import net.botwithus.tasks.DrinkPerfectPlusJujuTask;
 import net.botwithus.tasks.EnchantingTask;
 import net.botwithus.tasks.FungalBowstrings;
 import net.botwithus.tasks.GemCraftingTask;
+import net.botwithus.tasks.GnomeShopTask;
 import net.botwithus.tasks.InventionTask;
 import net.botwithus.tasks.LimestoneBrickTask;
 import net.botwithus.tasks.LimestoneTask;
 import net.botwithus.tasks.MapNavigatorTask;
+import net.botwithus.tasks.MonsterCombatTask;
 import net.botwithus.tasks.NPCLoggerTask;
 import net.botwithus.tasks.POSDTask;
 import net.botwithus.tasks.PenguinTrackingTask;
@@ -38,7 +45,10 @@ import net.botwithus.tasks.QuestHelper;
 import net.botwithus.tasks.SandyCluesTask;
 import net.botwithus.tasks.ScreenMeshTask;
 import net.botwithus.tasks.SheepShearingTask;
+import net.botwithus.tasks.ShopDisassemblyTask;
 import net.botwithus.tasks.SiftSoilTask;
+import net.botwithus.tasks.SimpleCombatTask;
+import net.botwithus.tasks.SiphonTarget;
 import net.botwithus.tasks.SoftClayTask;
 import net.botwithus.tasks.SummerPinata;
 import net.botwithus.tasks.TeleportToCamelot;
@@ -89,6 +99,15 @@ public class CoaezUtility extends LoopingScript {
     private final CreateSqirkJuiceTask winterSqirkjuiceTask;
     private final TurnInSqirkjuiceTask turnInSqirkjuiceTask;
     private final ClayUrnTask clayUrnTask;
+    private final GnomeShopTask gnomeShopTask;
+    private final SiphonTarget siphonTarget;
+    private final SimpleCombatTask simpleCombatTask;
+    private final MonsterCombatTask monsterCombatTask;
+    private final ChaosBones chaosBones;
+    private final ShopDisassemblyTask shopDisassemblyTask;
+    private final BuyBucketsWaterTask buyBucketsWaterTask;
+    private final InventionGizmoTask inventionGizmoTask;
+    private final FlaxPickerTask flaxPickerTask;
     // GUI reference
     private CoaezUtilityGUI gui;
     private final NPCLoggerTask npcLoggerTask;
@@ -125,13 +144,22 @@ public class CoaezUtility extends LoopingScript {
         BEER_CRAFTING,
         WINTER_SQIRKJUICE,
         TURN_IN_SQIRKJUICE,
-        CLAY_URN
+        CLAY_URN,
+        GNOME_SHOP,
+        SIPHON_TARGET,
+        SIMPLE_COMBAT,
+        MONSTER_COMBAT,
+        CHAOS_BONES,
+        SHOP_DISASSEMBLY,
+        BUY_BUCKETS_WATER,
+        INVENTION_GIZMO,
+        FLAX_PICKER
     }
 
     public CoaezUtility(String s, ScriptConfig scriptConfig, ScriptDefinition scriptDefinition) {
         super(s, scriptConfig, scriptDefinition);
         this.config = scriptConfig;
-        
+
         this.alchemy = new Alchemy(this);
         this.disassembly = new Disassembly(this);
         this.posd = new POSD(this);
@@ -167,7 +195,16 @@ public class CoaezUtility extends LoopingScript {
         this.winterSqirkjuiceTask = new CreateSqirkJuiceTask(this);
         this.turnInSqirkjuiceTask = new TurnInSqirkjuiceTask(this);
         this.clayUrnTask = new ClayUrnTask(this);
+        this.gnomeShopTask = new GnomeShopTask(this);
         this.npcLoggerTask = new NPCLoggerTask(this);
+        this.siphonTarget = new SiphonTarget();
+        this.simpleCombatTask = new SimpleCombatTask();
+        this.monsterCombatTask = new MonsterCombatTask();
+        this.chaosBones = new ChaosBones();
+        this.shopDisassemblyTask = new ShopDisassemblyTask(this);
+        this.buyBucketsWaterTask = new BuyBucketsWaterTask(this);
+        this.inventionGizmoTask = new InventionGizmoTask(this);
+        this.flaxPickerTask = new FlaxPickerTask(this);
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
 
@@ -238,6 +275,11 @@ public class CoaezUtility extends LoopingScript {
             if (player == null) {
                 ScriptConsole.println("Player is null, waiting...");
                 Execution.delay(1200);
+                return;
+            }
+
+            if (isHealthLow(player)) {
+                teleportUsingArchJournal();
                 return;
             }
 
@@ -361,10 +403,45 @@ public class CoaezUtility extends LoopingScript {
                     ScriptConsole.println("Executing Clay Urn task");
                     clayUrnTask.execute();
                 }
+                case GNOME_SHOP -> {
+                    ScriptConsole.println("Executing Gnome Shop task");
+                    gnomeShopTask.execute();
+                }
+                case SIPHON_TARGET -> {
+                    ScriptConsole.println("Executing SiphonTarget task");
+                    siphonTarget.execute();
+                }
+                case SIMPLE_COMBAT -> {
+                    ScriptConsole.println("Executing Simple Combat task");
+                    simpleCombatTask.execute();
+                }
+                case MONSTER_COMBAT -> {
+                    ScriptConsole.println("Executing Monster Combat task");
+                    monsterCombatTask.execute();
+                }
+                case CHAOS_BONES -> {
+                    ScriptConsole.println("Executing chaos bones");
+                    chaosBones.execute();
+                }
+                case SHOP_DISASSEMBLY -> {
+                    ScriptConsole.println("Executing shop disassembly");
+                    shopDisassemblyTask.execute();
+                }
+                case BUY_BUCKETS_WATER -> {
+                    ScriptConsole.println("Executing buy buckets of water");
+                    buyBucketsWaterTask.execute();
+                }
+                case INVENTION_GIZMO -> {
+                    ScriptConsole.println("Executing invention gizmo crafting");
+                    inventionGizmoTask.execute();
+                }
+                case FLAX_PICKER -> {
+                    ScriptConsole.println("Executing flax picker task");
+                    flaxPickerTask.execute();
+                }
                 case STOPPED -> stopScript();
                 default -> ScriptConsole.println("Unknown bot state: " + botState);
             }
-            Execution.delay(random.nextInt(400, 800));
         } catch (Exception e) {
             ScriptConsole.println("Error in main loop: " + e.getMessage());
             e.printStackTrace();
@@ -501,7 +578,60 @@ public class CoaezUtility extends LoopingScript {
         return clayUrnTask;
     }
 
+    public GnomeShopTask getGnomeShopTask() {
+        return gnomeShopTask;
+    }
+
+    public SiphonTarget getSiphonTarget() {
+        return siphonTarget;
+    }
+
+    public MonsterCombatTask getMonsterCombatTask() {
+        return monsterCombatTask;
+    }
+
+    public ShopDisassemblyTask getShopDisassemblyTask() {
+        return shopDisassemblyTask;
+    }
+
+    public BuyBucketsWaterTask getBuyBucketsWaterTask() {
+        return buyBucketsWaterTask;
+    }
+
+    public InventionGizmoTask getInventionGizmoTask() {
+        return inventionGizmoTask;
+    }
+
+    public FlaxPickerTask getFlaxPickerTask() {
+        return flaxPickerTask;
+    }
+
     /* public SmithingTask getSmithingTask() {
         return smithingTask;
     } */
+
+    private boolean isHealthLow(LocalPlayer player) {
+        if (player == null) return false;
+
+        double currentHealth = player.getCurrentHealth();
+        double maximumHealth = player.getMaximumHealth();
+
+        if (maximumHealth == 0.0) return false;
+
+        double healthPercentage = (currentHealth / maximumHealth) * 100.0;
+        println("Health %: " + healthPercentage);
+        return healthPercentage < 50.0;
+    }
+
+    private void teleportUsingArchJournal() {
+        ScriptConsole.println("[CoaezUtility] Health is below 50%, attempting to teleport using Archaeology journal");
+
+        boolean success = Backpack.interact("Archaeology journal", "Teleport");
+        if (success) {
+            ScriptConsole.println("[CoaezUtility] Successfully clicked Archaeology journal teleport option");
+            Execution.delay(3000);
+        } else {
+            ScriptConsole.println("[CoaezUtility] Failed to interact with Archaeology journal or journal not found in backpack");
+        }
+    }
 }

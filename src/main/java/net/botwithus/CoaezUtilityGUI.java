@@ -24,6 +24,7 @@ import net.botwithus.tasks.ClayUrnTask.UrnCategory;
 import net.botwithus.tasks.ClayUrnTask.UrnType;
 import net.botwithus.tasks.Ingredient;
 import net.botwithus.tasks.MapNavigatorTask;
+import net.botwithus.tasks.MonsterCombatTask;
 import net.botwithus.tasks.Portable;
 import net.botwithus.tasks.PortableCrafter;
 import net.botwithus.tasks.PortableSawmill;
@@ -34,6 +35,7 @@ import net.botwithus.tasks.QuestDialogFetcher;
 import net.botwithus.tasks.QuestHelper;
 import net.botwithus.tasks.SawmillPlank;
 import net.botwithus.tasks.SimplePortable;
+import net.botwithus.tasks.SiphonTarget;
 import net.botwithus.tasks.sorceressgarden.models.GardenType;
 
 public class CoaezUtilityGUI extends ScriptGraphicsContext {
@@ -131,6 +133,15 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
 
     // Checkbox for skipping Add Runes
     private boolean skipAddRunesCheckbox = false;
+    
+    // Siphon Target state
+    private boolean siphonTargetWorldHopEnabled = true;
+    private int siphonTargetHopDelayMs = 120000;
+    
+    // Monster Combat state
+    private int selectedMonsterIndex = -1;
+    private List<String> nearbyMonsters = new ArrayList<>();
+    private String selectedMonsterName = "";
 
     public CoaezUtilityGUI(ScriptConsole scriptConsole, CoaezUtility coaezUtility) {
         super(scriptConsole);
@@ -322,6 +333,18 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         renderUrnTab();
                         ImGui.EndTabItem();
                     }
+                    if (ImGui.BeginTabItem("Siphon Target", 0)) {
+                        renderSiphonTargetTab();
+                        ImGui.EndTabItem();
+                    }
+                    if (ImGui.BeginTabItem("Simple Combat", 0)) {
+                        renderSimpleCombatTab();
+                        ImGui.EndTabItem();
+                    }
+                    if (ImGui.BeginTabItem("Monster Combat", 0)) {
+                        renderMonsterCombatTab();
+                        ImGui.EndTabItem();
+                    }
                     /* if (ImGui.BeginTabItem("Smithing", 0)) {
                         renderSmithingTab();
                         ImGui.EndTabItem();
@@ -414,7 +437,9 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     coaezUtility.setBotState(CoaezUtility.BotState.FUNGAL_BOWSTRINGS);
                 }
                 ImGui.TableNextColumn();
-                // Empty cell
+                if (ImGui.Button("Start Monster Combat")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.MONSTER_COMBAT);
+                }
                 ImGui.TableNextColumn();
                 if (ImGui.Button("Start Sandy Clues")) {
                     coaezUtility.setBotState(CoaezUtility.BotState.SANDY_CLUES);
@@ -477,19 +502,35 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                     coaezUtility.setBotState(CoaezUtility.BotState.BEER_CRAFTING);
                 }
                 ImGui.TableNextColumn();
-                // Empty cell
+                if (ImGui.Button("Buy Food at Gnome Shop")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.GNOME_SHOP);
+                }
                 ImGui.TableNextColumn();
-                // Empty cell
-                
+                if (ImGui.Button("Shop Disassembly")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.SHOP_DISASSEMBLY);
+                }
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Buy Buckets of Water")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.BUY_BUCKETS_WATER);
+                }
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Start chaos bones")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.CHAOS_BONES);
+                }
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Invention Gizmo Crafting")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.INVENTION_GIZMO);
+                }
                 // Row 10
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 if (ImGui.Button("Start Clay Urns")) {
                     coaezUtility.setBotState(CoaezUtility.BotState.CLAY_URN);
                 }
-                
                 ImGui.TableNextColumn();
-                // Empty cell
+                if (ImGui.Button("Flax Picker")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.FLAX_PICKER);
+                }
                 ImGui.TableNextColumn();
                 // Empty cell
                 
@@ -2705,6 +2746,179 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
             }
         }
         ImGui.Separator();
+    }
+    
+    private void renderSiphonTargetTab() {
+        ImGui.Text("Siphon Target Configuration");
+        ImGui.Separator();
+        
+        // World hopping settings
+        ImGui.Text("World Hopping Settings:");
+        
+        boolean newSiphonTargetWorldHopEnabled = ImGui.Checkbox("Enable World Hopping", siphonTargetWorldHopEnabled);
+        if (newSiphonTargetWorldHopEnabled != siphonTargetWorldHopEnabled) {
+            siphonTargetWorldHopEnabled = newSiphonTargetWorldHopEnabled;
+            // Apply to task if it exists
+            updateSiphonTargetSettings();
+            saveConfig();
+        }
+        
+        if (siphonTargetWorldHopEnabled) {
+            ImGui.Text("Hop Delay (milliseconds):");
+            int newSiphonTargetHopDelayMs = ImGui.InputInt("Hop Delay (ms)", siphonTargetHopDelayMs);
+            if (newSiphonTargetHopDelayMs != siphonTargetHopDelayMs && newSiphonTargetHopDelayMs >= 0) {
+                siphonTargetHopDelayMs = newSiphonTargetHopDelayMs;
+                updateSiphonTargetSettings();
+                saveConfig();
+            }
+            
+            ImGui.Text("Note: Set to 0 for immediate hopping when siege engine unavailable");
+        }
+        
+        ImGui.Separator();
+        
+        // Start/Stop button
+        String siphonTargetButtonText = (coaezUtility.getBotState() == CoaezUtility.BotState.SIPHON_TARGET) ? 
+            "Stop Siphon Target" : "Start Siphon Target";
+        if (ImGui.Button(siphonTargetButtonText)) {
+            coaezUtility.setBotState((coaezUtility.getBotState() == CoaezUtility.BotState.SIPHON_TARGET) ? 
+                CoaezUtility.BotState.IDLE : CoaezUtility.BotState.SIPHON_TARGET);
+        }
+        
+        ImGui.Separator();
+        
+        // Display current configuration
+        ImGui.Text("Current Configuration:");
+        ImGui.Text("World Hopping: " + (siphonTargetWorldHopEnabled ? "Enabled" : "Disabled"));
+        if (siphonTargetWorldHopEnabled) {
+            ImGui.Text("Hop Delay: " + siphonTargetHopDelayMs + "ms");
+        }
+    }
+    
+    private void renderSimpleCombatTab() {
+        ImGui.Text("Simple Combat Task");
+        ImGui.Separator();
+        
+        ImGui.Text("This task will:");
+        ImGui.Text("• Check if player is in combat");
+        ImGui.Text("• Save current coordinates when not in combat");
+        ImGui.Text("• Move to coordinates (3054, 4850, 1)");
+        ImGui.Text("• Return to saved coordinates");
+        ImGui.Text("• Only runs when not in combat");
+        
+        ImGui.Separator();
+        
+        // Start/Stop button
+        String simpleCombatButtonText = (coaezUtility.getBotState() == CoaezUtility.BotState.SIMPLE_COMBAT) ? 
+            "Stop Simple Combat" : "Start Simple Combat";
+        if (ImGui.Button(simpleCombatButtonText)) {
+            coaezUtility.setBotState((coaezUtility.getBotState() == CoaezUtility.BotState.SIMPLE_COMBAT) ? 
+                CoaezUtility.BotState.IDLE : CoaezUtility.BotState.SIMPLE_COMBAT);
+        }
+        
+        ImGui.Separator();
+        
+        // Display current status
+        ImGui.Text("Current Status:");
+        if (coaezUtility.getBotState() == CoaezUtility.BotState.SIMPLE_COMBAT) {
+            ImGui.Text("Task is RUNNING");
+        } else {
+            ImGui.Text("Task is STOPPED");
+        }
+    }
+
+    private void renderMonsterCombatTab() {
+        ImGui.Text("Monster Combat Task");
+        ImGui.Separator();
+        
+        ImGui.Text("This task will:");
+        ImGui.Text("• Display nearby monsters in the GUI");
+        ImGui.Text("• Allow you to select a monster type to target");
+        ImGui.Text("• Automatically switch to the next nearest monster when current target dies");
+        ImGui.Text("• Handle movement and combat automatically");
+        
+        ImGui.Separator();
+        
+        // Get monsters from the task
+        if (coaezUtility.getMonsterCombatTask() != null) {
+            nearbyMonsters = coaezUtility.getMonsterCombatTask().getNearbyMonsters();
+        }
+        
+        ImGui.Text("Found " + nearbyMonsters.size() + " monsters");
+        
+        ImGui.Separator();
+        
+        // Display nearby monsters
+        if (!nearbyMonsters.isEmpty()) {
+            ImGui.Text("Nearby Monsters:");
+            
+            // Create dropdown for monster selection
+            String[] monsterNames = nearbyMonsters.toArray(new String[0]);
+            
+            int newSelectedIndex = ImGui.Combo("Select Monster", selectedMonsterIndex, monsterNames);
+            if (newSelectedIndex != selectedMonsterIndex) {
+                selectedMonsterIndex = newSelectedIndex;
+                selectedMonsterName = nearbyMonsters.get(selectedMonsterIndex);
+                
+                // Set the selected monster in the task
+                if (coaezUtility.getMonsterCombatTask() != null) {
+                    coaezUtility.getMonsterCombatTask().setSelectedMonster(null, selectedMonsterName);
+                }
+                
+                ScriptConsole.println("[MonsterCombatGUI] Selected monster: " + selectedMonsterName);
+            }
+        } else {
+            ImGui.Text("No monsters found nearby.");
+        }
+        
+        ImGui.Separator();
+        
+        // Display current selection
+        if (!selectedMonsterName.isEmpty()) {
+            ImGui.Text("Selected Monster: " + selectedMonsterName);
+            if (coaezUtility.getMonsterCombatTask() != null && 
+                coaezUtility.getMonsterCombatTask().hasSelectedMonster()) {
+                ImGui.Text("Status: Ready to combat");
+            } else {
+                ImGui.Text("Status: No monster selected");
+            }
+        } else {
+            ImGui.Text("No monster selected");
+        }
+        
+        ImGui.Separator();
+        
+        // Start/Stop button
+        String monsterCombatButtonText = (coaezUtility.getBotState() == CoaezUtility.BotState.MONSTER_COMBAT) ? 
+            "Stop Monster Combat" : "Start Monster Combat";
+        if (ImGui.Button(monsterCombatButtonText)) {
+            coaezUtility.setBotState((coaezUtility.getBotState() == CoaezUtility.BotState.MONSTER_COMBAT) ? 
+                CoaezUtility.BotState.IDLE : CoaezUtility.BotState.MONSTER_COMBAT);
+        }
+        
+        ImGui.Separator();
+        
+        // Display current status
+        ImGui.Text("Current Status:");
+        if (coaezUtility.getBotState() == CoaezUtility.BotState.MONSTER_COMBAT) {
+            ImGui.Text("Task is RUNNING");
+            if (!selectedMonsterName.isEmpty()) {
+                ImGui.Text("Targeting: " + selectedMonsterName);
+            } else {
+                ImGui.Text("WARNING: No monster selected!");
+            }
+        } else {
+            ImGui.Text("Task is STOPPED");
+        }
+    }
+
+    
+    private void updateSiphonTargetSettings() {
+        if (coaezUtility != null && coaezUtility.getSiphonTarget() != null) {
+            SiphonTarget siphonTarget = coaezUtility.getSiphonTarget();
+            siphonTarget.setWorldHopEnabled(siphonTargetWorldHopEnabled);
+            siphonTarget.setHopDelayMs(siphonTargetHopDelayMs);
+        }
     }
     
     @Override

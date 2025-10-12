@@ -45,3 +45,5 @@ bin/
 .idea/kotlinc.xml
 .idea/misc.xml
 .idea/gradle.xml
+.idea/gradle.xml
+.idea/copilot.data.migration.agent.xml
