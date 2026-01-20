@@ -45,7 +45,7 @@ public class WorldHopService {
         }
         Execution.delay(delaySmall);
         
-        success = MiniMenu.interact(ComponentAction.COMPONENT.getType(), 1, -1, 93913153);
+        success = MiniMenu.interact(ComponentAction.COMPONENT.getType(), 1, -1, 93913154);
         if (!success) {
             return false;
         }
@@ -56,8 +56,8 @@ public class WorldHopService {
         if (!success) {
             return false;
         }
-        
-        success = MiniMenu.interact(ComponentAction.COMPONENT.getType(), 1, targetWorld, 104005640);
+
+        success = MiniMenu.interact(ComponentAction.COMPONENT.getType(), 1, targetWorld, 104005638);
         if (!success) {
             return false;
         }
