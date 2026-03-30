@@ -36,6 +36,7 @@ import net.botwithus.tasks.LimestoneBrickTask;
 import net.botwithus.tasks.LimestoneTask;
 import net.botwithus.tasks.MapNavigatorTask;
 import net.botwithus.tasks.MonsterCombatTask;
+import net.botwithus.tasks.NearbyNPCTrackerTask;
 import net.botwithus.tasks.NPCLoggerTask;
 import net.botwithus.tasks.POSDTask;
 import net.botwithus.tasks.PenguinTrackingTask;
@@ -108,6 +109,7 @@ public class CoaezUtility extends LoopingScript {
     private final BuyBucketsWaterTask buyBucketsWaterTask;
     private final InventionGizmoTask inventionGizmoTask;
     private final FlaxPickerTask flaxPickerTask;
+    private final NearbyNPCTrackerTask nearbyNPCTrackerTask;
     // GUI reference
     private CoaezUtilityGUI gui;
     private final NPCLoggerTask npcLoggerTask;
@@ -153,7 +155,8 @@ public class CoaezUtility extends LoopingScript {
         SHOP_DISASSEMBLY,
         BUY_BUCKETS_WATER,
         INVENTION_GIZMO,
-        FLAX_PICKER
+        FLAX_PICKER,
+        NEARBY_NPC_TRACKER
     }
 
     public CoaezUtility(String s, ScriptConfig scriptConfig, ScriptDefinition scriptDefinition) {
@@ -205,6 +208,7 @@ public class CoaezUtility extends LoopingScript {
         this.buyBucketsWaterTask = new BuyBucketsWaterTask(this);
         this.inventionGizmoTask = new InventionGizmoTask(this);
         this.flaxPickerTask = new FlaxPickerTask(this);
+        this.nearbyNPCTrackerTask = new NearbyNPCTrackerTask();
         this.sgc = new CoaezUtilityGUI(this.getConsole(), this);
     }
 
@@ -439,6 +443,10 @@ public class CoaezUtility extends LoopingScript {
                     ScriptConsole.println("Executing flax picker task");
                     flaxPickerTask.execute();
                 }
+                case NEARBY_NPC_TRACKER -> {
+                    ScriptConsole.println("Executing nearby NPC tracker task");
+                    nearbyNPCTrackerTask.execute();
+                }
                 case STOPPED -> stopScript();
                 default -> ScriptConsole.println("Unknown bot state: " + botState);
             }
@@ -604,6 +612,10 @@ public class CoaezUtility extends LoopingScript {
 
     public FlaxPickerTask getFlaxPickerTask() {
         return flaxPickerTask;
+    }
+
+    public NearbyNPCTrackerTask getNearbyNPCTrackerTask() {
+        return nearbyNPCTrackerTask;
     }
 
     /* public SmithingTask getSmithingTask() {

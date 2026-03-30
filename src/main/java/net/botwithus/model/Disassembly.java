@@ -163,7 +163,7 @@ public class Disassembly {
     private Component findComponentBySpriteId(int spriteID) {
         ResultSet<Component> components = ComponentQuery.newQuery(1219, 1430, 1670, 1671, 1672, 1673)
                 .spriteId(spriteID)
-                .option("Customise-keybind")
+                .option("Customise keybind")
                 .results();
 
         ScriptConsole.println("[Disassembly] Component search results size: " + components.size());

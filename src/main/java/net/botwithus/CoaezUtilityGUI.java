@@ -25,6 +25,7 @@ import net.botwithus.tasks.ClayUrnTask.UrnType;
 import net.botwithus.tasks.Ingredient;
 import net.botwithus.tasks.MapNavigatorTask;
 import net.botwithus.tasks.MonsterCombatTask;
+import net.botwithus.tasks.NearbyNPCTrackerTask;
 import net.botwithus.tasks.Portable;
 import net.botwithus.tasks.PortableCrafter;
 import net.botwithus.tasks.PortableSawmill;
@@ -142,6 +143,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
     private int selectedMonsterIndex = -1;
     private List<String> nearbyMonsters = new ArrayList<>();
     private String selectedMonsterName = "";
+
+    // Nearby NPC Tracker state
+    private int selectedNpcTrackerIndex = -1;
+    private List<String> nearbyNpcNames = new ArrayList<>();
 
     public CoaezUtilityGUI(ScriptConsole scriptConsole, CoaezUtility coaezUtility) {
         super(scriptConsole);
@@ -345,6 +350,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                         renderMonsterCombatTab();
                         ImGui.EndTabItem();
                     }
+                    if (ImGui.BeginTabItem("Nearby NPC Tracker", 0)) {
+                        renderNearbyNPCTrackerTab();
+                        ImGui.EndTabItem();
+                    }
                     /* if (ImGui.BeginTabItem("Smithing", 0)) {
                         renderSmithingTab();
                         ImGui.EndTabItem();
@@ -530,6 +539,10 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
                 ImGui.TableNextColumn();
                 if (ImGui.Button("Flax Picker")) {
                     coaezUtility.setBotState(CoaezUtility.BotState.FLAX_PICKER);
+                }
+                ImGui.TableNextColumn();
+                if (ImGui.Button("Nearby NPC Tracker")) {
+                    coaezUtility.setBotState(CoaezUtility.BotState.NEARBY_NPC_TRACKER);
                 }
                 ImGui.TableNextColumn();
                 // Empty cell
@@ -2910,6 +2923,80 @@ public class CoaezUtilityGUI extends ScriptGraphicsContext {
         } else {
             ImGui.Text("Task is STOPPED");
         }
+    }
+
+    private void renderNearbyNPCTrackerTab() {
+        ImGui.Text("Nearby NPC Tracker");
+        ImGui.Separator();
+
+        ImGui.Text("This task will:");
+        ImGui.Text("• Query nearby NPCs within a configurable range");
+        ImGui.Text("• Select which NPC to track and display name + distance");
+        ImGui.Text("• Use War's Retreat teleport when HP reaches 0");
+
+        ImGui.Separator();
+
+        NearbyNPCTrackerTask task = coaezUtility.getNearbyNPCTrackerTask();
+        if (task != null) {
+            int rangeInput = ImGui.InputInt("Detection Range (tiles)", task.getRange());
+            if (rangeInput != task.getRange()) {
+                task.setRange(rangeInput);
+            }
+
+            ImGui.Separator();
+            ImGui.Text("Select NPC to track:");
+
+            nearbyNpcNames = task.getNearbyNpcNames();
+            if (!nearbyNpcNames.isEmpty()) {
+                List<String> options = new ArrayList<>();
+                options.add("(All NPCs)");
+                options.addAll(nearbyNpcNames);
+                String[] npcNameArray = options.toArray(new String[0]);
+                int currentIndex = task.getSelectedNpcName().isEmpty() ? 0 : options.indexOf(task.getSelectedNpcName());
+                if (currentIndex < 0) currentIndex = 0;
+                int newIndex = ImGui.Combo("NPC", currentIndex, npcNameArray);
+                if (newIndex != currentIndex) {
+                    String chosen = npcNameArray[newIndex];
+                    task.setSelectedNpcName("(All NPCs)".equals(chosen) ? "" : chosen);
+                }
+            } else {
+                ImGui.Text("No NPCs in range. Start the task to scan.");
+            }
+
+            ImGui.Separator();
+            ImGui.Text("Tracked NPCs (Name | Distance):");
+
+            var npcs = task.getNearbyNpcs();
+            String filterLabel = task.getSelectedNpcName().isEmpty() ? "NPCs (all)" : task.getSelectedNpcName();
+            ImGui.Text("Showing " + npcs.size() + " " + filterLabel);
+
+            if (ImGui.BeginTable("NearbyNPCsTable", 2, 0)) {
+                ImGui.TableSetupColumn("Name", 0);
+                ImGui.TableSetupColumn("Distance", 0);
+                ImGui.TableHeadersRow();
+
+                for (NearbyNPCTrackerTask.NpcInfo info : npcs) {
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    ImGui.Text(info.getName());
+                    ImGui.TableNextColumn();
+                    ImGui.Text(String.format("%.1f", info.getDistance()));
+                }
+                ImGui.EndTable();
+            }
+        }
+
+        ImGui.Separator();
+
+        String buttonText = (coaezUtility.getBotState() == CoaezUtility.BotState.NEARBY_NPC_TRACKER) ?
+            "Stop Nearby NPC Tracker" : "Start Nearby NPC Tracker";
+        if (ImGui.Button(buttonText)) {
+            coaezUtility.setBotState((coaezUtility.getBotState() == CoaezUtility.BotState.NEARBY_NPC_TRACKER) ?
+                CoaezUtility.BotState.IDLE : CoaezUtility.BotState.NEARBY_NPC_TRACKER);
+        }
+
+        ImGui.Separator();
+        ImGui.Text("Status: " + (coaezUtility.getBotState() == CoaezUtility.BotState.NEARBY_NPC_TRACKER ? "RUNNING" : "STOPPED"));
     }
 
     
